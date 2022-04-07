@@ -2,7 +2,7 @@ use socket2::SockAddr;
 use std::{
     ffi::{OsStr, OsString},
     fmt, io, mem,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     os::windows::{
         ffi::{OsStrExt, OsStringExt},
         io::RawHandle,
@@ -16,9 +16,11 @@ use winapi::shared::{
     inaddr::IN_ADDR,
     netioapi::{
         CancelMibChangeNotify2, ConvertInterfaceAliasToLuid, ConvertInterfaceLuidToAlias,
-        FreeMibTable, GetIpInterfaceEntry, GetUnicastIpAddressEntry, GetUnicastIpAddressTable,
-        MibAddInstance, NotifyIpInterfaceChange, SetIpInterfaceEntry, MIB_IPINTERFACE_ROW,
-        MIB_UNICASTIPADDRESS_ROW, MIB_UNICASTIPADDRESS_TABLE,
+        FreeMibTable, GetBestRoute2, GetIfEntry2, GetIpForwardTable2, GetIpInterfaceEntry,
+        GetUnicastIpAddressEntry, GetUnicastIpAddressTable, MibAddInstance,
+        NotifyIpInterfaceChange, SetIpInterfaceEntry, MIB_IF_ROW2, MIB_IPFORWARD_ROW2,
+        MIB_IPFORWARD_TABLE2, MIB_IPINTERFACE_ROW, MIB_UNICASTIPADDRESS_ROW,
+        MIB_UNICASTIPADDRESS_TABLE,
     },
     nldef::{IpDadStatePreferred, IpDadStateTentative, NL_DAD_STATE},
     ntddndis::NDIS_IF_MAX_STRING_SIZE,
@@ -76,6 +78,14 @@ pub enum Error {
     /// Unknown address family
     #[error(display = "Unknown address family: {}", _0)]
     UnknownAddressFamily(i32),
+
+    /// Failed to obtain the best route
+    #[error(display = "GetBestRoute2 failed")]
+    BestRouteError(#[error(source)] io::Error),
+
+    /// Failed to obtain the routing table
+    #[error(display = "Failed to obtain routing table")]
+    ForwardTableError(#[error(source)] io::Error),
 }
 
 /// Address family. These correspond to the `AF_*` constants.
@@ -159,6 +169,19 @@ pub fn notify_ip_interface_change<'a, T: FnMut(&MIB_IPINTERFACE_ROW, u32) + Send
         Ok(context)
     } else {
         Err(io::Error::from_raw_os_error(status as i32))
+    }
+}
+
+/// Returns information about a network interface.
+pub fn get_if_entry(luid: NET_LUID) -> io::Result<MIB_IF_ROW2> {
+    let mut row: MIB_IF_ROW2 = unsafe { mem::zeroed() };
+    row.InterfaceLuid = luid;
+
+    let result = unsafe { GetIfEntry2(&mut row) };
+    if result == NO_ERROR {
+        Ok(row)
+    } else {
+        Err(io::Error::from_raw_os_error(result as i32))
     }
 }
 
@@ -435,8 +458,59 @@ pub fn try_socketaddr_from_inet_sockaddr(addr: SOCKADDR_INET) -> Result<SocketAd
     .ok_or(Error::UnknownAddressFamily(family))
 }
 
+/// Returns the best source IP address for a given destination.
+pub fn get_best_route(
+    mut luid: Option<NET_LUID>,
+    destination: SocketAddr,
+) -> Result<(MIB_IPFORWARD_ROW2, IpAddr)> {
+    let dest = crate::windows::inet_sockaddr_from_socketaddr(destination);
+    let mut route = unsafe { mem::zeroed() };
+    let mut source = unsafe { mem::zeroed() };
+    let luid_ptr = match luid {
+        Some(ref mut luid) => luid as *mut _,
+        None => std::ptr::null_mut(),
+    };
+    let status = unsafe {
+        GetBestRoute2(
+            luid_ptr,
+            0,
+            std::ptr::null_mut(),
+            &dest,
+            0,
+            &mut route,
+            &mut source,
+        )
+    };
+    if status != NO_ERROR {
+        return Err(Error::BestRouteError(io::Error::from_raw_os_error(
+            status as i32,
+        )));
+    }
+    crate::windows::try_socketaddr_from_inet_sockaddr(source).map(move |addr| (route, addr.ip()))
+}
+
+/// Returns all routing table entries.
+pub fn get_ip_forward_table(family: Option<AddressFamily>) -> Result<Vec<MIB_IPFORWARD_ROW2>> {
+    let mut rows = vec![];
+    let mut table: *mut MIB_IPFORWARD_TABLE2 = std::ptr::null_mut();
+
+    let status = unsafe { GetIpForwardTable2(af_family_from_family(family), &mut table) };
+    if status != NO_ERROR {
+        return Err(Error::ForwardTableError(io::Error::from_raw_os_error(
+            status as i32,
+        )));
+    }
+
+    let first_row = unsafe { &(*table).Table[0] } as *const MIB_IPFORWARD_ROW2;
+    for i in 0..unsafe { *table }.NumEntries {
+        rows.push(unsafe { *(first_row.offset(i as isize)) });
+    }
+    unsafe { FreeMibTable(table as *mut _) };
+
+    Ok(rows)
+}
+
 /// Casts a struct to a slice of possibly uninitialized bytes.
-#[cfg(target_os = "windows")]
 pub fn as_uninit_byte_slice<T: Copy + Sized>(value: &T) -> &[mem::MaybeUninit<u8>] {
     unsafe { std::slice::from_raw_parts(value as *const _ as *const _, mem::size_of::<T>()) }
 }

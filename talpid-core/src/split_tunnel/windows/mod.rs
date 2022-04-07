@@ -6,16 +6,18 @@ mod windows;
 use crate::{
     tunnel::TunnelMetadata,
     tunnel_state_machine::TunnelCommand,
+    windows::{get_best_route, AddressFamily},
     winnet::{
         self, get_best_default_route, interface_luid_to_ip, WinNetAddrFamily, WinNetCallbackHandle,
     },
 };
 use futures::channel::{mpsc, oneshot};
 use std::{
-    convert::TryFrom,
+    collections::HashSet,
     ffi::{OsStr, OsString},
+    fmt::Write,
     io, mem,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddrV4},
     os::windows::io::{AsRawHandle, RawHandle},
     ptr,
     sync::{
@@ -25,8 +27,13 @@ use std::{
     time::Duration,
 };
 use talpid_types::{tunnel::ErrorStateCause, ErrorExt};
+use widestring::WideCStr;
 use winapi::{
-    shared::minwindef::{FALSE, TRUE},
+    shared::{
+        ifdef::NET_LUID,
+        minwindef::{FALSE, TRUE},
+        netioapi::MIB_IPFORWARD_ROW2,
+    },
     um::{
         handleapi::CloseHandle,
         ioapiset::GetOverlappedResult,
@@ -38,6 +45,8 @@ use winapi::{
 
 const DRIVER_EVENT_BUFFER_SIZE: usize = 2048;
 const RESERVED_IP_V4: Ipv4Addr = Ipv4Addr::new(192, 0, 2, 123);
+
+const PUBLIC_INTERNET_ADDRESS_V4: Ipv4Addr = Ipv4Addr::new(193, 138, 218, 78);
 
 /// Errors that may occur in [`SplitTunnel`].
 #[derive(err_derive::Error, Debug)]
@@ -400,6 +409,12 @@ impl SplitTunnel {
                         if previous_addresses == ips {
                             Ok(())
                         } else {
+                            if previous_addresses.internet_ipv4 != ips.internet_ipv4
+                                && ips.internet_ipv4.is_some()
+                            {
+                                print_routes_info();
+                            }
+
                             let result = handle
                                 .register_ips(
                                     ips.tunnel_ipv4,
@@ -621,6 +636,7 @@ impl SplitTunnelDefaultRouteChangeHandlerContext {
         let internet_ipv4 = get_best_default_route(WinNetAddrFamily::IPV4)
             .map_err(Error::ObtainDefaultRoute)?
             .map(|route| {
+                log::debug!("Preferred interface: {}", route.interface_luid);
                 interface_luid_to_ip(WinNetAddrFamily::IPV4, route.interface_luid).map(|ip| {
                     ip.or_else(|| {
                         log::warn!("No IPv4 address was found for the default route interface");
@@ -676,6 +692,10 @@ unsafe extern "system" fn split_tunnel_default_route_change_handler(
 
     let result = match event_type {
         DefaultRouteChanged | DefaultRouteUpdatedDetails => {
+            if address_family == WinNetAddrFamily::IPV4 {
+                log::debug!("Preferred interface: {}", default_route.interface_luid);
+            }
+
             match interface_luid_to_ip(address_family, default_route.interface_luid) {
                 Ok(Some(ip)) => match IpAddr::from(ip) {
                     IpAddr::V4(addr) => ctx.addresses.internet_ipv4 = Some(addr),
@@ -708,6 +728,10 @@ unsafe extern "system" fn split_tunnel_default_route_change_handler(
         }
         // no default route
         DefaultRouteRemoved => {
+            if address_family == WinNetAddrFamily::IPV4 {
+                log::debug!("Preferred interface: 0");
+            }
+
             match address_family {
                 WinNetAddrFamily::IPV4 => {
                     ctx.addresses.internet_ipv4 = None;
@@ -727,4 +751,128 @@ unsafe extern "system" fn split_tunnel_default_route_change_handler(
         );
         maybe_send(TunnelCommand::Block(ErrorStateCause::SplitTunnelError));
     }
+}
+
+fn print_routes_info() {
+    use crate::windows::get_ip_forward_table;
+
+    let mut buf = String::new();
+    let mut adapters = HashSet::new();
+
+    let rows = match get_ip_forward_table(Some(crate::windows::AddressFamily::Ipv4)) {
+        Ok(rows) => rows,
+        Err(error) => {
+            log::warn!("{}", error.display_chain());
+            return;
+        }
+    };
+
+    for row in &rows {
+        adapters.insert(row.InterfaceLuid.Value);
+        if let Err(_error) = print_route_info(&mut buf, row) {
+            log::warn!("Failed to dump route info for {}", row.InterfaceLuid.Value);
+        }
+    }
+
+    for iface in adapters {
+        let luid = NET_LUID { Value: iface };
+        if let Err(_error) = print_interface_info(&mut buf, luid) {
+            log::warn!("Failed to dump interface info for {}", iface);
+        }
+    }
+
+    log::debug!("Beginning logging of route details");
+    log::debug!("{}", buf);
+    log::debug!("Finished logging of route details");
+}
+
+fn print_route_info<W: Write>(mut buf: W, row: &MIB_IPFORWARD_ROW2) -> std::fmt::Result {
+    use crate::windows::try_socketaddr_from_inet_sockaddr;
+
+    writeln!(buf, "Logging route details")?;
+    writeln!(buf, "  LUID: {}", row.InterfaceLuid.Value)?;
+
+    if let Ok(addr) = try_socketaddr_from_inet_sockaddr(row.DestinationPrefix.Prefix) {
+        writeln!(
+            buf,
+            "  Destination prefix: {}/{}",
+            addr.ip(),
+            row.DestinationPrefix.PrefixLength
+        )?;
+    }
+
+    writeln!(buf, "  IfType: {}", row.InterfaceLuid.IfType())?;
+    writeln!(
+        buf,
+        "  NextHop: {:?}",
+        try_socketaddr_from_inet_sockaddr(row.NextHop).ok()
+    )?;
+    writeln!(buf, "  ValidLifetime: {}", row.ValidLifetime)?;
+    writeln!(buf, "  PreferredLifetime: {}", row.PreferredLifetime)?;
+    writeln!(buf, "  Metric: {}", row.Metric)?;
+    writeln!(buf, "  Protocol: {}", row.Protocol)?;
+    writeln!(buf, "  Loopback: {}", row.Loopback)?;
+    writeln!(buf, "  Immortal: {}", row.Immortal)?;
+    writeln!(buf, "  Age: {}", row.Age)?;
+    writeln!(buf, "  Origin: {}", row.Origin)?;
+
+    Ok(())
+}
+
+fn print_interface_info<W: Write>(mut buf: W, luid: NET_LUID) -> std::fmt::Result {
+    use crate::windows::{get_if_entry, get_ip_interface_entry};
+
+    writeln!(buf, "Logging interface details")?;
+    writeln!(buf, "  LUID: {}", luid.Value)?;
+
+    if let Ok(entry) = get_ip_interface_entry(AddressFamily::Ipv4, &luid) {
+        writeln!(buf, "  Ip.Metric: {}", entry.Metric)?;
+        writeln!(buf, "  Ip.Connected: {}", entry.Connected)?;
+    }
+
+    if let Ok(row) = get_if_entry(luid) {
+        if let Ok(alias) = WideCStr::from_slice_truncate(&row.Alias) {
+            writeln!(buf, "  Iface.Alias: {}", alias.to_string_lossy())?;
+        }
+        if let Ok(desc) = WideCStr::from_slice_truncate(&row.Description) {
+            writeln!(buf, "  Iface.Description: {}", desc.to_string_lossy())?;
+        }
+        writeln!(buf, "  Iface.MediaType: {}", row.MediaType)?;
+        writeln!(buf, "  Iface.TunnelType: {}", row.TunnelType)?;
+        writeln!(
+            buf,
+            "  Iface.PhysicalMediumType: {}",
+            row.PhysicalMediumType
+        )?;
+
+        writeln!(
+            buf,
+            "  Iface.InterfaceAndOperStatusFlags: {:b}",
+            row.InterfaceAndOperStatusFlags.bitfield
+        )?;
+
+        writeln!(buf, "  Iface.AdminStatus: {}", row.AdminStatus)?;
+        writeln!(buf, "  Iface.OperStatus: {}", row.OperStatus)?;
+        writeln!(buf, "  Iface.MediaConnectState: {}", row.MediaConnectState)?;
+    }
+
+    let luid_ip = interface_luid_to_ip(WinNetAddrFamily::IPV4, luid.Value)
+        .ok()
+        .flatten()
+        .map(IpAddr::from);
+    writeln!(buf, "  InterfaceLuidToIp: {:?}", luid_ip)?;
+
+    let best_ip = get_best_route(
+        Some(luid),
+        SocketAddrV4::new(PUBLIC_INTERNET_ADDRESS_V4, 80).into(),
+    )
+    .ok()
+    .map(|(_, ip)| ip);
+    writeln!(buf, "  GetBestRoute: {:?}", best_ip)?;
+
+    if best_ip != luid_ip {
+        writeln!(buf, "  BestIp != LuidIp")?;
+    }
+
+    Ok(())
 }
