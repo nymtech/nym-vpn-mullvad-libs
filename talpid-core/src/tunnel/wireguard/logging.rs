@@ -97,14 +97,16 @@ pub unsafe extern "system" fn wg_go_logging_callback(
     let mut map = LOG_MUTEX.lock();
     if let Some(logfile) = map.get_mut(&(context as u32)) {
         let managed_msg = if !msg.is_null() {
-            #[cfg(not(target_os = "windows"))]
-            let m = std::ffi::CStr::from_ptr(msg).to_string_lossy().to_string();
-            #[cfg(target_os = "windows")]
-            let m = std::ffi::CStr::from_ptr(msg)
+            // SAFETY: The caller is responsible for making sure `msg` is a correct C string
+            let mut message = unsafe { std::ffi::CStr::from_ptr(msg) }
                 .to_string_lossy()
-                .to_string()
-                .replace("\n", "\r\n");
-            m
+                .to_string();
+            // WireGuard only passes unix line endings.
+            // We want the logs to be system native line endings.
+            if cfg!(target_os = "windows") {
+                message = message.replace("\n", "\r\n");
+            }
+            message
         } else {
             "Logging message from WireGuard is NULL".to_string()
         };
