@@ -4,7 +4,7 @@ rustflags = ["-Ctarget-feature=+crt-static"]
 [target.i686-pc-windows-msvc]
 rustflags = ["-Ctarget-feature=+crt-static"]
 
-[build]
+[target.'cfg(any(unix, not(unix)))']
 rustflags = [
     "--deny", "rust_2018_idioms",
     "--deny", "unsafe_op_in_unsafe_fn"
