@@ -99,7 +99,7 @@ impl PluralResource {
 }
 
 impl Display for PluralResources {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         writeln!(formatter, r#"<?xml version="1.0" encoding="utf-8"?>"#)?;
         writeln!(formatter, "<resources>")?;
 
@@ -112,7 +112,7 @@ impl Display for PluralResources {
 }
 
 impl Display for PluralResource {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         writeln!(formatter, r#"    <plurals name="{}">"#, self.name)?;
 
         for item in &self.items {
@@ -124,7 +124,7 @@ impl Display for PluralResource {
 }
 
 impl Display for PluralVariant {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         write!(
             formatter,
             r#"<item quantity="{}">{}</item>"#,
@@ -134,7 +134,7 @@ impl Display for PluralVariant {
 }
 
 impl Display for PluralQuantity {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         let quantity = match self {
             PluralQuantity::Zero => "zero",
             PluralQuantity::One => "one",
