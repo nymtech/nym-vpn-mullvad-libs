@@ -2,7 +2,7 @@
 
 set -eux
 
-export RUSTFLAGS="--deny warnings"
+export CARGO_BUILD_RUSTFLAGS="--deny warnings"
 
 # Build WireGuard Go
 ./wireguard/build-wireguard-go.sh
