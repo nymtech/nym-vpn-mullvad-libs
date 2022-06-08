@@ -80,7 +80,7 @@ jobs:
             - name: Build native libraries
               if: steps.cache-native-libs.outputs.cache-hit != 'true'
               env:
-                CARGO_BUILD_RUSTFLAGS: --deny warnings
+                RUSTFLAGS: --deny warnings
                 NDK_TOOLCHAIN_DIR: ${{ steps.install-android-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin
                 AR_x86_64_linux_android: ${{ steps.install-android-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android-ar
                 CC_x86_64_linux_android: ${{ steps.install-android-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang
