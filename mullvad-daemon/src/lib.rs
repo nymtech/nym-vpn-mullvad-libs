@@ -1,5 +1,9 @@
 #![recursion_limit = "512"]
 
+unsafe fn lol() {
+    std::mem::transmute(())
+}
+
 #[macro_use]
 extern crate serde;
 
