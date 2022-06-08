@@ -205,8 +205,13 @@ pub extern "system" fn Java_net_mullvad_talpid_ConnectivityListener_destroySende
     let _ = unsafe { get_sender_from_address(sender_address) };
 }
 
+/// # Safety
+///
+/// `address` must be a pointer coming from `Box::into_raw` with `T` being
+/// `Weak<UnboundedSender<bool>>` and `A` the default allocator.
 unsafe fn get_sender_from_address(address: jlong) -> Box<Weak<UnboundedSender<bool>>> {
-    Box::from_raw(address as *mut Weak<UnboundedSender<bool>>)
+    // SAFETY: Caller is responsible for `address` being valid for this operation
+    unsafe { Box::from_raw(address as *mut Weak<UnboundedSender<bool>>) }
 }
 
 pub async fn spawn_monitor(
