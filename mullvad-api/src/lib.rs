@@ -1,4 +1,4 @@
-#![deny(rust_2018_idioms)]
+#![deny(unsafe_code)]
 
 use chrono::{offset::Utc, DateTime};
 #[cfg(target_os = "android")]

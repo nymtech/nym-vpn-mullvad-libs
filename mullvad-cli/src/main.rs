@@ -1,4 +1,4 @@
-#![deny(rust_2018_idioms)]
+#![deny(unsafe_code)]
 
 use clap::{crate_authors, crate_description};
 #[cfg(all(unix, not(target_os = "android")))]

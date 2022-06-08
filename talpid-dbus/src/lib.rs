@@ -1,5 +1,8 @@
-#![cfg(target_os = "linux")]
 //! DBus system connection
+
+#![cfg(target_os = "linux")]
+#![deny(unsafe_code)]
+
 pub use dbus;
 use dbus::blocking::SyncConnection;
 use std::sync::{Arc, Mutex};

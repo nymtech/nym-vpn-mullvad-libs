@@ -1,6 +1,8 @@
 //! When changing relay selection, please verify if `docs/relay-selector.md` needs to be
 //! updated as well.
 
+#![deny(unsafe_code)]
+
 use chrono::{DateTime, Local};
 use ipnetwork::IpNetwork;
 use matcher::AnyTunnelMatcher;

@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 #[cfg(target_os = "linux")]
 use nix::unistd::{execvp, getgid, getpid, getuid, setgid, setuid};
 #[cfg(target_os = "linux")]

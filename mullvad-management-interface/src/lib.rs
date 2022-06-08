@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 pub mod types;
 
 use parity_tokio_ipc::Endpoint as IpcEndpoint;

@@ -1,4 +1,4 @@
-#![deny(rust_2018_idioms)]
+#![deny(unsafe_code)]
 
 use openvpn_plugin::{openvpn_plugin, EventResult, EventType};
 use std::{collections::HashMap, ffi::CString, io, sync::Mutex};

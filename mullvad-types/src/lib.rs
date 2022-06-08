@@ -1,4 +1,4 @@
-#![deny(rust_2018_idioms)]
+#![deny(unsafe_code)]
 
 pub mod account;
 pub mod auth_failed;
