@@ -1,5 +1,5 @@
 use super::{
-    ConnectingState, ErrorState, EventConsequence, SharedTunnelStateValues, TunnelCommand,
+    ConnectingState, ErrorState, EventConsequence, SharedTunnelStateValues, Tunnel, TunnelCommand,
     TunnelCommandReceiver, TunnelState, TunnelStateTransition, TunnelStateWrapper,
 };
 #[cfg(target_os = "macos")]
@@ -16,8 +16,8 @@ use talpid_types::ErrorExt;
 pub struct DisconnectedState;
 
 impl DisconnectedState {
-    fn set_firewall_policy(
-        shared_values: &mut SharedTunnelStateValues,
+    fn set_firewall_policy<T: Tunnel>(
+        shared_values: &mut SharedTunnelStateValues<T>,
         should_reset_firewall: bool,
     ) {
         let result = if shared_values.block_when_disconnected {
@@ -71,7 +71,7 @@ impl DisconnectedState {
         }
     }
 
-    fn reset_dns(shared_values: &mut SharedTunnelStateValues) {
+    fn reset_dns<T: Tunnel>(shared_values: &mut SharedTunnelStateValues<T>) {
         if let Err(error) = shared_values.dns_monitor.reset() {
             log::error!("{}", error.display_chain_with_msg("Unable to reset DNS"));
         }
@@ -88,13 +88,13 @@ impl DisconnectedState {
     }
 }
 
-impl TunnelState for DisconnectedState {
+impl<T: Tunnel> TunnelState<T> for DisconnectedState {
     type Bootstrap = bool;
 
     fn enter(
-        shared_values: &mut SharedTunnelStateValues,
+        shared_values: &mut SharedTunnelStateValues<T>,
         should_reset_firewall: Self::Bootstrap,
-    ) -> (TunnelStateWrapper, TunnelStateTransition) {
+    ) -> (TunnelStateWrapper<T>, TunnelStateTransition<T>) {
         #[cfg(target_os = "macos")]
         if shared_values.block_when_disconnected {
             if let Err(err) = Self::setup_local_dns_config(shared_values) {
@@ -121,7 +121,7 @@ impl TunnelState for DisconnectedState {
         shared_values.tun_provider.lock().unwrap().close_tun();
 
         (
-            TunnelStateWrapper::from(DisconnectedState),
+            TunnelStateWrapper::Disconnected(DisconnectedState),
             TunnelStateTransition::Disconnected,
         )
     }
@@ -129,9 +129,9 @@ impl TunnelState for DisconnectedState {
     fn handle_event(
         self,
         runtime: &tokio::runtime::Handle,
-        commands: &mut TunnelCommandReceiver,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        commands: &mut TunnelCommandReceiver<T>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         use self::EventConsequence::*;
 
         match runtime.block_on(commands.next()) {
@@ -212,5 +212,11 @@ impl TunnelState for DisconnectedState {
             }
             Some(_) => SameState(self.into()),
         }
+    }
+}
+
+impl<T: Tunnel> Into<TunnelStateWrapper<T>> for DisconnectedState {
+    fn into(self) -> TunnelStateWrapper<T> {
+        TunnelStateWrapper::Disconnected(self)
     }
 }

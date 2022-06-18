@@ -1,6 +1,6 @@
 use super::{
     ConnectingState, DisconnectedState, EventConsequence, SharedTunnelStateValues, TunnelCommand,
-    TunnelCommandReceiver, TunnelState, TunnelStateTransition, TunnelStateWrapper,
+    TunnelCommandReceiver, TunnelState, TunnelStateTransition, TunnelStateWrapper, Tunnel,
 };
 use crate::firewall::FirewallPolicy;
 use futures::StreamExt;
@@ -12,13 +12,14 @@ use talpid_types::{
 };
 
 /// No tunnel is running and all network connections are blocked.
-pub struct ErrorState {
-    block_reason: ErrorStateCause,
+#[derive(PartialEq, Debug, Clone)]
+pub struct ErrorState<T: super::Tunnel> {
+    block_reason: ErrorStateCause<T::Error>,
 }
 
-impl ErrorState {
+impl<T: super::Tunnel> ErrorState<T> {
     fn set_firewall_policy(
-        shared_values: &mut SharedTunnelStateValues,
+        shared_values: &mut SharedTunnelStateValues<T>,
     ) -> Result<(), FirewallPolicyError> {
         let policy = FirewallPolicy::Blocked {
             allow_lan: shared_values.allow_lan,
@@ -70,20 +71,20 @@ impl ErrorState {
         }
     }
 
-    fn reset_dns(shared_values: &mut SharedTunnelStateValues) {
+    fn reset_dns(shared_values: &mut SharedTunnelStateValues<T>) {
         if let Err(error) = shared_values.dns_monitor.reset() {
             log::error!("{}", error.display_chain_with_msg("Unable to reset DNS"));
         }
     }
 }
 
-impl TunnelState for ErrorState {
-    type Bootstrap = ErrorStateCause;
+impl<T: super::Tunnel> TunnelState<T> for ErrorState<T> {
+    type Bootstrap = ErrorStateCause<T::Error>;
 
     fn enter(
-        shared_values: &mut SharedTunnelStateValues,
+        shared_values: &mut SharedTunnelStateValues<T>,
         block_reason: Self::Bootstrap,
-    ) -> (TunnelStateWrapper, TunnelStateTransition) {
+    ) -> (TunnelStateWrapper<T>, TunnelStateTransition<T>) {
         #[cfg(windows)]
         if let Err(error) = shared_values.split_tunnel.set_tunnel_addresses(None) {
             log::error!(
@@ -120,7 +121,7 @@ impl TunnelState for ErrorState {
             None
         };
         (
-            TunnelStateWrapper::from(ErrorState {
+            TunnelStateWrapper::Error(ErrorState {
                 block_reason: block_reason.clone(),
             }),
             TunnelStateTransition::Error(talpid_tunnel::ErrorState::new(
@@ -134,9 +135,9 @@ impl TunnelState for ErrorState {
     fn handle_event(
         self,
         runtime: &tokio::runtime::Handle,
-        commands: &mut TunnelCommandReceiver,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        commands: &mut TunnelCommandReceiver<T>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         use self::EventConsequence::*;
 
         match runtime.block_on(commands.next()) {
@@ -210,5 +211,11 @@ impl TunnelState for ErrorState {
                 SameState(self.into())
             }
         }
+    }
+}
+
+impl<T: Tunnel> Into<TunnelStateWrapper<T>> for ErrorState<T> {
+    fn into(self) -> TunnelStateWrapper<T> {
+        TunnelStateWrapper::Error(self)
     }
 }

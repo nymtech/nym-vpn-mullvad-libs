@@ -1,28 +1,9 @@
-use crate::net::TunnelEndpoint;
 #[cfg(target_os = "android")]
 use jnix::IntoJava;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 #[cfg(target_os = "android")]
 use std::net::IpAddr;
-
-/// Event emitted from the states in `talpid_core::tunnel_state_machine` when the tunnel state
-/// machine enters a new state.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[serde(tag = "state", content = "details")]
-pub enum TunnelStateTransition {
-    /// No connection is established and network is unsecured.
-    Disconnected,
-    /// Network is secured but tunnel is still connecting.
-    Connecting(TunnelEndpoint),
-    /// Tunnel is connected.
-    Connected(TunnelEndpoint),
-    /// Disconnecting tunnel.
-    Disconnecting(ActionAfterDisconnect),
-    /// Tunnel is disconnected but usually secured by blocking all connections.
-    Error(ErrorState),
-}
 
 /// Action that will be taken after disconnection is complete.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -35,14 +16,18 @@ pub enum ActionAfterDisconnect {
     Reconnect,
 }
 
+pub trait TunnelError: std::error::Error  + std::fmt::Debug + PartialEq {
+    fn is_recoverable(&self) -> bool;
+}
+
 /// Represents the tunnel state machine entering an error state during a [`TunnelStateTransition`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
 #[cfg_attr(target_os = "android", jnix(package = "net.mullvad.talpid.tunnel"))]
-pub struct ErrorState {
+pub struct ErrorState<T: TunnelError> {
     /// Reason why the tunnel state machine ended up in the error state
-    cause: ErrorStateCause,
+    cause: ErrorStateCause<T>,
     /// Indicates whether the daemon is currently blocking all traffic. This _should_ always
     /// succeed - in the case it does not, the user should be notified that no traffic is being
     /// blocked.
@@ -55,8 +40,8 @@ pub struct ErrorState {
     block_failure: Option<FirewallPolicyError>,
 }
 
-impl ErrorState {
-    pub fn new(cause: ErrorStateCause, block_failure: Option<FirewallPolicyError>) -> Self {
+impl<T: TunnelError> ErrorState<T> {
+    pub fn new(cause: ErrorStateCause<T>, block_failure: Option<FirewallPolicyError>) -> Self {
         Self {
             cause,
             block_failure,
@@ -67,7 +52,7 @@ impl ErrorState {
         self.block_failure.is_none()
     }
 
-    pub fn cause(&self) -> &ErrorStateCause {
+    pub fn cause(&self) -> &ErrorStateCause<T> {
         &self.cause
     }
 
@@ -82,7 +67,9 @@ impl ErrorState {
 #[serde(tag = "reason", content = "details")]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
 #[cfg_attr(target_os = "android", jnix(package = "net.mullvad.talpid.tunnel"))]
-pub enum ErrorStateCause {
+pub enum ErrorStateCause<T: TunnelError> {
+    /// Tunnel error
+    TunnelError(T),
     /// Authentication with remote server failed.
     AuthFailed(Option<String>),
     /// Failed to configure IPv6 because it's disabled in the platform.
@@ -108,7 +95,7 @@ pub enum ErrorStateCause {
     SplitTunnelError,
 }
 
-impl ErrorStateCause {
+impl<T: TunnelError> ErrorStateCause<T> {
     #[cfg(target_os = "macos")]
     pub fn prevents_filtering_resolver(&self) -> bool {
         match self {
@@ -162,10 +149,13 @@ pub enum FirewallPolicyError {
     Locked(Option<BlockingApplication>),
 }
 
-impl fmt::Display for ErrorStateCause {
+impl<T: TunnelError> fmt::Display for ErrorStateCause<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::ErrorStateCause::*;
         let description = match *self {
+            TunnelError(ref reason) => {
+                return write!(f, "Tunnel error: {}", reason);
+            }
             AuthFailed(ref reason) => {
                 return write!(
                     f,

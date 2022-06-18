@@ -44,10 +44,26 @@ use std::{
 use talpid_types::{android::AndroidContext, ErrorExt};
 use talpid_types::{
     net::{AllowedEndpoint, TunnelParameters},
-    tunnel::{ErrorStateCause, ParameterGenerationError, TunnelStateTransition},
+    tunnel::{ActionAfterDisconnect, ErrorStateCause, ParameterGenerationError},
 };
 
 const TUNNEL_STATE_MACHINE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Event emitted from the states in `talpid_core::tunnel_state_machine` when the tunnel state
+/// machine enters a new state.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TunnelStateTransition<T: Tunnel> {
+    /// No connection is established and network is unsecured.
+    Disconnected,
+    /// Network is secured but tunnel is still connecting.
+    Connecting(T::TunnelEndpoint),
+    /// Tunnel is connected.
+    Connected(T::TunnelEndpoint),
+    /// Disconnecting tunnel.
+    Disconnecting(ActionAfterDisconnect),
+    /// Tunnel is disconnected but usually secured by blocking all connections.
+    Error(ErrorStateCause<T::Error>),
+}
 
 /// Errors that can happen when setting up or using the state machine.
 #[derive(err_derive::Error, Debug)]
@@ -106,17 +122,17 @@ pub struct InitialTunnelState {
 }
 
 /// Spawn the tunnel state machine thread, returning a channel for sending tunnel commands.
-pub async fn spawn(
+pub async fn spawn<T: Tunnel>(
     initial_settings: InitialTunnelState,
     tunnel_parameters_generator: impl TunnelParametersGenerator,
     log_dir: Option<PathBuf>,
     resource_dir: PathBuf,
-    state_change_listener: impl Sender<TunnelStateTransition> + Send + 'static,
+    state_change_listener: impl Sender<TunnelStateTransition<T>> + Send + 'static,
     offline_state_listener: mpsc::UnboundedSender<bool>,
     #[cfg(target_os = "windows")] volume_update_rx: mpsc::UnboundedReceiver<()>,
     #[cfg(target_os = "macos")] exclusion_gid: u32,
     #[cfg(target_os = "android")] android_context: AndroidContext,
-) -> Result<TunnelStateMachineHandle, Error> {
+) -> Result<TunnelStateMachineHandle<T>, Error> {
     let (command_tx, command_rx) = mpsc::unbounded();
     let command_tx = Arc::new(command_tx);
 
@@ -169,7 +185,7 @@ pub async fn spawn(
 }
 
 /// Representation of external commands for the tunnel state machine.
-pub enum TunnelCommand {
+pub enum TunnelCommand<T: Tunnel> {
     /// Enable or disable LAN access in the firewall.
     AllowLan(bool),
     /// Endpoint that should never be blocked. `()` is sent to the
@@ -187,7 +203,7 @@ pub enum TunnelCommand {
     /// Close tunnel connection.
     Disconnect,
     /// Disconnect any open tunnel and block all network access
-    Block(ErrorStateCause),
+    Block(ErrorStateCause<T::Error>),
     /// Bypass a socket, allowing traffic to flow through outside the tunnel.
     #[cfg(target_os = "android")]
     BypassSocket(RawFd, oneshot::Sender<()>),
@@ -199,12 +215,12 @@ pub enum TunnelCommand {
     ),
 }
 
-type TunnelCommandReceiver = stream::Fuse<mpsc::UnboundedReceiver<TunnelCommand>>;
+type TunnelCommandReceiver<T> = stream::Fuse<mpsc::UnboundedReceiver<TunnelCommand<T>>>;
 
-enum EventResult {
-    Command(Option<TunnelCommand>),
+enum EventResult<T: Tunnel> {
+    Command(Option<TunnelCommand<T>>),
     Event(Option<(TunnelEvent, oneshot::Sender<()>)>),
-    Close(Result<Option<ErrorStateCause>, oneshot::Canceled>),
+    Close(Result<Option<ErrorStateCause<T::Error>>, oneshot::Canceled>),
 }
 
 /// Asynchronous handling of the tunnel state machine.
@@ -213,22 +229,22 @@ enum EventResult {
 /// received on the commands stream and possibly on events that specific states are also listening
 /// to. Every time it successfully advances the state machine a `TunnelStateTransition` is emitted
 /// by the stream.
-struct TunnelStateMachine {
-    current_state: Option<TunnelStateWrapper>,
-    commands: TunnelCommandReceiver,
-    shared_values: SharedTunnelStateValues,
+struct TunnelStateMachine<T: Tunnel> {
+    current_state: Option<TunnelStateWrapper<T>>,
+    commands: TunnelCommandReceiver<T>,
+    shared_values: SharedTunnelStateValues<T>,
 }
 
-impl TunnelStateMachine {
+impl<T: Tunnel> TunnelStateMachine<T> {
     async fn new(
         settings: InitialTunnelState,
-        command_tx: std::sync::Weak<mpsc::UnboundedSender<TunnelCommand>>,
+        command_tx: std::sync::Weak<mpsc::UnboundedSender<TunnelCommand<T>>>,
         offline_state_tx: mpsc::UnboundedSender<bool>,
         tunnel_parameters_generator: impl TunnelParametersGenerator,
         tun_provider: TunProvider,
         log_dir: Option<PathBuf>,
         resource_dir: PathBuf,
-        commands_rx: mpsc::UnboundedReceiver<TunnelCommand>,
+        commands_rx: mpsc::UnboundedReceiver<TunnelCommand<T>>,
         #[cfg(target_os = "windows")] volume_update_rx: mpsc::UnboundedReceiver<()>,
         #[cfg(target_os = "macos")] exclusion_gid: u32,
         #[cfg(target_os = "android")] android_context: AndroidContext,
@@ -343,7 +359,7 @@ impl TunnelStateMachine {
         .unwrap()
     }
 
-    fn run(mut self, change_listener: impl Sender<TunnelStateTransition> + Send + 'static) {
+    fn run(mut self, change_listener: impl Sender<TunnelStateTransition<T>> + Send + 'static) {
         use EventConsequence::*;
 
         let runtime = self.shared_values.runtime.clone();
@@ -384,8 +400,21 @@ pub trait TunnelParametersGenerator: Send + 'static {
     ) -> Pin<Box<dyn Future<Output = Result<TunnelParameters, ParameterGenerationError>>>>;
 }
 
+pub trait Tunnel: PartialEq + std::fmt::Debug {
+    type Error: talpid_types::tunnel::TunnelError;
+    type TunnelEndpoint;
+    fn spawn(&self);
+}
+
+impl Tunnel for () {
+    fn spawn(&self) {
+        log::error!("spawning tunnel");
+    }
+}
+
 /// Values that are common to all tunnel states.
-struct SharedTunnelStateValues {
+struct SharedTunnelStateValues<T: Tunnel> {
+    tunnel_provider: T,
     /// Management of excluded apps.
     /// This object should be dropped before deinitializing WinFw (dropping the `Firewall`
     /// instance), since the driver may add filters to the same sublayer.
@@ -428,8 +457,8 @@ struct SharedTunnelStateValues {
     _exclusion_gid: u32,
 }
 
-impl SharedTunnelStateValues {
-    pub fn set_allow_lan(&mut self, allow_lan: bool) -> Result<(), ErrorStateCause> {
+impl<T: Tunnel> SharedTunnelStateValues<T> {
+    pub fn set_allow_lan(&mut self, allow_lan: bool) -> Result<(), ErrorStateCause<T::Error>> {
         if self.allow_lan != allow_lan {
             self.allow_lan = allow_lan;
 
@@ -454,7 +483,7 @@ impl SharedTunnelStateValues {
     pub fn set_dns_servers(
         &mut self,
         dns_servers: Option<Vec<IpAddr>>,
-    ) -> Result<bool, ErrorStateCause> {
+    ) -> Result<bool, ErrorStateCause<T::Error>> {
         if self.dns_servers != dns_servers {
             self.dns_servers = dns_servers;
 
@@ -518,18 +547,21 @@ impl SharedTunnelStateValues {
 }
 
 /// Asynchronous result of an attempt to progress a state.
-enum EventConsequence {
+enum EventConsequence<T>
+where
+    T: Tunnel,
+{
     /// Transition to a new state.
-    NewState((TunnelStateWrapper, TunnelStateTransition)),
+    NewState((TunnelStateWrapper<T>, TunnelStateTransition<T>)),
     /// An event was received, but it was ignored by the state so no transition is performed.
-    SameState(TunnelStateWrapper),
+    SameState(TunnelStateWrapper<T>),
     /// The state machine has finished its execution.
     Finished,
 }
 
 /// Trait that contains the method all states should implement to handle an event and advance the
 /// state machine.
-trait TunnelState: Into<TunnelStateWrapper> + Sized {
+trait TunnelState<T: Tunnel>: Sized {
     /// Type representing extra information required for entering the state.
     type Bootstrap;
 
@@ -538,9 +570,9 @@ trait TunnelState: Into<TunnelStateWrapper> + Sized {
     /// This is the state entry point. It attempts to enter the state, and may fail by entering an
     /// error or fallback state instead.
     fn enter(
-        shared_values: &mut SharedTunnelStateValues,
+        shared_values: &mut SharedTunnelStateValues<T>,
         bootstrap: Self::Bootstrap,
-    ) -> (TunnelStateWrapper, TunnelStateTransition);
+    ) -> (TunnelStateWrapper<T>, TunnelStateTransition<T>);
 
     /// Main state function.
     ///
@@ -555,63 +587,59 @@ trait TunnelState: Into<TunnelStateWrapper> + Sized {
     fn handle_event(
         self,
         runtime: &tokio::runtime::Handle,
-        commands: &mut TunnelCommandReceiver,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence;
+        commands: &mut TunnelCommandReceiver<T>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T>;
 }
 
-macro_rules! state_wrapper {
-    (enum $wrapper_name:ident { $($state_variant:ident($state_type:ident)),* $(,)* }) => {
-        /// Valid states of the tunnel.
-        ///
-        /// All implementations must implement `TunnelState` so that they can handle events and
-        /// commands in order to advance the state machine.
-        enum $wrapper_name {
-            $($state_variant($state_type),)*
-        }
+// state_wrapper! {
+//     enum TunnelStateWrapper<T> {
+//         Disconnected(DisconnectedState),
+//         Connecting(ConnectingState),
+//         Connected(ConnectedState),
+//         Disconnecting(DisconnectingState),
+//         Error(ErrorState<T>),
+//     }
+// }
 
-        $(impl From<$state_type> for $wrapper_name {
-            fn from(state: $state_type) -> Self {
-                $wrapper_name::$state_variant(state)
-            }
-        })*
-
-        impl $wrapper_name {
-            fn handle_event(
-                self,
-                runtime: &tokio::runtime::Handle,
-                commands: &mut TunnelCommandReceiver,
-                shared_values: &mut SharedTunnelStateValues,
-            ) -> EventConsequence {
-                match self {
-                    $($wrapper_name::$state_variant(state) => {
-                        state.handle_event(runtime, commands, shared_values)
-                    })*
-                }
-            }
-        }
-    }
+enum TunnelStateWrapper<T: Tunnel> {
+    Disconnected(DisconnectedState),
+    Connecting(ConnectingState<T>),
+    Connected(ConnectedState<T>),
+    Disconnecting(DisconnectingState<T>),
+    Error(ErrorState<T>),
 }
 
-state_wrapper! {
-    enum TunnelStateWrapper {
-        Disconnected(DisconnectedState),
-        Connecting(ConnectingState),
-        Connected(ConnectedState),
-        Disconnecting(DisconnectingState),
-        Error(ErrorState),
+impl<T: Tunnel> TunnelStateWrapper<T> {
+    fn handle_event(
+        self,
+        runtime: &tokio::runtime::Handle,
+        commands: &mut TunnelCommandReceiver<T>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
+        match self {
+            Self::Disconnected(state) => state.handle_event(runtime, commands, shared_values),
+
+            Self::Connecting(state) => state.handle_event(runtime, commands, shared_values),
+
+            Self::Connected(state) => state.handle_event(runtime, commands, shared_values),
+
+            Self::Disconnecting(state) => state.handle_event(runtime, commands, shared_values),
+
+            Self::Error(state) => state.handle_event(runtime, commands, shared_values),
+        }
     }
 }
 
 /// Handle used to control the tunnel state machine.
-pub struct TunnelStateMachineHandle {
-    command_tx: Arc<mpsc::UnboundedSender<TunnelCommand>>,
+pub struct TunnelStateMachineHandle<T: Tunnel> {
+    command_tx: Arc<mpsc::UnboundedSender<TunnelCommand<T>>>,
     shutdown_rx: oneshot::Receiver<()>,
     #[cfg(windows)]
     split_tunnel: split_tunnel::SplitTunnelHandle,
 }
 
-impl TunnelStateMachineHandle {
+impl<T: Tunnel> TunnelStateMachineHandle<T> {
     /// Waits for the tunnel state machine to shut down.
     /// This may fail after a timeout of `TUNNEL_STATE_MACHINE_SHUTDOWN_TIMEOUT`.
     pub async fn try_join(self) {
@@ -624,7 +652,7 @@ impl TunnelStateMachineHandle {
     }
 
     /// Returns tunnel command sender.
-    pub fn command_tx(&self) -> &Arc<mpsc::UnboundedSender<TunnelCommand>> {
+    pub fn command_tx(&self) -> &Arc<mpsc::UnboundedSender<TunnelCommand<T>>> {
         &self.command_tx
     }
 

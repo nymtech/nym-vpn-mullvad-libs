@@ -1,7 +1,7 @@
 use super::{
     AfterDisconnect, ConnectedState, ConnectedStateBootstrap, DisconnectingState, ErrorState,
     EventConsequence, EventResult, SharedTunnelStateValues, TunnelCommand, TunnelCommandReceiver,
-    TunnelState, TunnelStateTransition, TunnelStateWrapper,
+    TunnelState, TunnelStateTransition, TunnelStateWrapper, Tunnel,
 };
 use crate::{
     firewall::FirewallPolicy,
@@ -34,7 +34,7 @@ use crate::tunnel::tun_provider;
 
 use super::connected_state::TunnelEventsReceiver;
 
-pub(crate) type TunnelCloseEvent = Fuse<oneshot::Receiver<Option<ErrorStateCause>>>;
+pub(crate) type TunnelCloseEvent<T> = Fuse<oneshot::Receiver<Option<ErrorStateCause<T>>>>;
 
 #[cfg(target_os = "android")]
 const MAX_ATTEMPTS_WITH_SAME_TUN: u32 = 5;
@@ -43,19 +43,19 @@ const MIN_TUNNEL_ALIVE_TIME: Duration = Duration::from_millis(1000);
 const MAX_ADAPTER_FAIL_RETRIES: u32 = 4;
 
 /// The tunnel has been started, but it is not established/functional.
-pub struct ConnectingState {
+pub struct ConnectingState<T: Tunnel> {
     tunnel_events: TunnelEventsReceiver,
     tunnel_parameters: TunnelParameters,
     tunnel_metadata: Option<TunnelMetadata>,
     allowed_tunnel_traffic: AllowedTunnelTraffic,
-    tunnel_close_event: TunnelCloseEvent,
+    tunnel_close_event: TunnelCloseEvent<T::Error>,
     tunnel_close_tx: oneshot::Sender<()>,
     retry_attempt: u32,
 }
 
-impl ConnectingState {
+impl<T: Tunnel> ConnectingState<T> {
     fn set_firewall_policy(
-        shared_values: &mut SharedTunnelStateValues,
+        shared_values: &mut SharedTunnelStateValues<T>,
         params: &TunnelParameters,
         tunnel_metadata: &Option<TunnelMetadata>,
         allowed_tunnel_traffic: AllowedTunnelTraffic,
@@ -220,7 +220,7 @@ impl ConnectingState {
     fn wait_for_tunnel_monitor(
         tunnel_monitor: TunnelMonitor,
         retry_attempt: u32,
-    ) -> Option<ErrorStateCause> {
+    ) -> Option<ErrorStateCause<T::Error>> {
         match tunnel_monitor.wait() {
             Ok(_) => None,
             Err(error) => match error {
@@ -250,7 +250,7 @@ impl ConnectingState {
         }
     }
 
-    fn into_connected_state_bootstrap(self, metadata: TunnelMetadata) -> ConnectedStateBootstrap {
+    fn into_connected_state_bootstrap(self, metadata: TunnelMetadata) -> ConnectedStateBootstrap<T> {
         ConnectedStateBootstrap {
             metadata,
             tunnel_events: self.tunnel_events,
@@ -260,7 +260,7 @@ impl ConnectingState {
         }
     }
 
-    fn reset_routes(shared_values: &mut SharedTunnelStateValues) {
+    fn reset_routes(shared_values: &mut SharedTunnelStateValues<T>) {
         if let Err(error) = shared_values.route_manager.clear_routes() {
             log::error!("{}", error.display_chain_with_msg("Failed to clear routes"));
         }
@@ -278,9 +278,9 @@ impl ConnectingState {
 
     fn disconnect(
         self,
-        shared_values: &mut SharedTunnelStateValues,
-        after_disconnect: AfterDisconnect,
-    ) -> EventConsequence {
+        shared_values: &mut SharedTunnelStateValues<T>,
+        after_disconnect: AfterDisconnect<T>,
+    ) -> EventConsequence<T> {
         Self::reset_routes(shared_values);
 
         EventConsequence::NewState(DisconnectingState::enter(
@@ -293,7 +293,7 @@ impl ConnectingState {
         ))
     }
 
-    fn reset_firewall(self, shared_values: &mut SharedTunnelStateValues) -> EventConsequence {
+    fn reset_firewall(self, shared_values: &mut SharedTunnelStateValues<T>) -> EventConsequence<T> {
         match Self::set_firewall_policy(
             shared_values,
             &self.tunnel_parameters,
@@ -318,9 +318,9 @@ impl ConnectingState {
 
     fn handle_commands(
         self,
-        command: Option<TunnelCommand>,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        command: Option<TunnelCommand<T>>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         use self::EventConsequence::*;
 
         match command {
@@ -396,8 +396,8 @@ impl ConnectingState {
     fn handle_tunnel_events(
         mut self,
         event: Option<(tunnel::TunnelEvent, oneshot::Sender<()>)>,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         use self::EventConsequence::*;
 
         match event {
@@ -455,9 +455,9 @@ impl ConnectingState {
 
     fn handle_tunnel_close_event(
         self,
-        block_reason: Option<ErrorStateCause>,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        block_reason: Option<ErrorStateCause<T::Error>>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         use self::EventConsequence::*;
 
         if let Some(block_reason) = block_reason {
@@ -528,13 +528,13 @@ fn is_recoverable_routing_error(error: &crate::routing::Error) -> bool {
     }
 }
 
-impl TunnelState for ConnectingState {
+impl<T: Tunnel> TunnelState<T> for ConnectingState<T> {
     type Bootstrap = u32;
 
     fn enter(
-        shared_values: &mut SharedTunnelStateValues,
+        shared_values: &mut SharedTunnelStateValues<T>,
         retry_attempt: u32,
-    ) -> (TunnelStateWrapper, TunnelStateTransition) {
+    ) -> (TunnelStateWrapper<T>, TunnelStateTransition<T>) {
         if shared_values.is_offline {
             return ErrorState::enter(shared_values, ErrorStateCause::IsOffline);
         }
@@ -595,7 +595,7 @@ impl TunnelState for ConnectingState {
                     );
                     let params = connecting_state.tunnel_parameters.clone();
                     (
-                        TunnelStateWrapper::from(connecting_state),
+                        TunnelStateWrapper::Connecting(connecting_state),
                         TunnelStateTransition::Connecting(params.get_tunnel_endpoint()),
                     )
                 }
@@ -606,9 +606,9 @@ impl TunnelState for ConnectingState {
     fn handle_event(
         mut self,
         runtime: &tokio::runtime::Handle,
-        commands: &mut TunnelCommandReceiver,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        commands: &mut TunnelCommandReceiver<T>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         let result = runtime.block_on(async {
             futures::select! {
                 command = commands.next() => EventResult::Command(command),
@@ -628,5 +628,11 @@ impl TunnelState for ConnectingState {
                 self.handle_tunnel_close_event(block_reason, shared_values)
             }
         }
+    }
+}
+
+impl<T: Tunnel> Into<TunnelStateWrapper<T>> for ConnectingState<T> {
+    fn into(self) -> TunnelStateWrapper<T> {
+        TunnelStateWrapper::Connecting(self)
     }
 }

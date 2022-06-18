@@ -1,24 +1,24 @@
 use super::{
     connecting_state::TunnelCloseEvent, ConnectingState, DisconnectedState, ErrorState,
-    EventConsequence, EventResult, SharedTunnelStateValues, TunnelCommand, TunnelCommandReceiver,
-    TunnelState, TunnelStateTransition, TunnelStateWrapper,
+    EventConsequence, EventResult, SharedTunnelStateValues, Tunnel, TunnelCommand,
+    TunnelCommandReceiver, TunnelState, TunnelStateTransition, TunnelStateWrapper,
 };
 use futures::{channel::oneshot, future::FusedFuture, StreamExt};
 use talpid_types::tunnel::{ActionAfterDisconnect, ErrorStateCause};
 
 /// This state is active from when we manually trigger a tunnel kill until the tunnel wait
 /// operation (TunnelExit) returned.
-pub struct DisconnectingState {
-    tunnel_close_event: TunnelCloseEvent,
-    after_disconnect: AfterDisconnect,
+pub struct DisconnectingState<T: Tunnel> {
+    tunnel_close_event: TunnelCloseEvent<T::Error>,
+    after_disconnect: AfterDisconnect<T>,
 }
 
-impl DisconnectingState {
+impl<T: Tunnel> DisconnectingState<T> {
     fn handle_commands(
         mut self,
-        command: Option<TunnelCommand>,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        command: Option<TunnelCommand<T>>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         let after_disconnect = self.after_disconnect;
 
         self.after_disconnect = match after_disconnect {
@@ -146,9 +146,9 @@ impl DisconnectingState {
 
     fn after_disconnect(
         self,
-        block_reason: Option<ErrorStateCause>,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> (TunnelStateWrapper, TunnelStateTransition) {
+        block_reason: Option<ErrorStateCause<T::Error>>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> (TunnelStateWrapper<T>, TunnelStateTransition<T>) {
         if let Some(reason) = block_reason {
             return ErrorState::enter(shared_values, reason);
         }
@@ -163,13 +163,16 @@ impl DisconnectingState {
     }
 }
 
-impl TunnelState for DisconnectingState {
-    type Bootstrap = (oneshot::Sender<()>, TunnelCloseEvent, AfterDisconnect);
+impl<T> TunnelState<T> for DisconnectingState<T>
+where
+    T: Tunnel,
+{
+    type Bootstrap = (oneshot::Sender<()>, TunnelCloseEvent<T::Error>, AfterDisconnect<T>);
 
     fn enter(
-        _: &mut SharedTunnelStateValues,
+        _: &mut SharedTunnelStateValues<T>,
         (tunnel_close_tx, tunnel_close_event, after_disconnect): Self::Bootstrap,
-    ) -> (TunnelStateWrapper, TunnelStateTransition) {
+    ) -> (TunnelStateWrapper<T>, TunnelStateTransition<T>) {
         let _ = tunnel_close_tx.send(());
         let action_after_disconnect = after_disconnect.action();
 
@@ -185,9 +188,9 @@ impl TunnelState for DisconnectingState {
     fn handle_event(
         mut self,
         runtime: &tokio::runtime::Handle,
-        commands: &mut TunnelCommandReceiver,
-        shared_values: &mut SharedTunnelStateValues,
-    ) -> EventConsequence {
+        commands: &mut TunnelCommandReceiver<T>,
+        shared_values: &mut SharedTunnelStateValues<T>,
+    ) -> EventConsequence<T> {
         use self::EventConsequence::*;
 
         let result = if self.tunnel_close_event.is_terminated() {
@@ -219,13 +222,13 @@ impl TunnelState for DisconnectingState {
 }
 
 /// Which state should be transitioned to after disconnection is complete.
-pub enum AfterDisconnect {
+pub enum AfterDisconnect<T: Tunnel> {
     Nothing,
-    Block(ErrorStateCause),
+    Block(ErrorStateCause<T::Error>),
     Reconnect(u32),
 }
 
-impl AfterDisconnect {
+impl<T: Tunnel> AfterDisconnect<T> {
     /// Build event representation of the action that will be taken after the disconnection.
     pub fn action(&self) -> ActionAfterDisconnect {
         match self {
@@ -233,5 +236,11 @@ impl AfterDisconnect {
             AfterDisconnect::Block(..) => ActionAfterDisconnect::Block,
             AfterDisconnect::Reconnect(..) => ActionAfterDisconnect::Reconnect,
         }
+    }
+}
+
+impl<T: Tunnel> Into<TunnelStateWrapper<T>> for DisconnectingState<T> {
+    fn into(self) -> TunnelStateWrapper<T> {
+        TunnelStateWrapper::Disconnecting(self)
     }
 }
