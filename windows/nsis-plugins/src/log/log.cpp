@@ -14,7 +14,15 @@
 #include <iomanip>
 #include <filesystem>
 
+enum class LogTarget
+{
+	LOG_INSTALL = 0,
+	LOG_UNINSTALL = 1,
+	LOG_VOID = 2
+};
+
 Logger *g_logger = nullptr;
+LogTarget g_target = LogTarget::LOG_VOID;
 
 namespace
 {
@@ -235,13 +243,6 @@ std::wstring FixupWindows11ProductName(const std::wstring &productName, const st
 //
 // Opens and maintains an open handle to the log file.
 //
-enum class LogTarget
-{
-	LOG_INSTALL = 0,
-	LOG_UNINSTALL = 1,
-	LOG_VOID = 2
-};
-
 void __declspec(dllexport) NSISCALL SetLogTarget
 (
 	HWND hwndParent,
@@ -277,6 +278,7 @@ void __declspec(dllexport) NSISCALL SetLogTarget
 			{
 				delete g_logger;
 				g_logger = nullptr;
+				g_target = LogTarget::LOG_VOID;
 				return;
 			}
 			default:
@@ -288,6 +290,12 @@ void __declspec(dllexport) NSISCALL SetLogTarget
 		if (nullptr == logfile)
 		{
 			THROW_ERROR("Invalid log target");
+		}
+
+		LogTarget newTarget = static_cast<LogTarget>(target);
+		if (newTarget == g_target)
+		{
+			return;
 		}
 
 		auto logpath = std::filesystem::path(common::fs::GetKnownFolderPath(
@@ -311,7 +319,11 @@ void __declspec(dllexport) NSISCALL SetLogTarget
 
 		logpath.append(logfile);
 
+		delete g_logger;
+		g_logger = nullptr;
+
 		g_logger = new Logger(std::make_unique<Utf8FileLogSink>(logpath, false));
+		g_target = newTarget;
 	}
 	catch (std::exception &err)
 	{
