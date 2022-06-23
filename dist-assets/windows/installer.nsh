@@ -955,6 +955,9 @@
 #
 !macro customUnInstallCheck
 
+	Push $0
+	Push $1
+
 	IfErrors 0 customUnInstallCheck_CheckReturnCode
 
 	log::SetLogTarget ${LOG_UNINSTALL}
@@ -966,6 +969,11 @@
 	IfFileExists $INSTDIR\*.* 0 customUnInstallCheck_Done
 	RMDir /r $INSTDIR
 	IfErrors 0 customUnInstallCheck_Done
+
+	# Don't treat an empty dir as an error
+	FindFirst $0 $1 "$INSTDIR\*.*"
+	FindClose $0
+	StrCmp $1 "" customUnInstallCheck_EmptyDirectory 0
 
 	log::Log "Aborting since $INSTDIR exists"
 	Goto customUnInstallCheck_Abort
@@ -987,6 +995,9 @@
 	Abort
 
 	customUnInstallCheck_Done:
+
+	Pop $0
+	Pop $1
 
 !macroend
 
