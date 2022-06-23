@@ -1253,9 +1253,6 @@
 		customRemoveFiles_after_remove_settings:
 	${Else}
 		log::SetLogTarget ${LOG_VOID}
-
-		SetShellVarContext all
-		Delete "$LOCALAPPDATA\Mullvad VPN\uninstall.log"
 	${EndIf}
 
 	${CleanupTempFiles}
