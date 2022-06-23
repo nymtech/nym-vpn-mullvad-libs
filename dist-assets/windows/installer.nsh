@@ -966,7 +966,10 @@
 	#
 	# If $INSTDIR is gone or can be removed, proceed anyway
 	#
-	IfFileExists $INSTDIR\*.* 0 customUnInstallCheck_Done
+	IfFileExists $INSTDIR\*.* 0 customUnInstallCheck_NoDirectory
+
+	log::Log "Attempting to purge $INSTDIR"
+
 	RMDir /r $INSTDIR
 	IfErrors 0 customUnInstallCheck_Done
 
@@ -993,6 +996,15 @@
 	MessageBox MB_OK "Failed to uninstall a previous version. Contact support or review the logs for more information."
 	SetErrorLevel 5
 	Abort
+
+	customUnInstallCheck_NoDirectory:
+
+	log::Log "Ignoring error since $INSTDIR does not exist"
+	Goto customUnInstallCheck_Done
+
+	customUnInstallCheck_EmptyDirectory:
+
+	log::Log "Ignoring empty $INSTDIR directory"
 
 	customUnInstallCheck_Done:
 
