@@ -167,7 +167,11 @@ impl<T> TunnelState<T> for DisconnectingState<T>
 where
     T: Tunnel,
 {
-    type Bootstrap = (oneshot::Sender<()>, TunnelCloseEvent<T::Error>, AfterDisconnect<T>);
+    type Bootstrap = (
+        oneshot::Sender<()>,
+        TunnelCloseEvent<T::Error>,
+        AfterDisconnect<T>,
+    );
 
     fn enter(
         _: &mut SharedTunnelStateValues<T>,
@@ -177,10 +181,11 @@ where
         let action_after_disconnect = after_disconnect.action();
 
         (
-            TunnelStateWrapper::from(DisconnectingState {
+            DisconnectingState {
                 tunnel_close_event,
                 after_disconnect,
-            }),
+            }
+            .into(),
             TunnelStateTransition::Disconnecting(action_after_disconnect),
         )
     }

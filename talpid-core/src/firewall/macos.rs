@@ -116,7 +116,7 @@ impl Firewall {
         match policy {
             FirewallPolicy::Connecting {
                 peer_endpoint,
-                tunnel,
+                tunnel_interface,
                 allow_lan,
                 allowed_endpoint,
                 allowed_tunnel_traffic,
@@ -128,7 +128,7 @@ impl Firewall {
                 // over port 53) but before allow LAN (so DNS does not leak to the LAN)
                 rules.append(&mut self.get_block_dns_rules()?);
 
-                if let Some(tunnel) = tunnel {
+                if let Some(tunnel) = tunnel_interface {
                     rules.extend(
                         self.get_allow_tunnel_rule(&tunnel.interface, allowed_tunnel_traffic)?
                             .into_iter(),
@@ -142,14 +142,14 @@ impl Firewall {
             }
             FirewallPolicy::Connected {
                 peer_endpoint,
-                tunnel,
+                tunnel_interface,
                 allow_lan,
                 dns_servers,
             } => {
                 let mut rules = vec![];
 
                 for server in dns_servers.iter() {
-                    rules.append(&mut self.get_allow_dns_rules_when_connected(&tunnel, *server)?);
+                    rules.append(&mut self.get_allow_dns_rules_when_connected(&tunnel_interface, *server)?);
                 }
 
                 rules.push(self.get_allow_relay_rule(*peer_endpoint)?);
@@ -193,7 +193,7 @@ impl Firewall {
 
     fn get_allow_dns_rules_when_connected(
         &self,
-        tunnel: &crate::tunnel::TunnelMetadata,
+        tunnel: &str,
         server: IpAddr,
     ) -> Result<Vec<pfctl::FilterRule>> {
         let mut rules = Vec::with_capacity(4);

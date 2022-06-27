@@ -16,8 +16,26 @@ pub enum ActionAfterDisconnect {
     Reconnect,
 }
 
-pub trait TunnelError: std::error::Error  + std::fmt::Debug + PartialEq {
+pub trait TunnelError: std::error::Error + std::fmt::Debug + PartialEq + Clone {
     fn is_recoverable(&self) -> bool;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BogoErr;
+
+impl std::fmt::Display for BogoErr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "BogoErr")
+    }
+}
+
+impl std::error::Error for BogoErr {}
+
+/// TODO: remove this impl
+impl TunnelError for BogoErr {
+    fn is_recoverable(&self) -> bool {
+        false
+    }
 }
 
 /// Represents the tunnel state machine entering an error state during a [`TunnelStateTransition`].

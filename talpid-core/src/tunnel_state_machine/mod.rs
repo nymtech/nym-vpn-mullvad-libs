@@ -56,13 +56,13 @@ pub enum TunnelStateTransition<T: Tunnel> {
     /// No connection is established and network is unsecured.
     Disconnected,
     /// Network is secured but tunnel is still connecting.
-    Connecting(T::TunnelEndpoint),
+    Connecting(T::TunnelMetadata),
     /// Tunnel is connected.
-    Connected(T::TunnelEndpoint),
+    Connected(T::TunnelMetadata),
     /// Disconnecting tunnel.
     Disconnecting(ActionAfterDisconnect),
     /// Tunnel is disconnected but usually secured by blocking all connections.
-    Error(ErrorStateCause<T::Error>),
+    Error(talpid_types::tunnel::ErrorState<T::Error>),
 }
 
 /// Errors that can happen when setting up or using the state machine.
@@ -122,13 +122,14 @@ pub struct InitialTunnelState {
 }
 
 /// Spawn the tunnel state machine thread, returning a channel for sending tunnel commands.
-pub async fn spawn<T: Tunnel>(
+pub async fn spawn<T: Tunnel + 'static>(
     initial_settings: InitialTunnelState,
     tunnel_parameters_generator: impl TunnelParametersGenerator,
     log_dir: Option<PathBuf>,
     resource_dir: PathBuf,
     state_change_listener: impl Sender<TunnelStateTransition<T>> + Send + 'static,
     offline_state_listener: mpsc::UnboundedSender<bool>,
+    tunnel: T,
     #[cfg(target_os = "windows")] volume_update_rx: mpsc::UnboundedReceiver<()>,
     #[cfg(target_os = "macos")] exclusion_gid: u32,
     #[cfg(target_os = "android")] android_context: AndroidContext,
@@ -157,6 +158,7 @@ pub async fn spawn<T: Tunnel>(
         log_dir,
         resource_dir,
         command_rx,
+        tunnel,
         #[cfg(target_os = "windows")]
         volume_update_rx,
         #[cfg(target_os = "macos")]
@@ -235,7 +237,7 @@ struct TunnelStateMachine<T: Tunnel> {
     shared_values: SharedTunnelStateValues<T>,
 }
 
-impl<T: Tunnel> TunnelStateMachine<T> {
+impl<T: Tunnel + 'static> TunnelStateMachine<T> {
     async fn new(
         settings: InitialTunnelState,
         command_tx: std::sync::Weak<mpsc::UnboundedSender<TunnelCommand<T>>>,
@@ -245,6 +247,7 @@ impl<T: Tunnel> TunnelStateMachine<T> {
         log_dir: Option<PathBuf>,
         resource_dir: PathBuf,
         commands_rx: mpsc::UnboundedReceiver<TunnelCommand<T>>,
+        tunnel: T,
         #[cfg(target_os = "windows")] volume_update_rx: mpsc::UnboundedReceiver<()>,
         #[cfg(target_os = "macos")] exclusion_gid: u32,
         #[cfg(target_os = "android")] android_context: AndroidContext,
@@ -337,6 +340,8 @@ impl<T: Tunnel> TunnelStateMachine<T> {
             tun_provider: Arc::new(Mutex::new(tun_provider)),
             log_dir,
             resource_dir,
+            // TODO: receive the tunnel_provider from the parameters
+            tunnel_provider: tunnel,
             #[cfg(target_os = "linux")]
             connectivity_check_was_enabled: None,
             #[cfg(target_os = "macos")]
@@ -400,16 +405,38 @@ pub trait TunnelParametersGenerator: Send + 'static {
     ) -> Pin<Box<dyn Future<Output = Result<TunnelParameters, ParameterGenerationError>>>>;
 }
 
-pub trait Tunnel: PartialEq + std::fmt::Debug {
-    type Error: talpid_types::tunnel::TunnelError;
-    type TunnelEndpoint;
-    fn spawn(&self);
+/// Trait for abstracting a particular tunnel implementation
+pub trait Tunnel: PartialEq + std::fmt::Debug + Send {
+    /// Error type for the tunnel
+    type Error: talpid_types::tunnel::TunnelError + Send + 'static;
+    /// Metadata returned by the tunnel when it's connecting and being connected.
+    type TunnelMetadata: Send;
+    /// Stop handle
+    type Handle: TunnelHandle;
+    /// Spawns a new tunnel
+    fn spawn(&self, retry_attempt: u32) -> Pin<Box<dyn Future<Output=Result<Self::TunnelMetadata, Self::Error>>>>;
 }
 
-impl Tunnel for () {
-    fn spawn(&self) {
-        log::error!("spawning tunnel");
+pub trait TunnelHandle: Send{
+    fn stop(self);
+}
+
+pub trait TunnelMetadata: Send {
+    fn tunnel_interface(&self) -> String;
+}
+
+
+pub struct TunnelStateTx<T: TunnelMetadata> {
+    tx: mpsc::Sender<T>,
+}
+
+impl<T: TunnelMetadata> TunnelStateTx<T> {
+    fn new() -> (mpsc::Receiver<T>, Self) {
+        let (rx, tx) = mpsc::channel(0);
+        (rx, Self{ tx })
     }
+
+    pub fn
 }
 
 /// Values that are common to all tunnel states.
@@ -458,6 +485,11 @@ struct SharedTunnelStateValues<T: Tunnel> {
 }
 
 impl<T: Tunnel> SharedTunnelStateValues<T> {
+    // TODO: remove dummy function
+    pub fn get_tunnel_endpoint(&self) -> T::TunnelMetadata {
+        unimplemented!()
+    }
+
     pub fn set_allow_lan(&mut self, allow_lan: bool) -> Result<(), ErrorStateCause<T::Error>> {
         if self.allow_lan != allow_lan {
             self.allow_lan = allow_lan;

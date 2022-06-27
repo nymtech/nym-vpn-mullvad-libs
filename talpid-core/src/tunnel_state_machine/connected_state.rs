@@ -1,7 +1,7 @@
 use super::{
     AfterDisconnect, ConnectingState, DisconnectingState, ErrorState, EventConsequence,
-    EventResult, SharedTunnelStateValues, TunnelCommand, TunnelCommandReceiver, TunnelState,
-    TunnelStateTransition, TunnelStateWrapper,
+    EventResult, SharedTunnelStateValues, Tunnel, TunnelCommand, TunnelCommandReceiver,
+    TunnelState, TunnelStateTransition, TunnelStateWrapper,
 };
 use crate::{
     firewall::FirewallPolicy,
@@ -19,7 +19,6 @@ use talpid_types::{
     tunnel::{ErrorStateCause, FirewallPolicyError},
     BoxedError, ErrorExt,
 };
-use super::Tunnel;
 
 #[cfg(windows)]
 use crate::tunnel::TunnelMonitor;
@@ -348,7 +347,7 @@ impl<T: Tunnel> TunnelState<T> for ConnectedState<T> {
         } else {
             (
                 TunnelStateWrapper::Connected(connected_state),
-                TunnelStateTransition::Connected(tunnel_endpoint),
+                TunnelStateTransition::Connected(shared_values.get_tunnel_endpoint()),
             )
         }
     }

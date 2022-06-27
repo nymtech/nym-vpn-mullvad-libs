@@ -13,11 +13,11 @@ use talpid_types::{
 
 /// No tunnel is running and all network connections are blocked.
 #[derive(PartialEq, Debug, Clone)]
-pub struct ErrorState<T: super::Tunnel> {
+pub struct ErrorState<T: Tunnel> {
     block_reason: ErrorStateCause<T::Error>,
 }
 
-impl<T: super::Tunnel> ErrorState<T> {
+impl<T: Tunnel> ErrorState<T> {
     fn set_firewall_policy(
         shared_values: &mut SharedTunnelStateValues<T>,
     ) -> Result<(), FirewallPolicyError> {
@@ -78,7 +78,7 @@ impl<T: super::Tunnel> ErrorState<T> {
     }
 }
 
-impl<T: super::Tunnel> TunnelState<T> for ErrorState<T> {
+impl<T: Tunnel> TunnelState<T> for ErrorState<T> {
     type Bootstrap = ErrorStateCause<T::Error>;
 
     fn enter(
