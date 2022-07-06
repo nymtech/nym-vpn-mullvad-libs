@@ -104,12 +104,12 @@ pub struct WireguardMonitor {
     /// Tunnel implementation
     tunnel: Arc<Mutex<Option<Box<dyn Tunnel>>>>,
     /// Callback to signal tunnel events
-    event_callback: Box<
-        dyn (Fn(TunnelEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
-            + Send
-            + Sync
-            + 'static,
-    >,
+    // event_callback: Box<
+    //     dyn (Fn(TunnelEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+    //         + Send
+    //         + Sync
+    //         + 'static,
+    // >,
     close_msg_receiver: sync_mpsc::Receiver<CloseMsg>,
     pinger_stop_sender: sync_mpsc::Sender<()>,
     _obfuscator: Option<ObfuscatorHandle>,
@@ -197,13 +197,7 @@ fn maybe_create_obfuscator(
 
 impl WireguardMonitor {
     /// Starts a WireGuard tunnel with the given config
-    pub fn start<
-        F: (Fn(TunnelEvent) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
-            + Send
-            + Sync
-            + Clone
-            + 'static,
-    >(
+    pub fn start<F>(
         runtime: tokio::runtime::Handle,
         mut config: Config,
         psk_negotiation: Option<PublicKey>,
@@ -214,7 +208,14 @@ impl WireguardMonitor {
         route_manager: RouteManagerHandle,
         retry_attempt: u32,
         tunnel_close_rx: oneshot::Receiver<()>,
-    ) -> Result<WireguardMonitor> {
+    ) -> Result<WireguardMonitor>
+    where
+        F: (Fn() -> Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+            + Send
+            + Sync
+            + Clone
+            + 'static,
+    {
         let endpoint_addrs: Vec<IpAddr> =
             config.peers.iter().map(|peer| peer.endpoint.ip()).collect();
         let (close_msg_sender, close_msg_receiver) = sync_mpsc::channel();
@@ -235,12 +236,12 @@ impl WireguardMonitor {
         )?;
         let iface_name = tunnel.get_interface_name();
 
-        let event_callback = Box::new(on_event.clone());
+        // let event_callback = Box::new(on_event.clone());
         let (pinger_tx, pinger_rx) = sync_mpsc::channel();
         let monitor = WireguardMonitor {
             runtime: runtime.clone(),
             tunnel: Arc::new(Mutex::new(Some(tunnel))),
-            event_callback,
+            // event_callback,
             close_msg_receiver,
             pinger_stop_sender: pinger_tx,
             _obfuscator: obfuscator,
@@ -273,7 +274,8 @@ impl WireguardMonitor {
             } else {
                 AllowedTunnelTraffic::All
             };
-            (on_event)(TunnelEvent::InterfaceUp(metadata.clone(), allowed_traffic)).await;
+            //
+            // (on_event)(TunnelEvent::InterfaceUp(metadata.clone(), allowed_traffic)).await;
 
             // Add non-default routes before establishing the tunnel.
             #[cfg(target_os = "linux")]
@@ -294,11 +296,11 @@ impl WireguardMonitor {
 
             if let Some(pubkey) = psk_negotiation {
                 Self::perform_psk_negotiation(tunnel, retry_attempt, pubkey, &mut config).await?;
-                (on_event)(TunnelEvent::InterfaceUp(
-                    metadata.clone(),
-                    AllowedTunnelTraffic::All,
-                ))
-                .await;
+                // (on_event)(TunnelEvent::InterfaceUp(
+                //     metadata.clone(),
+                //     AllowedTunnelTraffic::All,
+                // ))
+                // .await;
             }
 
             let mut connectivity_monitor = tokio::task::spawn_blocking(move || {
@@ -327,7 +329,7 @@ impl WireguardMonitor {
                 .map_err(Error::SetupRoutingError)
                 .map_err(CloseMsg::SetupError)?;
 
-            (on_event)(TunnelEvent::Up(metadata)).await;
+            // (on_event)(TunnelEvent::Up(metadata)).await;
 
             tokio::task::spawn_blocking(move || {
                 if let Err(error) = connectivity_monitor.run() {
@@ -575,8 +577,8 @@ impl WireguardMonitor {
 
         self.stop_tunnel();
 
-        self.runtime
-            .block_on((self.event_callback)(TunnelEvent::Down));
+        // self.runtime
+        //     .block_on((self.event_callback)(TunnelEvent::Down));
         wait_result
     }
 

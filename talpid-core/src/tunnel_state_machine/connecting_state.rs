@@ -44,7 +44,7 @@ const MAX_ADAPTER_FAIL_RETRIES: u32 = 4;
 
 /// The tunnel has been started, but it is not established/functional.
 pub struct ConnectingState<T: Tunnel> {
-    tunnel_events: TunnelEventsReceiver,
+    tunnel_events: TunnelEventsReceiver<T>,
     tunnel_parameters: TunnelParameters,
     tunnel_metadata: Option<TunnelMetadata>,
     allowed_tunnel_traffic: AllowedTunnelTraffic,
@@ -395,7 +395,7 @@ impl<T: Tunnel> ConnectingState<T> {
 
     fn handle_tunnel_events(
         mut self,
-        event: Option<(tunnel::TunnelEvent, oneshot::Sender<()>)>,
+        event: Option<(tunnel::TunnelEvent<T>, oneshot::Sender<()>)>,
         shared_values: &mut SharedTunnelStateValues<T>,
     ) -> EventConsequence<T> {
         use self::EventConsequence::*;
@@ -443,7 +443,8 @@ impl<T: Tunnel> ConnectingState<T> {
                 shared_values,
                 self.into_connected_state_bootstrap(metadata),
             )),
-            Some((TunnelEvent::Down, _)) => SameState(self.into()),
+            // TODO: take care to handle errors here
+            Some((TunnelEvent::Down(_), _)) => SameState(self.into()),
             None => {
                 // The channel was closed
                 log::debug!("The tunnel disconnected unexpectedly");

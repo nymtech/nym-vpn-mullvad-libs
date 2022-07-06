@@ -254,7 +254,7 @@ impl WintunContextImpl {
 impl OpenVpnMonitor<OpenVpnCommand> {
     /// Creates a new `OpenVpnMonitor` with the given listener and using the plugin at the given
     /// path.
-    pub async fn start<L>(
+    pub async fn start<L, T>(
         on_event: L,
         params: &openvpn::TunnelParameters,
         log_path: Option<PathBuf>,
@@ -263,10 +263,11 @@ impl OpenVpnMonitor<OpenVpnCommand> {
         #[cfg(target_os = "linux")] route_manager: routing::RouteManagerHandle,
     ) -> Result<Self>
     where
-        L: (Fn(TunnelEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+        L: (Fn(TunnelEvent<T>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
             + Send
             + Sync
             + 'static,
+        T: crate::tunnel::Tunnel,
     {
         let user_pass_file =
             Self::create_credentials_file(&params.config.username, &params.config.password)
@@ -315,7 +316,7 @@ impl OpenVpnMonitor<OpenVpnCommand> {
             event_server_abort_tx.clone(),
             event_server_abort_rx,
             event_server::OpenvpnEventProxyImpl {
-                on_event,
+                on_event: || Box::pin(async move {}),
                 user_pass_file_path: user_pass_file_path.clone(),
                 proxy_auth_file_path: proxy_auth_file_path.clone(),
                 abort_server_tx: event_server_abort_tx,
@@ -839,9 +840,7 @@ mod event_server {
 
     /// Implements a gRPC service used to process events sent to by OpenVPN.
     pub struct OpenvpnEventProxyImpl<
-        L: (Fn(
-                super::TunnelEvent,
-            ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+        L: (Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
             + Send
             + Sync
             + 'static,
@@ -857,10 +856,7 @@ mod event_server {
     }
 
     impl<
-            L: (Fn(
-                    super::TunnelEvent,
-                )
-                    -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+            L: (Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
                 + Send
                 + Sync
                 + 'static,
@@ -871,11 +867,11 @@ mod event_server {
             request: Request<EventDetails>,
         ) -> std::result::Result<Response<()>, tonic::Status> {
             let env = request.into_inner().env;
-            (self.on_event)(super::TunnelEvent::InterfaceUp(
-                Self::get_tunnel_metadata(&env)?,
-                talpid_types::net::AllowedTunnelTraffic::All,
-            ))
-            .await;
+            // (self.on_event)(super::TunnelEvent::InterfaceUp(
+            //     Self::get_tunnel_metadata(&env)?,
+            //     talpid_types::net::AllowedTunnelTraffic::All,
+            // ))
+            // .await;
             Ok(Response::new(()))
         }
 
@@ -934,7 +930,7 @@ mod event_server {
                     })?;
             }
 
-            (self.on_event)(super::TunnelEvent::Up(metadata)).await;
+            // (self.on_event)(super::TunnelEvent::Up(metadata)).await;
 
             Ok(Response::new(()))
         }
@@ -989,10 +985,7 @@ mod event_server {
 
     #[tonic::async_trait]
     impl<
-            L: (Fn(
-                    super::TunnelEvent,
-                )
-                    -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+            L: (Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
                 + Send
                 + Sync
                 + 'static,
@@ -1003,10 +996,10 @@ mod event_server {
             request: Request<EventDetails>,
         ) -> std::result::Result<Response<()>, tonic::Status> {
             let env = request.into_inner().env;
-            (self.on_event)(super::TunnelEvent::AuthFailed(
-                env.get("auth_failed_reason").cloned(),
-            ))
-            .await;
+            // (self.on_event)(super::TunnelEvent::AuthFailed(
+            //     env.get("auth_failed_reason").cloned(),
+            // ))
+            // .await;
             Ok(Response::new(()))
         }
 
@@ -1034,7 +1027,7 @@ mod event_server {
             &self,
             _request: Request<EventDetails>,
         ) -> std::result::Result<Response<()>, tonic::Status> {
-            (self.on_event)(super::TunnelEvent::Down).await;
+            // (self.on_event)(super::TunnelEvent::Down).await;
             Ok(Response::new(()))
         }
     }

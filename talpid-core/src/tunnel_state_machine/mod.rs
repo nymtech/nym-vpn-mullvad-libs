@@ -19,7 +19,7 @@ use crate::{
     mpsc::Sender,
     offline,
     routing::RouteManager,
-    tunnel::{tun_provider::TunProvider, TunnelEvent},
+    tunnel::{tun_provider::TunProvider, Tunnel, TunnelEvent, TunnelMetadata},
 };
 #[cfg(windows)]
 use std::ffi::OsString;
@@ -43,7 +43,7 @@ use std::{
 #[cfg(target_os = "android")]
 use talpid_types::{android::AndroidContext, ErrorExt};
 use talpid_types::{
-    net::{AllowedEndpoint, TunnelParameters},
+    net::{AllowedEndpoint, AllowedTunnelTraffic, TunnelParameters},
     tunnel::{ActionAfterDisconnect, ErrorStateCause, ParameterGenerationError},
 };
 
@@ -56,9 +56,9 @@ pub enum TunnelStateTransition<T: Tunnel> {
     /// No connection is established and network is unsecured.
     Disconnected,
     /// Network is secured but tunnel is still connecting.
-    Connecting(T::TunnelMetadata),
+    Connecting(T::TunnelEvent),
     /// Tunnel is connected.
-    Connected(T::TunnelMetadata),
+    Connected(T::TunnelEvent),
     /// Disconnecting tunnel.
     Disconnecting(ActionAfterDisconnect),
     /// Tunnel is disconnected but usually secured by blocking all connections.
@@ -221,7 +221,7 @@ type TunnelCommandReceiver<T> = stream::Fuse<mpsc::UnboundedReceiver<TunnelComma
 
 enum EventResult<T: Tunnel> {
     Command(Option<TunnelCommand<T>>),
-    Event(Option<(TunnelEvent, oneshot::Sender<()>)>),
+    Event(Option<(TunnelEvent<T>, oneshot::Sender<()>)>),
     Close(Result<Option<ErrorStateCause<T::Error>>, oneshot::Canceled>),
 }
 
@@ -405,38 +405,15 @@ pub trait TunnelParametersGenerator: Send + 'static {
     ) -> Pin<Box<dyn Future<Output = Result<TunnelParameters, ParameterGenerationError>>>>;
 }
 
-/// Trait for abstracting a particular tunnel implementation
-pub trait Tunnel: PartialEq + std::fmt::Debug + Send {
-    /// Error type for the tunnel
-    type Error: talpid_types::tunnel::TunnelError + Send + 'static;
-    /// Metadata returned by the tunnel when it's connecting and being connected.
-    type TunnelMetadata: Send;
-    /// Stop handle
-    type Handle: TunnelHandle;
-    /// Spawns a new tunnel
-    fn spawn(&self, retry_attempt: u32) -> Pin<Box<dyn Future<Output=Result<Self::TunnelMetadata, Self::Error>>>>;
+pub struct TunnelStateTx<T: Tunnel> {
+    tx: mpsc::Sender<T::TunnelEvent>,
 }
 
-pub trait TunnelHandle: Send{
-    fn stop(self);
-}
-
-pub trait TunnelMetadata: Send {
-    fn tunnel_interface(&self) -> String;
-}
-
-
-pub struct TunnelStateTx<T: TunnelMetadata> {
-    tx: mpsc::Sender<T>,
-}
-
-impl<T: TunnelMetadata> TunnelStateTx<T> {
-    fn new() -> (mpsc::Receiver<T>, Self) {
-        let (rx, tx) = mpsc::channel(0);
-        (rx, Self{ tx })
+impl<T: Tunnel> TunnelStateTx<T> {
+    fn new() -> (mpsc::Receiver<T::TunnelEvent>, Self) {
+        let (tx, rx) = mpsc::channel(0);
+        (rx, Self { tx })
     }
-
-    pub fn
 }
 
 /// Values that are common to all tunnel states.
@@ -486,7 +463,7 @@ struct SharedTunnelStateValues<T: Tunnel> {
 
 impl<T: Tunnel> SharedTunnelStateValues<T> {
     // TODO: remove dummy function
-    pub fn get_tunnel_endpoint(&self) -> T::TunnelMetadata {
+    pub fn get_tunnel_endpoint(&self) -> T::TunnelEvent {
         unimplemented!()
     }
 

@@ -25,12 +25,12 @@ use crate::tunnel::TunnelMonitor;
 
 use super::connecting_state::TunnelCloseEvent;
 
-pub(crate) type TunnelEventsReceiver =
-    Fuse<mpsc::UnboundedReceiver<(TunnelEvent, oneshot::Sender<()>)>>;
+pub(crate) type TunnelEventsReceiver<T: Tunnel> =
+    Fuse<mpsc::UnboundedReceiver<(TunnelEvent<T>, oneshot::Sender<()>)>>;
 
 pub struct ConnectedStateBootstrap<T: super::Tunnel> {
-    pub metadata: TunnelMetadata,
-    pub tunnel_events: TunnelEventsReceiver,
+    pub metadata: T::TunnelEvent,
+    pub tunnel_events: TunnelEventsReceiver<T>,
     pub tunnel_parameters: TunnelParameters,
     pub tunnel_close_event: TunnelCloseEvent<T::Error>,
     pub tunnel_close_tx: oneshot::Sender<()>,
@@ -39,7 +39,7 @@ pub struct ConnectedStateBootstrap<T: super::Tunnel> {
 /// The tunnel is up and working.
 pub struct ConnectedState<T: Tunnel> {
     metadata: TunnelMetadata,
-    tunnel_events: TunnelEventsReceiver,
+    tunnel_events: TunnelEventsReceiver<T>,
     tunnel_parameters: TunnelParameters,
     tunnel_close_event: TunnelCloseEvent<T::Error>,
     tunnel_close_tx: oneshot::Sender<()>,
@@ -281,13 +281,14 @@ impl<T: Tunnel> ConnectedState<T> {
 
     fn handle_tunnel_events(
         self,
-        event: Option<(TunnelEvent, oneshot::Sender<()>)>,
+        event: Option<(TunnelEvent<T>, oneshot::Sender<()>)>,
         shared_values: &mut SharedTunnelStateValues<T>,
     ) -> EventConsequence<T> {
         use self::EventConsequence::*;
 
         match event {
-            Some((TunnelEvent::Down, _)) | None => {
+            // TODO: handle error properly
+            Some((TunnelEvent::Down(None), _)) | None => {
                 self.disconnect(shared_values, AfterDisconnect::Reconnect(0))
             }
             Some(_) => SameState(self.into()),

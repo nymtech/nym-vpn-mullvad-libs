@@ -104,7 +104,7 @@ pub enum FirewallPolicy {
         /// The peer endpoint that should be allowed.
         peer_endpoint: Endpoint,
         /// Metadata about the tunnel and tunnel interface.
-        tunnel_interface: Option<String>,
+        tunnel: Option<crate::tunnel::TunnelMetadata>,
         /// Flag setting if communication with LAN networks should be possible.
         allow_lan: bool,
         /// Host that should be reachable while connecting.
@@ -118,10 +118,10 @@ pub enum FirewallPolicy {
 
     /// Allow traffic only to server and over tunnel interface
     Connected {
+        /// Metadata about the tunnel and tunnel interface.
+        tunnel: crate::tunnel::TunnelMetadata,
         /// The peer endpoint that should be allowed.
         peer_endpoint: Endpoint,
-        /// Metadata about the tunnel and tunnel interface.
-        tunnel_interface: String,
         /// Flag setting if communication with LAN networks should be possible.
         allow_lan: bool,
         /// Servers that are allowed to respond to DNS requests.

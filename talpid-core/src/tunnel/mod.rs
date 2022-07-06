@@ -1,10 +1,10 @@
 use self::tun_provider::TunProvider;
 use crate::{logging, routing::RouteManagerHandle};
-use futures::channel::oneshot;
+use futures::{channel::oneshot, Future};
 use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, pin::Pin,
 };
 #[cfg(not(target_os = "android"))]
 use talpid_types::net::openvpn as openvpn_types;
@@ -67,18 +67,42 @@ pub enum Error {
     AssignMtuError,
 }
 
-/// Possible events from the VPN tunnel and the child process managing it.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum TunnelEvent {
-    /// Sent when the tunnel fails to connect due to an authentication error.
-    AuthFailed(Option<String>),
-    /// Sent when the tunnel interface has been created, before routes are set up.
-    InterfaceUp(TunnelMetadata, AllowedTunnelTraffic),
-    /// Sent when the tunnel comes up and is ready for traffic.
-    Up(TunnelMetadata),
-    /// Sent when the tunnel goes down.
-    Down,
+
+/// Trait for abstracting a particular tunnel implementation
+pub trait Tunnel: PartialEq + std::fmt::Debug + Send {
+    /// Error type for the tunnel
+    type Error: talpid_types::tunnel::TunnelError + Send + 'static;
+    /// Metadata returned by the tunnel when it's connecting and being connected.
+    type TunnelEvent: TunnelData +  Send;
+    /// Stop handle
+    type Handle: TunnelHandle;
+    /// Spawns a new tunnel
+    fn spawn(
+        &self,
+        retry_attempt: u32,
+    ) -> Pin<Box<dyn Future<Output = std::result::Result<Self::TunnelEvent, Self::Error>>>>;
 }
+
+pub trait TunnelData {
+    fn metadata(&self) -> TunnelMetadata;
+}
+
+pub trait TunnelHandle: Send {
+    fn stop(self);
+}
+
+/// Possible events from the VPN tunnel and the child process managing it.
+#[derive(Debug, Clone, Hash)]
+pub enum TunnelEvent<T: Tunnel> {
+    /// Sent when the tunnel interface has been created, before routes are set up.
+    InterfaceUp(T::TunnelEvent, AllowedTunnelTraffic),
+    /// Sent when the tunnel comes up and is ready for traffic.
+    Up(T::TunnelEvent),
+    /// Sent when the tunnel goes down.
+    Down(Option<T::Error>),
+}
+
+
 
 /// Information about a VPN tunnel.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -114,114 +138,110 @@ impl TunnelMonitor {
         retry_attempt: u32,
         tunnel_close_rx: oneshot::Receiver<()>,
     ) -> Result<Self>
-    where
-        L: (Fn(TunnelEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
-            + Send
-            + Clone
-            + Sync
-            + 'static,
+
     {
-        Self::ensure_ipv6_can_be_used_if_enabled(tunnel_parameters)?;
-        let log_file = Self::prepare_tunnel_log_file(tunnel_parameters, log_dir)?;
+        unimplemented!()
+        // Self::ensure_ipv6_can_be_used_if_enabled(tunnel_parameters)?;
+        // let log_file = Self::prepare_tunnel_log_file(tunnel_parameters, log_dir)?;
 
-        match tunnel_parameters {
-            #[cfg(not(target_os = "android"))]
-            TunnelParameters::OpenVpn(config) => runtime.block_on(Self::start_openvpn_tunnel(
-                config,
-                log_file,
-                resource_dir,
-                on_event,
-                tunnel_close_rx,
-                #[cfg(target_os = "linux")]
-                route_manager,
-            )),
-            #[cfg(target_os = "android")]
-            TunnelParameters::OpenVpn(_) => Err(Error::UnsupportedPlatform),
+        // match tunnel_parameters {
+        //     #[cfg(not(target_os = "android"))]
+        //     TunnelParameters::OpenVpn(config) => runtime.block_on(Self::start_openvpn_tunnel(
+        //         config,
+        //         log_file,
+        //         resource_dir,
+        //         on_event,
+        //         tunnel_close_rx,
+        //         #[cfg(target_os = "linux")]
+        //         route_manager,
+        //     )),
+        //     #[cfg(target_os = "android")]
+        //     TunnelParameters::OpenVpn(_) => Err(Error::UnsupportedPlatform),
 
-            TunnelParameters::Wireguard(ref mut config) => Self::start_wireguard_tunnel(
-                runtime,
-                config,
-                log_file,
-                resource_dir,
-                on_event,
-                tun_provider,
-                route_manager,
-                retry_attempt,
-                tunnel_close_rx,
-            ),
-        }
+        //     TunnelParameters::Wireguard(ref mut config) => Self::start_wireguard_tunnel(
+        //         runtime,
+        //         config,
+        //         log_file,
+        //         resource_dir,
+        //         on_event,
+        //         tun_provider,
+        //         route_manager,
+        //         retry_attempt,
+        //         tunnel_close_rx,
+        //     ),
+        // }
     }
 
-    /// Returns a path to an executable that communicates with relay servers.
-    #[cfg(windows)]
-    pub fn get_relay_client(resource_dir: &Path, params: &TunnelParameters) -> PathBuf {
-        let resource_dir = resource_dir.to_path_buf();
-        let process_string = match params {
-            TunnelParameters::OpenVpn(params) => {
-                if let Some(proxy) = &params.proxy {
-                    match proxy {
-                        openvpn_types::ProxySettings::Shadowsocks(..) => {
-                            return std::env::current_exe().unwrap()
-                        }
-                        _ => "openvpn.exe",
-                    }
-                } else {
-                    "openvpn.exe"
-                }
-            }
-            _ => return std::env::current_exe().unwrap(),
-        };
-        resource_dir.join(process_string)
-    }
+//     /// Returns a path to an executable that communicates with relay servers.
+//     #[cfg(windows)]
+//     pub fn get_relay_client(resource_dir: &Path, params: &TunnelParameters) -> PathBuf {
+//         let resource_dir = resource_dir.to_path_buf();
+//         let process_string = match params {
+//             TunnelParameters::OpenVpn(params) => {
+//                 if let Some(proxy) = &params.proxy {
+//                     match proxy {
+//                         openvpn_types::ProxySettings::Shadowsocks(..) => {
+//                             return std::env::current_exe().unwrap()
+//                         }
+//                         _ => "openvpn.exe",
+//                     }
+//                 } else {
+//                     "openvpn.exe"
+//                 }
+//             }
+//             _ => return std::env::current_exe().unwrap(),
+//         };
+//         resource_dir.join(process_string)
+//     }
 
-    fn start_wireguard_tunnel<L>(
-        runtime: tokio::runtime::Handle,
-        params: &mut wireguard_types::TunnelParameters,
-        log: Option<PathBuf>,
-        resource_dir: &Path,
-        on_event: L,
-        tun_provider: Arc<Mutex<TunProvider>>,
-        route_manager: RouteManagerHandle,
-        retry_attempt: u32,
-        tunnel_close_rx: oneshot::Receiver<()>,
-    ) -> Result<Self>
-    where
-        L: (Fn(TunnelEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
-            + Send
-            + Sync
-            + Clone
-            + 'static,
-    {
-        #[cfg(target_os = "linux")]
-        runtime.block_on(Self::assign_mtu(&route_manager, params));
-        let config = wireguard::config::Config::from_parameters(params)?;
-        let monitor = wireguard::WireguardMonitor::start(
-            runtime,
-            config,
-            if params.options.use_pq_safe_psk {
-                Some(
-                    params
-                        .connection
-                        .exit_peer
-                        .as_ref()
-                        .map(|peer| peer.public_key.clone())
-                        .unwrap_or(params.connection.peer.public_key.clone()),
-                )
-            } else {
-                None
-            },
-            log.as_deref(),
-            resource_dir,
-            on_event,
-            tun_provider,
-            route_manager,
-            retry_attempt,
-            tunnel_close_rx,
-        )?;
-        Ok(TunnelMonitor {
-            monitor: InternalTunnelMonitor::Wireguard(monitor),
-        })
-    }
+    // fn start_wireguard_tunnel<L>(
+    //     runtime: tokio::runtime::Handle,
+    //     params: &mut wireguard_types::TunnelParameters,
+    //     log: Option<PathBuf>,
+    //     resource_dir: &Path,
+    //     on_event: L,
+    //     tun_provider: Arc<Mutex<TunProvider>>,
+    //     route_manager: RouteManagerHandle,
+    //     retry_attempt: u32,
+    //     tunnel_close_rx: oneshot::Receiver<()>,
+    // ) -> Result<Self>
+    // where
+        // L: (Fn(TunnelEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+        //     + Send
+        //     + Sync
+        //     + Clone
+        //     + 'static,
+    // {
+    //     #[cfg(target_os = "linux")]
+    //     runtime.block_on(Self::assign_mtu(&route_manager, params));
+    //     let config = wireguard::config::Config::from_parameters(params)?;
+    //     let monitor = wireguard::WireguardMonitor::start(
+    //         runtime,
+    //         config,
+    //         if params.options.use_pq_safe_psk {
+    //             Some(
+    //                 params
+    //                     .connection
+    //                     .exit_peer
+    //                     .as_ref()
+    //                     .map(|peer| peer.public_key.clone())
+    //                     .unwrap_or(params.connection.peer.public_key.clone()),
+    //             )
+    //         } else {
+    //             None
+    //         },
+    //         log.as_deref(),
+    //         resource_dir,
+    //         on_event,
+    //         tun_provider,
+    //         route_manager,
+    //         retry_attempt,
+    //         tunnel_close_rx,
+    //     )?;
+    //     Ok(TunnelMonitor {
+    //         monitor: InternalTunnelMonitor::Wireguard(monitor),
+    //     })
+    // }
 
     #[cfg(target_os = "linux")]
     fn set_mtu(params: &mut wireguard_types::TunnelParameters, mtu: u16) {
@@ -258,35 +278,35 @@ impl TunnelMonitor {
         }
     }
 
-    #[cfg(not(target_os = "android"))]
-    async fn start_openvpn_tunnel<L>(
-        config: &openvpn_types::TunnelParameters,
-        log: Option<PathBuf>,
-        resource_dir: &Path,
-        on_event: L,
-        tunnel_close_rx: oneshot::Receiver<()>,
-        #[cfg(target_os = "linux")] route_manager: RouteManagerHandle,
-    ) -> Result<Self>
-    where
-        L: (Fn(TunnelEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
-            + Send
-            + Sync
-            + 'static,
-    {
-        let monitor = openvpn::OpenVpnMonitor::start(
-            on_event,
-            config,
-            log,
-            resource_dir,
-            tunnel_close_rx,
-            #[cfg(target_os = "linux")]
-            route_manager,
-        )
-        .await?;
-        Ok(TunnelMonitor {
-            monitor: InternalTunnelMonitor::OpenVpn(monitor),
-        })
-    }
+    // #[cfg(not(target_os = "android"))]
+    // async fn start_openvpn_tunnel<L>(
+    //     config: &openvpn_types::TunnelParameters,
+    //     log: Option<PathBuf>,
+    //     resource_dir: &Path,
+    //     on_event: L,
+    //     tunnel_close_rx: oneshot::Receiver<()>,
+    //     #[cfg(target_os = "linux")] route_manager: RouteManagerHandle,
+    // ) -> Result<Self>
+    // where
+    //     L: (Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>)
+    //         + Send
+    //         + Sync
+    //         + 'static,
+    // {
+    //     let monitor = openvpn::OpenVpnMonitor::start(
+    //         on_event,
+    //         config,
+    //         log,
+    //         resource_dir,
+    //         tunnel_close_rx,
+    //         #[cfg(target_os = "linux")]
+    //         route_manager,
+    //     )
+    //     .await?;
+    //     Ok(TunnelMonitor {
+    //         monitor: InternalTunnelMonitor::OpenVpn(monitor),
+    //     })
+    // }
 
     fn ensure_ipv6_can_be_used_if_enabled(tunnel_parameters: &TunnelParameters) -> Result<()> {
         let options = tunnel_parameters.get_generic_options();
