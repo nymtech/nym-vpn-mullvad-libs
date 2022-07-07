@@ -1,7 +1,7 @@
 use super::{
     AfterDisconnect, ConnectedState, ConnectedStateBootstrap, DisconnectingState, ErrorState,
-    EventConsequence, EventResult, SharedTunnelStateValues, TunnelCommand, TunnelCommandReceiver,
-    TunnelState, TunnelStateTransition, TunnelStateWrapper, Tunnel,
+    EventConsequence, EventResult, SharedTunnelStateValues, Tunnel, TunnelCommand,
+    TunnelCommandReceiver, TunnelState, TunnelStateTransition, TunnelStateWrapper,
 };
 use crate::{
     firewall::FirewallPolicy,
@@ -53,7 +53,7 @@ pub struct ConnectingState<T: Tunnel> {
     retry_attempt: u32,
 }
 
-impl<T: Tunnel> ConnectingState<T> {
+impl<T: Tunnel + 'static> ConnectingState<T> {
     fn set_firewall_policy(
         shared_values: &mut SharedTunnelStateValues<T>,
         params: &TunnelParameters,
@@ -250,7 +250,10 @@ impl<T: Tunnel> ConnectingState<T> {
         }
     }
 
-    fn into_connected_state_bootstrap(self, metadata: TunnelMetadata) -> ConnectedStateBootstrap<T> {
+    fn into_connected_state_bootstrap(
+        self,
+        metadata: TunnelMetadata,
+    ) -> ConnectedStateBootstrap<T> {
         ConnectedStateBootstrap {
             metadata,
             tunnel_events: self.tunnel_events,
@@ -401,10 +404,11 @@ impl<T: Tunnel> ConnectingState<T> {
         use self::EventConsequence::*;
 
         match event {
-            Some((TunnelEvent::AuthFailed(reason), _)) => self.disconnect(
-                shared_values,
-                AfterDisconnect::Block(ErrorStateCause::AuthFailed(reason)),
-            ),
+            // TODO: handle this properly
+            // Some((TunnelEvent::AuthFailed(reason), _)) => self.disconnect(
+            //     shared_values,
+            //     AfterDisconnect::Block(ErrorStateCause::AuthFailed(reason)),
+            // ),
             Some((TunnelEvent::InterfaceUp(metadata, allowed_tunnel_traffic), _done_tx)) => {
                 #[cfg(windows)]
                 if let Err(error) = shared_values
@@ -529,7 +533,7 @@ fn is_recoverable_routing_error(error: &crate::routing::Error) -> bool {
     }
 }
 
-impl<T: Tunnel> TunnelState<T> for ConnectingState<T> {
+impl<T: Tunnel + 'static> TunnelState<T> for ConnectingState<T> {
     type Bootstrap = u32;
 
     fn enter(

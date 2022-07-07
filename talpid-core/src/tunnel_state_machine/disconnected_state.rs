@@ -88,7 +88,7 @@ impl DisconnectedState {
     }
 }
 
-impl<T: Tunnel> TunnelState<T> for DisconnectedState {
+impl<T: Tunnel + 'static> TunnelState<T> for DisconnectedState {
     type Bootstrap = bool;
 
     fn enter(
@@ -215,7 +215,7 @@ impl<T: Tunnel> TunnelState<T> for DisconnectedState {
     }
 }
 
-impl<T: Tunnel> Into<TunnelStateWrapper<T>> for DisconnectedState {
+impl<T: Tunnel + 'static> Into<TunnelStateWrapper<T>> for DisconnectedState {
     fn into(self) -> TunnelStateWrapper<T> {
         TunnelStateWrapper::Disconnected(self)
     }

@@ -78,7 +78,7 @@ impl<T: Tunnel> ErrorState<T> {
     }
 }
 
-impl<T: Tunnel> TunnelState<T> for ErrorState<T> {
+impl<T: Tunnel + 'static> TunnelState<T> for ErrorState<T> {
     type Bootstrap = ErrorStateCause<T::Error>;
 
     fn enter(

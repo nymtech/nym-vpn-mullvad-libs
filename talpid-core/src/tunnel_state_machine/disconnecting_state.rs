@@ -13,7 +13,7 @@ pub struct DisconnectingState<T: Tunnel> {
     after_disconnect: AfterDisconnect<T>,
 }
 
-impl<T: Tunnel> DisconnectingState<T> {
+impl<T: Tunnel + 'static> DisconnectingState<T> {
     fn handle_commands(
         mut self,
         command: Option<TunnelCommand<T>>,
@@ -165,7 +165,7 @@ impl<T: Tunnel> DisconnectingState<T> {
 
 impl<T> TunnelState<T> for DisconnectingState<T>
 where
-    T: Tunnel,
+    T: Tunnel + 'static,
 {
     type Bootstrap = (
         oneshot::Sender<()>,
@@ -233,7 +233,7 @@ pub enum AfterDisconnect<T: Tunnel> {
     Reconnect(u32),
 }
 
-impl<T: Tunnel> AfterDisconnect<T> {
+impl<T: Tunnel + 'static> AfterDisconnect<T> {
     /// Build event representation of the action that will be taken after the disconnection.
     pub fn action(&self) -> ActionAfterDisconnect {
         match self {
@@ -244,7 +244,7 @@ impl<T: Tunnel> AfterDisconnect<T> {
     }
 }
 
-impl<T: Tunnel> Into<TunnelStateWrapper<T>> for DisconnectingState<T> {
+impl<T: Tunnel + 'static> Into<TunnelStateWrapper<T>> for DisconnectingState<T> {
     fn into(self) -> TunnelStateWrapper<T> {
         TunnelStateWrapper::Disconnecting(self)
     }

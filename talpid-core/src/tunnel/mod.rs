@@ -95,9 +95,9 @@ pub trait TunnelHandle: Send {
 #[derive(Debug, Clone, Hash)]
 pub enum TunnelEvent<T: Tunnel> {
     /// Sent when the tunnel interface has been created, before routes are set up.
-    InterfaceUp(T::TunnelEvent, AllowedTunnelTraffic),
+    InterfaceUp(TunnelMetadata, AllowedTunnelTraffic),
     /// Sent when the tunnel comes up and is ready for traffic.
-    Up(T::TunnelEvent),
+    Up(TunnelMetadata),
     /// Sent when the tunnel goes down.
     Down(Option<T::Error>),
 }

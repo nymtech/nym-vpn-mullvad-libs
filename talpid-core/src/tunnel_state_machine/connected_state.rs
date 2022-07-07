@@ -25,11 +25,11 @@ use crate::tunnel::TunnelMonitor;
 
 use super::connecting_state::TunnelCloseEvent;
 
-pub(crate) type TunnelEventsReceiver<T: Tunnel> =
+pub(crate) type TunnelEventsReceiver<T> =
     Fuse<mpsc::UnboundedReceiver<(TunnelEvent<T>, oneshot::Sender<()>)>>;
 
 pub struct ConnectedStateBootstrap<T: super::Tunnel> {
-    pub metadata: T::TunnelEvent,
+    pub metadata: TunnelMetadata,
     pub tunnel_events: TunnelEventsReceiver<T>,
     pub tunnel_parameters: TunnelParameters,
     pub tunnel_close_event: TunnelCloseEvent<T::Error>,
@@ -45,7 +45,7 @@ pub struct ConnectedState<T: Tunnel> {
     tunnel_close_tx: oneshot::Sender<()>,
 }
 
-impl<T: Tunnel> ConnectedState<T> {
+impl<T: Tunnel + 'static> ConnectedState<T> {
     fn from(bootstrap: ConnectedStateBootstrap<T>) -> Self {
         ConnectedState {
             metadata: bootstrap.metadata,
@@ -315,7 +315,7 @@ impl<T: Tunnel> ConnectedState<T> {
     }
 }
 
-impl<T: Tunnel> TunnelState<T> for ConnectedState<T> {
+impl<T: Tunnel + 'static> TunnelState<T> for ConnectedState<T> {
     type Bootstrap = ConnectedStateBootstrap<T>;
 
     #[cfg_attr(target_os = "android", allow(unused_variables))]
@@ -381,7 +381,7 @@ impl<T: Tunnel> TunnelState<T> for ConnectedState<T> {
     }
 }
 
-impl<T: Tunnel> Into<TunnelStateWrapper<T>> for ConnectedState<T> {
+impl<T: Tunnel + 'static> Into<TunnelStateWrapper<T>> for ConnectedState<T> {
     fn into(self) -> TunnelStateWrapper<T> {
         TunnelStateWrapper::Connected(self)
     }

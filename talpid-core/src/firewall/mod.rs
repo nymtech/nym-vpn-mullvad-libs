@@ -150,7 +150,7 @@ impl fmt::Display for FirewallPolicy {
         match self {
             FirewallPolicy::Connecting {
                 peer_endpoint,
-                tunnel_interface: tunnel,
+                tunnel,
                 allow_lan,
                 allowed_endpoint,
                 allowed_tunnel_traffic,
@@ -186,7 +186,7 @@ impl fmt::Display for FirewallPolicy {
             }
             FirewallPolicy::Connected {
                 peer_endpoint,
-                tunnel_interface: tunnel,
+                tunnel,
                 allow_lan,
                 ..
             } => write!(

@@ -619,7 +619,7 @@ enum TunnelStateWrapper<T: Tunnel> {
     Error(ErrorState<T>),
 }
 
-impl<T: Tunnel> TunnelStateWrapper<T> {
+impl<T: Tunnel + 'static> TunnelStateWrapper<T> {
     fn handle_event(
         self,
         runtime: &tokio::runtime::Handle,
