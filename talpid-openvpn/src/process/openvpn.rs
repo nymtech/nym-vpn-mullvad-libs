@@ -53,7 +53,6 @@ static ALLOWED_TLS1_3_CIPHERS: &[&str] =
     &["TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"];
 
 /// Tun driver to use, specified using `--windows-driver`.
-#[derive(Clone)]
 pub enum WindowsDriver {
     /// TAP adapter driver
     TapWindows6,
@@ -92,6 +91,8 @@ pub struct OpenVpnCommand {
     tunnel_alias: Option<OsString>,
     enable_ipv6: bool,
     proxy_port: Option<u16>,
+    #[cfg(target_os = "linux")]
+    tunnel_fwmark: Option<u32>,
 }
 
 impl OpenVpnCommand {
@@ -116,6 +117,8 @@ impl OpenVpnCommand {
             tunnel_alias: None,
             enable_ipv6: true,
             proxy_port: None,
+            #[cfg(target_os = "linux")]
+            tunnel_fwmark: None,
         }
     }
 
@@ -185,6 +188,13 @@ impl OpenVpnCommand {
     #[cfg(windows)]
     pub fn windows_driver(&mut self, driver: Option<WindowsDriver>) -> &mut Self {
         self.windows_driver = driver;
+        self
+    }
+
+    /// Sets the tunnel traffic firewall mark
+    #[cfg(target_os = "linux")]
+    pub fn tunnel_fwmarK(&mut self, fwmark: Option<u32>) -> &mut Self {
+        self.tunnel_fwmark = fwmark;
         self
     }
 
@@ -287,11 +297,9 @@ impl OpenVpnCommand {
         args.extend(self.proxy_arguments().iter().map(OsString::from));
 
         #[cfg(target_os = "linux")]
-        args.extend(
-            ["--mark", &crate::linux::TUNNEL_FW_MARK.to_string()]
-                .iter()
-                .map(OsString::from),
-        );
+        if let Some(fwmark) = self.tunnel_fwmark {
+            args.extend(["--mark", &fwmark.to_string()].iter().map(OsString::from));
+        }
 
         args
     }

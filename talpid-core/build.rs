@@ -44,8 +44,6 @@ mod win {
 
 #[cfg(windows)]
 fn main() {
-    generate_grpc_code();
-
     use crate::win::*;
 
     const WINFW_DIR_VAR: &str = "WINFW_LIB_DIR";
@@ -59,8 +57,6 @@ fn main() {
 
 #[cfg(not(windows))]
 fn main() {
-    generate_grpc_code();
-
     let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set");
 
     declare_libs_dir("../dist-assets/binaries");
@@ -89,8 +85,3 @@ fn declare_libs_dir(base: &str) {
     println!("cargo:rustc-link-search={}", lib_dir.display());
 }
 
-fn generate_grpc_code() {
-    const PROTO_FILE: &str = "../talpid-openvpn-plugin/proto/openvpn_plugin.proto";
-    tonic_build::compile_protos(PROTO_FILE).unwrap();
-    println!("cargo:rerun-if-changed={}", PROTO_FILE);
-}

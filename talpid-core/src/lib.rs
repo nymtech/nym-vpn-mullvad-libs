@@ -28,9 +28,6 @@ mod offline;
 /// Split tunneling
 pub mod split_tunnel;
 
-/// Working with processes.
-pub mod process;
-
 /// Abstracts over different VPN tunnel technologies
 pub mod tunnel;
 
@@ -54,14 +51,11 @@ pub mod future_retry;
 
 #[cfg(not(target_os = "android"))]
 /// Internal code for managing bundled proxy software.
-mod proxy;
-
-#[cfg(not(target_os = "android"))]
-mod mktemp;
+pub mod proxy;
 
 /// Misc utilities for the Linux platform.
 #[cfg(target_os = "linux")]
-mod linux;
+pub mod linux;
 
 /// A pair of functions to monitor and establish connectivity with ICMP
 pub mod ping_monitor;

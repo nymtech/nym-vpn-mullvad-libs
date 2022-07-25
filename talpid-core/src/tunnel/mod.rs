@@ -13,10 +13,6 @@ use talpid_types::net::{wireguard as wireguard_types, AllowedTunnelTraffic, Tunn
 #[cfg(target_os = "android")]
 pub use self::tun_provider::TunConfig;
 
-/// A module for all OpenVPN related tunnel management.
-#[cfg(not(target_os = "android"))]
-pub mod openvpn;
-
 /// A module for all WireGuard related tunnel management.
 pub mod wireguard;
 
@@ -53,10 +49,6 @@ pub enum Error {
     #[error(display = "Failed to configure Wireguard with the given parameters")]
     WireguardConfigError(#[error(source)] self::wireguard::config::Error),
 
-    /// There was an error listening for events from the OpenVPN tunnel
-    #[cfg(not(target_os = "android"))]
-    #[error(display = "Failed while listening for events from the OpenVPN tunnel")]
-    OpenVpnTunnelMonitoringError(#[error(source)] openvpn::Error),
 
     /// There was an error listening for events from the Wireguard tunnel
     #[error(display = "Failed while listening for events from the Wireguard tunnel")]
@@ -101,7 +93,6 @@ pub enum TunnelEvent<T: Tunnel> {
     /// Sent when the tunnel goes down.
     Down(Option<T::Error>),
 }
-
 
 
 /// Information about a VPN tunnel.
@@ -365,16 +356,12 @@ impl TunnelMonitor {
 }
 
 enum InternalTunnelMonitor {
-    #[cfg(not(target_os = "android"))]
-    OpenVpn(openvpn::OpenVpnMonitor),
     Wireguard(wireguard::WireguardMonitor),
 }
 
 impl InternalTunnelMonitor {
     fn wait(self) -> Result<()> {
         match self {
-            #[cfg(not(target_os = "android"))]
-            InternalTunnelMonitor::OpenVpn(tun) => tun.wait()?,
             InternalTunnelMonitor::Wireguard(tun) => tun.wait()?,
         }
 
