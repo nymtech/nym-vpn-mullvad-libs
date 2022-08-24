@@ -408,6 +408,33 @@ impl ConnectingState {
                 AfterDisconnect::Block(ErrorStateCause::AuthFailed(reason)),
             ),
             Some((TunnelEvent::InterfaceUp(metadata, allowed_tunnel_traffic), _done_tx)) => {
+                // FIXME: Temporary workaround that attempts to force an NCSI probe when a default route is added.
+                #[cfg(windows)]
+                {
+                    use std::net::IpAddr;
+
+                    let dns_ips = if let Some(ref servers) = shared_values.dns_servers {
+                        servers.clone()
+                    } else {
+                        let mut dns_ips = vec![metadata.ipv4_gateway.into()];
+                        if let Some(ipv6_gateway) = metadata.ipv6_gateway {
+                            dns_ips.push(ipv6_gateway.into());
+                        };
+                        dns_ips
+                    };
+                    let dns_ips = dns_ips
+                        .into_iter()
+                        .filter(|ip| {
+                            !crate::firewall::is_local_address(ip)
+                                || IpAddr::V4(metadata.ipv4_gateway) == *ip
+                                || metadata.ipv6_gateway.map(IpAddr::V6) == Some(*ip)
+                        })
+                        .collect::<Vec<_>>();
+                    if let Err(error) = shared_values.dns_monitor.set(&metadata.interface, &dns_ips) {
+                        log::debug!("Setting early DNS config failed");
+                    }
+                }
+
                 #[cfg(windows)]
                 if let Err(error) = shared_values
                     .split_tunnel
