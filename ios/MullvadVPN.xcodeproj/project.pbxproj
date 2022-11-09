@@ -71,6 +71,12 @@
 		580F8B8628197958002E0998 /* DNSSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580F8B8528197958002E0998 /* DNSSettings.swift */; };
 		580F8B872819795C002E0998 /* DNSSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580F8B8528197958002E0998 /* DNSSettings.swift */; };
 		5811DE50239014550011EB53 /* NEVPNStatus+Debug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5811DE4F239014550011EB53 /* NEVPNStatus+Debug.swift */; };
+		5815950C291BBEC900F24AF4 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5815950B291BBEC900F24AF4 /* NetworkExtension.framework */; };
+		5815950F291BBEC900F24AF4 /* DNSProxyProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5815950E291BBEC900F24AF4 /* DNSProxyProvider.swift */; };
+		58159514291BBEC900F24AF4 /* DNSProxy.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5815950A291BBEC900F24AF4 /* DNSProxy.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		58159519291BCD1000F24AF4 /* libMullvadLogging.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 581943D628F800C900B0CB5E /* libMullvadLogging.a */; };
+		5815951C291BCDBD00F24AF4 /* ApplicationConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58BFA5CB22A7CE1F00A6173D /* ApplicationConfiguration.swift */; };
+		5815951E291BCDCE00F24AF4 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = 5815951D291BCDCE00F24AF4 /* Logging */; };
 		58161C9C28352F850028ECFD /* MigrateSettingsOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58161C9B28352F850028ECFD /* MigrateSettingsOperation.swift */; };
 		5818139F28E09BD8002817DE /* libOperations.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58E5126528DDF04200B0BCDE /* libOperations.a */; };
 		581813A128E09DBB002817DE /* NoCancelledDependenciesCondition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581813A028E09DBB002817DE /* NoCancelledDependenciesCondition.swift */; };
@@ -248,6 +254,7 @@
 		58BFA5C622A7C97F00A6173D /* RelayCacheTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58BFA5C522A7C97F00A6173D /* RelayCacheTracker.swift */; };
 		58BFA5CC22A7CE1F00A6173D /* ApplicationConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58BFA5CB22A7CE1F00A6173D /* ApplicationConfiguration.swift */; };
 		58C3A4B222456F1B00340BDB /* AccountInputGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C3A4B122456F1A00340BDB /* AccountInputGroupView.swift */; };
+		58CBA7D329238FFE000DD54D /* UDPConnectionProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58CBA7D229238FFE000DD54D /* UDPConnectionProxy.swift */; };
 		58CC40EF24A601900019D96E /* ObserverList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58CC40EE24A601900019D96E /* ObserverList.swift */; };
 		58CCA010224249A1004F3011 /* ConnectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58CCA00F224249A1004F3011 /* ConnectViewController.swift */; };
 		58CCA01222424D11004F3011 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58CCA01122424D11004F3011 /* SettingsViewController.swift */; };
@@ -393,6 +400,20 @@
 			remoteGlobalIDString = 581943D528F800C900B0CB5E;
 			remoteInfo = MullvadLogging;
 		};
+		58159512291BBEC900F24AF4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 58CE5E58224146200008646E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 58159509291BBEC900F24AF4;
+			remoteInfo = DNSProxy;
+		};
+		5815951A291BCD1000F24AF4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 58CE5E58224146200008646E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 581943D528F800C900B0CB5E;
+			remoteInfo = MullvadLogging;
+		};
 		589A455728E094B300565204 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 58CE5E58224146200008646E /* Project object */;
@@ -500,6 +521,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				58CE5E81224146470008646E /* PacketTunnel.appex in Embed Foundation Extensions */,
+				58159514291BBEC900F24AF4 /* DNSProxy.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -568,6 +590,12 @@
 		580F8B8228197881002E0998 /* TunnelSettingsV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelSettingsV2.swift; sourceTree = "<group>"; };
 		580F8B8528197958002E0998 /* DNSSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DNSSettings.swift; sourceTree = "<group>"; };
 		5811DE4F239014550011EB53 /* NEVPNStatus+Debug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NEVPNStatus+Debug.swift"; sourceTree = "<group>"; };
+		5815950A291BBEC900F24AF4 /* DNSProxy.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DNSProxy.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5815950B291BBEC900F24AF4 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
+		5815950E291BBEC900F24AF4 /* DNSProxyProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DNSProxyProvider.swift; sourceTree = "<group>"; };
+		58159510291BBEC900F24AF4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		58159511291BBEC900F24AF4 /* DNSProxy.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DNSProxy.entitlements; sourceTree = "<group>"; };
+		58159518291BC64F00F24AF4 /* DNSProxy.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = DNSProxy.xcconfig; sourceTree = "<group>"; };
 		58161C9B28352F850028ECFD /* MigrateSettingsOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrateSettingsOperation.swift; sourceTree = "<group>"; };
 		581813A028E09DBB002817DE /* NoCancelledDependenciesCondition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoCancelledDependenciesCondition.swift; sourceTree = "<group>"; };
 		581813A228E09DCD002817DE /* NoFailedDependenciesCondition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoFailedDependenciesCondition.swift; sourceTree = "<group>"; };
@@ -737,6 +765,7 @@
 		58BFA5C522A7C97F00A6173D /* RelayCacheTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayCacheTracker.swift; sourceTree = "<group>"; };
 		58BFA5CB22A7CE1F00A6173D /* ApplicationConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationConfiguration.swift; sourceTree = "<group>"; };
 		58C3A4B122456F1A00340BDB /* AccountInputGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountInputGroupView.swift; sourceTree = "<group>"; };
+		58CBA7D229238FFE000DD54D /* UDPConnectionProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UDPConnectionProxy.swift; sourceTree = "<group>"; };
 		58CC40EE24A601900019D96E /* ObserverList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObserverList.swift; sourceTree = "<group>"; };
 		58CCA00F224249A1004F3011 /* ConnectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectViewController.swift; sourceTree = "<group>"; };
 		58CCA01122424D11004F3011 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
@@ -831,6 +860,16 @@
 				06D47B7B28F98F53008E762C /* libMullvadTypes.a in Frameworks */,
 				06D9845328F99105003AABE9 /* Logging in Frameworks */,
 				06D47B7E28F98F53008E762C /* libOperations.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58159507291BBEC900F24AF4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5815951E291BCDCE00F24AF4 /* Logging in Frameworks */,
+				5815950C291BBEC900F24AF4 /* NetworkExtension.framework in Frameworks */,
+				58159519291BCD1000F24AF4 /* libMullvadLogging.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1016,6 +1055,17 @@
 			path = SettingsManager;
 			sourceTree = "<group>";
 		};
+		5815950D291BBEC900F24AF4 /* DNSProxy */ = {
+			isa = PBXGroup;
+			children = (
+				5815950E291BBEC900F24AF4 /* DNSProxyProvider.swift */,
+				58CBA7D229238FFE000DD54D /* UDPConnectionProxy.swift */,
+				58159510291BBEC900F24AF4 /* Info.plist */,
+				58159511291BBEC900F24AF4 /* DNSProxy.entitlements */,
+			);
+			path = DNSProxy;
+			sourceTree = "<group>";
+		};
 		581943D728F800C900B0CB5E /* MullvadLogging */ = {
 			isa = PBXGroup;
 			children = (
@@ -1109,6 +1159,7 @@
 		584F991F2902CBDD001F858D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				5815950B291BBEC900F24AF4 /* NetworkExtension.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -1223,6 +1274,7 @@
 				58E5126628DDF04200B0BCDE /* Operations */,
 				589A455328E094B300565204 /* OperationsTests */,
 				58CE5E7A224146470008646E /* PacketTunnel */,
+				5815950D291BBEC900F24AF4 /* DNSProxy */,
 				58CE5E61224146200008646E /* Products */,
 				584F991F2902CBDD001F858D /* Frameworks */,
 			);
@@ -1244,6 +1296,7 @@
 				5898D28929017BD400EB5EBA /* libTunnelProviderMessaging.a */,
 				5898D29829017DAC00EB5EBA /* libRelaySelector.a */,
 				58FBFBE6291622580020E046 /* MullvadRESTTests.xctest */,
+				5815950A291BBEC900F24AF4 /* DNSProxy.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1452,6 +1505,7 @@
 				5808273928487E3E006B77A4 /* Base.xcconfig */,
 				5808273B284888BC006B77A4 /* App.xcconfig */,
 				5808273C284888E5006B77A4 /* PacketTunnel.xcconfig */,
+				58159518291BC64F00F24AF4 /* DNSProxy.xcconfig */,
 				58ECD29123F178FD004298B6 /* Screenshots.xcconfig */,
 			);
 			path = Configurations;
@@ -1561,6 +1615,27 @@
 			productName = MullvadNetwork;
 			productReference = 06799ABC28F98E1D00ACD94E /* MullvadREST.framework */;
 			productType = "com.apple.product-type.framework";
+		};
+		58159509291BBEC900F24AF4 /* DNSProxy */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 58159517291BBEC900F24AF4 /* Build configuration list for PBXNativeTarget "DNSProxy" */;
+			buildPhases = (
+				58159506291BBEC900F24AF4 /* Sources */,
+				58159507291BBEC900F24AF4 /* Frameworks */,
+				58159508291BBEC900F24AF4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5815951B291BCD1000F24AF4 /* PBXTargetDependency */,
+			);
+			name = DNSProxy;
+			packageProductDependencies = (
+				5815951D291BCDCE00F24AF4 /* Logging */,
+			);
+			productName = DNSProxy;
+			productReference = 5815950A291BBEC900F24AF4 /* DNSProxy.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		581943D528F800C900B0CB5E /* MullvadLogging */ = {
 			isa = PBXNativeTarget;
@@ -1690,6 +1765,7 @@
 				58E5126E28DDF09F00B0BCDE /* PBXTargetDependency */,
 				58CE5E80224146470008646E /* PBXTargetDependency */,
 				063F02782902B63F001FA09F /* PBXTargetDependency */,
+				58159513291BBEC900F24AF4 /* PBXTargetDependency */,
 			);
 			name = MullvadVPN;
 			packageProductDependencies = (
@@ -1794,6 +1870,9 @@
 					06799ABB28F98E1D00ACD94E = {
 						CreatedOnToolsVersion = 14.0.1;
 					};
+					58159509291BBEC900F24AF4 = {
+						CreatedOnToolsVersion = 14.1;
+					};
 					581943D528F800C900B0CB5E = {
 						CreatedOnToolsVersion = 14.0.1;
 						LastSwiftMigration = 1400;
@@ -1869,6 +1948,7 @@
 				58CE5E5F224146200008646E /* MullvadVPN */,
 				58FBDA9722A519BC00EB69A3 /* WireGuardGoBridge */,
 				58CE5E78224146470008646E /* PacketTunnel */,
+				58159509291BBEC900F24AF4 /* DNSProxy */,
 				58B0A29F238EE67E00BC001D /* MullvadVPNTests */,
 				58D0C79223F1CE7000FE9BA7 /* MullvadVPNScreenshots */,
 				58E5126428DDF04200B0BCDE /* Operations */,
@@ -1899,6 +1979,13 @@
 			files = (
 				062B45C228FE980000746E77 /* api-ip-address.json in Resources */,
 				062B45A328FD4CA700746E77 /* le_root_cert.cer in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58159508291BBEC900F24AF4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2032,6 +2119,16 @@
 				06799AE428F98E4800ACD94E /* RESTAccountsProxy.swift in Sources */,
 				5897F1742913EAF800AF5695 /* ExponentialBackoff.swift in Sources */,
 				06799AE328F98E4800ACD94E /* RESTNetworkOperation.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58159506291BBEC900F24AF4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5815950F291BBEC900F24AF4 /* DNSProxyProvider.swift in Sources */,
+				5815951C291BCDBD00F24AF4 /* ApplicationConfiguration.swift in Sources */,
+				58CBA7D329238FFE000DD54D /* UDPConnectionProxy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2405,6 +2502,16 @@
 			target = 581943D528F800C900B0CB5E /* MullvadLogging */;
 			targetProxy = 06D9846428F9A049003AABE9 /* PBXContainerItemProxy */;
 		};
+		58159513291BBEC900F24AF4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 58159509291BBEC900F24AF4 /* DNSProxy */;
+			targetProxy = 58159512291BBEC900F24AF4 /* PBXContainerItemProxy */;
+		};
+		5815951B291BCD1000F24AF4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 581943D528F800C900B0CB5E /* MullvadLogging */;
+			targetProxy = 5815951A291BCD1000F24AF4 /* PBXContainerItemProxy */;
+		};
 		589A455828E094B300565204 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 58E5126428DDF04200B0BCDE /* Operations */;
@@ -2583,6 +2690,58 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		58159515291BBEC900F24AF4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 58159518291BC64F00F24AF4 /* DNSProxy.xcconfig */;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = DNSProxy/DNSProxy.entitlements;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DNSProxy/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DNSProxy;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2022 Mullvad VPN AB. All rights reserved.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2022.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).DNSProxy";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		58159516291BBEC900F24AF4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 58159518291BC64F00F24AF4 /* DNSProxy.xcconfig */;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = DNSProxy/DNSProxy.entitlements;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DNSProxy/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DNSProxy;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2022 Mullvad VPN AB. All rights reserved.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2022.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).DNSProxy";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
@@ -3138,6 +3297,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		58159517291BBEC900F24AF4 /* Build configuration list for PBXNativeTarget "DNSProxy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				58159515291BBEC900F24AF4 /* Debug */,
+				58159516291BBEC900F24AF4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		581943DC28F800C900B0CB5E /* Build configuration list for PBXNativeTarget "MullvadLogging" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3311,6 +3479,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 58BA79192578F092006FAEA0 /* XCRemoteSwiftPackageReference "wireguard-apple" */;
 			productName = WireGuardKitTypes;
+		};
+		5815951D291BCDCE00F24AF4 /* Logging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 585834F624D2BC1F00A8AF56 /* XCRemoteSwiftPackageReference "swift-log" */;
+			productName = Logging;
 		};
 		583E1E2B2848E1A1004838B3 /* WireGuardKitTypes */ = {
 			isa = XCSwiftPackageProductDependency;

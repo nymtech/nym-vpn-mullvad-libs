@@ -74,12 +74,23 @@ class StartTunnelOperation: ResultOperation<Void, Error> {
                 do {
                     let tunnelProvider = try result.get()
 
-                    try self.startTunnel(
-                        tunnelProvider: tunnelProvider,
-                        selectorResult: selectorResult
-                    )
+                    self.setupDNSProvider { error in
+                        if let error = error {
+                            completionHandler(error)
+                            return
+                        }
 
-                    completionHandler(nil)
+                        do {
+                            try self.startTunnel(
+                                tunnelProvider: tunnelProvider,
+                                selectorResult: selectorResult
+                            )
+
+                            completionHandler(nil)
+                        } catch {
+                            completionHandler(error)
+                        }
+                    }
                 } catch {
                     completionHandler(error)
                 }
@@ -162,5 +173,37 @@ class StartTunnelOperation: ResultOperation<Void, Error> {
         alwaysOnRule.interfaceTypeMatch = .any
         tunnelProvider.onDemandRules = [alwaysOnRule]
         tunnelProvider.isOnDemandEnabled = true
+    }
+
+    private func setupDNSProvider(completion: @escaping (Error?) -> Void) {
+        let dnsManager = NEDNSProxyManager.shared()
+
+        dnsManager.loadFromPreferences { error in
+            if let error = error {
+                self.logger.error(error: error, message: "Failed to load DNS proxy configurations.")
+                completion(error)
+                return
+            }
+
+            let proto = NEDNSProxyProviderProtocol()
+            proto.providerConfiguration = [:]
+            proto.providerBundleIdentifier = "net.mullvad.MullvadVPN.DNSProxy"
+
+            dnsManager.localizedDescription = "Mullvad DNS proxy"
+            dnsManager.providerProtocol = proto
+            dnsManager.isEnabled = true
+            dnsManager.saveToPreferences { error in
+                if let error = error {
+                    self.logger.error(
+                        error: error,
+                        message: "Failed to load DNS proxy configurations."
+                    )
+                } else {
+                    self.logger.debug("Saved DNS proxy settings.")
+                }
+
+                completion(error)
+            }
+        }
     }
 }
