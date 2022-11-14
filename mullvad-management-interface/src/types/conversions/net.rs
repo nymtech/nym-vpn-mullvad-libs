@@ -31,6 +31,7 @@ impl From<talpid_types::net::TunnelEndpoint> for proto::TunnelEndpoint {
                     )),
                     obfuscation_type: match obfuscation_endpoint.obfuscation_type {
                         net::ObfuscationType::Udp2Tcp => i32::from(proto::ObfuscationType::Udp2tcp),
+                        net::ObfuscationType::Socks5 => unimplemented!("fixme"),
                     },
                 }
             }),

@@ -74,6 +74,10 @@ impl TunnelParameters {
                 address: *endpoint,
                 protocol: TransportProtocol::Tcp,
             },
+            ObfuscatorConfig::Socks5 { endpoint } => Endpoint {
+                address: *endpoint,
+                protocol: TransportProtocol::Udp,
+            },
         }
     }
 
@@ -175,12 +179,16 @@ impl fmt::Display for TunnelEndpoint {
 pub enum ObfuscationType {
     #[serde(rename = "udp2tcp")]
     Udp2Tcp,
+
+    #[serde(rename = "socks5")]
+    Socks5,
 }
 
 impl fmt::Display for ObfuscationType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             ObfuscationType::Udp2Tcp => "Udp2Tcp".fmt(f),
+            ObfuscationType::Socks5 => "SOCKS5".fmt(f),
         }
     }
 }
@@ -201,6 +209,14 @@ impl From<&ObfuscatorConfig> for ObfuscationEndpoint {
                     protocol: TransportProtocol::Tcp,
                 },
                 ObfuscationType::Udp2Tcp,
+            ),
+            ObfuscatorConfig::Socks5 { endpoint } => (
+                // FIXME: terrible
+                Endpoint {
+                    address: *endpoint,
+                    protocol: TransportProtocol::Udp,
+                },
+                ObfuscationType::Socks5,
             ),
         };
 

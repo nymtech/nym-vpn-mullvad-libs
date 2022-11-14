@@ -16,7 +16,7 @@ use std::io;
 use std::{
     borrow::Cow,
     convert::Infallible,
-    net::IpAddr,
+    net::{IpAddr, SocketAddr, Ipv4Addr, ToSocketAddrs, SocketAddrV4},
     path::Path,
     pin::Pin,
     sync::{mpsc as sync_mpsc, Arc, Mutex},
@@ -37,7 +37,7 @@ use talpid_types::{
     },
     ErrorExt,
 };
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::{sync::Mutex as AsyncMutex, net::{UdpSocket, TcpStream}};
 use tunnel_obfuscation::{
     create_obfuscator, Error as ObfuscationError, Settings as ObfuscationSettings, Udp2TcpSettings,
 };
@@ -159,6 +159,12 @@ async fn maybe_create_obfuscator(
     // The first one is always the entry relay.
     let mut first_peer = config.peers.get_mut(0).expect("missing peer");
 
+    log::debug!("FIXME: use actual settings");
+    config.obfuscator_config = Some(ObfuscatorConfig::Socks5 {
+        endpoint: "127.0.0.1:1337".parse().unwrap(),
+        //endpoint: "185.213.154.131:443".parse().unwrap(),
+    });
+
     if let Some(ref obfuscator_config) = config.obfuscator_config {
         match obfuscator_config {
             ObfuscatorConfig::Udp2Tcp { endpoint } => {
@@ -191,6 +197,64 @@ async fn maybe_create_obfuscator(
                 });
                 tokio::spawn(runner);
                 return Ok(Some(ObfuscatorHandle::new(abort_handle)));
+            }
+            ObfuscatorConfig::Socks5 { endpoint } => {
+                // TODO: fix panics
+                // TODO: kill tasks when context is dropped
+
+                log::debug!("Connecting to SOCKS5 endpoint {:?}", *endpoint);
+
+                let remote_wireguard_peer = first_peer.endpoint;
+
+                let stream = TcpStream::connect(endpoint).await.expect("failed to connect to socks endpoint");
+                let udp_fwd = fast_socks5::client::Socks5Datagram::bind(stream, "0.0.0.0:0").await
+                    .expect("failed to create UDP socket");
+
+                let udp_fwd = Arc::new(udp_fwd);
+                let (udp_fwd_tx, udp_fwd_rx) = (udp_fwd.clone(), udp_fwd);
+
+                const MAX_DATAGRAM_SIZE: usize = u16::MAX as usize;
+
+                let udp_proxy = Arc::new(UdpSocket::bind(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 0)).await.expect("udp bind failed"));
+
+                first_peer.endpoint = udp_proxy.local_addr().unwrap();
+                log::debug!("patched peer endpoint to {}", first_peer.endpoint);
+
+                let (udp_tx, udp_rx) = (udp_proxy.clone(), udp_proxy);
+
+                // create a transparent UDP proxy
+
+                tokio::spawn(async move {
+                    // forward from udp_proxy to udp_fwd
+                    let mut udp_buf = vec![0u8; MAX_DATAGRAM_SIZE].into_boxed_slice();
+
+                    let (_dat, addr) = udp_tx.peek_from(&mut udp_buf).await.unwrap();
+                    log::debug!("received udp conn from {addr}. connecting socket to it");
+                    udp_tx.connect(addr).await.unwrap();
+
+                    loop {
+                        let read_bytes = udp_tx
+                            .recv(&mut udp_buf)
+                            .await
+                            .expect("Failed reading from UDP");
+                        //log::debug!("udp rx {read_bytes} bytes -> udp fwd");
+                        udp_fwd_rx.send_to(&udp_buf[..read_bytes], remote_wireguard_peer).await.expect("failed to fwd bytes");
+                    }
+                });
+
+                tokio::spawn(async move {
+                    // forward from udp_fwd to udp_proxy
+                    let mut udp_buf = vec![0u8; MAX_DATAGRAM_SIZE].into_boxed_slice();
+                    loop {
+                        let (read_bytes, _target) = udp_fwd_tx
+                            .recv_from(&mut udp_buf)
+                            .await
+                            .expect("Failed reading from UDP fwd");
+                        // NOTE: _target refers to the remote address
+                        //log::debug!("udp fwd {read_bytes} bytes (target {target}) -> udp rx");
+                        udp_rx.send(&udp_buf[..read_bytes]).await.expect("failed to rcv fwd bytes");
+                    }
+                });
             }
         }
     }
