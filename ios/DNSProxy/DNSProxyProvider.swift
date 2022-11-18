@@ -38,7 +38,9 @@ class DNSProxyProvider: NEDNSProxyProvider {
         completionHandler: @escaping (Error?) -> Void
     ) {
         logger.debug("Start DNS proxy.")
-
+        pathMonitor.pathUpdateHandler = { _ in
+            // Do nothing.
+        }
         pathMonitor.start(queue: connectionQueue)
 
         completionHandler(nil)
@@ -102,7 +104,8 @@ class DNSProxyProvider: NEDNSProxyProvider {
             """
             Got new UDP flow with local endpoint: \(localEndpointString), \
             to \(remoteEndpoint) via \(interfaceName) (isBound: \(isBound)), \
-            resolving \(resolvedHost)
+            resolving \(resolvedHost), \
+            app \(flow.metaData.sourceAppSigningIdentifier)
             """
         )
 
@@ -116,10 +119,17 @@ class DNSProxyProvider: NEDNSProxyProvider {
                 return
             }
 
-            if "\(remoteAddress)".hasPrefix("10.64.0.") {
+            do {
+                let routeResult = try resolveRoute(to: remoteAddress)
                 let interfaces = self.pathMonitor.currentPath.availableInterfaces
                 let requiredInterface = interfaces.first { interface in
-                    return interface.name.hasPrefix("utun")
+                    return interface.name == routeResult.interfaceName
+                }
+
+                if "\(remoteAddress)".hasPrefix("10.64.0."),
+                   !routeResult.interfaceName.hasPrefix("utun")
+                {
+                    self.logger.error("Trying to route 10.64.0.x outside the tunnel.")
                 }
 
                 self.startUDPConnection(
@@ -128,13 +138,12 @@ class DNSProxyProvider: NEDNSProxyProvider {
                     requiredInterface: requiredInterface,
                     flow: flow
                 )
-            } else {
-                self.startUDPConnection(
-                    ipAddress: remoteAddress,
-                    port: remotePort,
-                    requiredInterface: nil,
-                    flow: flow
-                )
+            } catch {
+                self.logger.error(error: error, message: "Failed to resolve route.")
+
+                let refuseError = NEAppProxyFlowError(.refused)
+                flow.closeReadWithError(refuseError)
+                flow.closeWriteWithError(refuseError)
             }
         }
 

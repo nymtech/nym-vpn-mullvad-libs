@@ -60,6 +60,11 @@
 		06D9845428F99133003AABE9 /* libMullvadLogging.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 581943D628F800C900B0CB5E /* libMullvadLogging.a */; };
 		06D9845A28F9918C003AABE9 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = 06D9845928F9918C003AABE9 /* Logging */; };
 		06D9846328F9A049003AABE9 /* libMullvadLogging.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 581943D628F800C900B0CB5E /* libMullvadLogging.a */; };
+		580029F72927BB0C00FE781F /* RouteResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580029F62927BB0C00FE781F /* RouteResolution.swift */; };
+		580029FA2927BB5A00FE781F /* POSIXError+errno.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580029F92927BB5A00FE781F /* POSIXError+errno.swift */; };
+		580029FC2927BB6800FE781F /* ParseIPAddressError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580029FB2927BB6800FE781F /* ParseIPAddressError.swift */; };
+		580029FE2927BB7700FE781F /* ParseNetmaskError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580029FD2927BB7700FE781F /* ParseNetmaskError.swift */; };
+		58002A002927BBD200FE781F /* RouteResolutionError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580029FF2927BBD200FE781F /* RouteResolutionError.swift */; };
 		5806767C27048E9B00C858CB /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58CE5E7B224146470008646E /* PacketTunnelProvider.swift */; };
 		5807483B27DB8A980020ECBF /* WireGuardKitTypes in Frameworks */ = {isa = PBXBuildFile; productRef = 5807483A27DB8A980020ECBF /* WireGuardKitTypes */; };
 		5807E2C02432038B00F5FF30 /* String+Split.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5807E2BF2432038B00F5FF30 /* String+Split.swift */; };
@@ -576,6 +581,11 @@
 		06FAE67B28F83CA50033DD93 /* REST.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = REST.swift; sourceTree = "<group>"; };
 		06FAE67C28F83CA50033DD93 /* URLSessionTransport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = URLSessionTransport.swift; sourceTree = "<group>"; };
 		06FAE67D28F83CA50033DD93 /* RESTTransport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RESTTransport.swift; sourceTree = "<group>"; };
+		580029F62927BB0C00FE781F /* RouteResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteResolution.swift; sourceTree = "<group>"; };
+		580029F92927BB5A00FE781F /* POSIXError+errno.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "POSIXError+errno.swift"; sourceTree = "<group>"; };
+		580029FB2927BB6800FE781F /* ParseIPAddressError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseIPAddressError.swift; sourceTree = "<group>"; };
+		580029FD2927BB7700FE781F /* ParseNetmaskError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseNetmaskError.swift; sourceTree = "<group>"; };
+		580029FF2927BBD200FE781F /* RouteResolutionError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteResolutionError.swift; sourceTree = "<group>"; };
 		58059DDB28465E8F002B1049 /* TransformOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TransformOperation.swift; sourceTree = "<group>"; };
 		58059DDD28468158002B1049 /* OutputOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputOperation.swift; sourceTree = "<group>"; };
 		58059DDF2846823E002B1049 /* ResultOperation+Output.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResultOperation+Output.swift"; sourceTree = "<group>"; };
@@ -766,6 +776,8 @@
 		58BFA5CB22A7CE1F00A6173D /* ApplicationConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationConfiguration.swift; sourceTree = "<group>"; };
 		58C3A4B122456F1A00340BDB /* AccountInputGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountInputGroupView.swift; sourceTree = "<group>"; };
 		58CBA7D229238FFE000DD54D /* UDPConnectionProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UDPConnectionProxy.swift; sourceTree = "<group>"; };
+		58CBA7D529251A48000DD54D /* ObjCBridgingHeader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObjCBridgingHeader.h; sourceTree = "<group>"; };
+		58CBA7D629251A95000DD54D /* route.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = route.h; sourceTree = "<group>"; };
 		58CC40EE24A601900019D96E /* ObserverList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObserverList.swift; sourceTree = "<group>"; };
 		58CCA00F224249A1004F3011 /* ConnectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectViewController.swift; sourceTree = "<group>"; };
 		58CCA01122424D11004F3011 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
@@ -1044,6 +1056,18 @@
 			path = MullvadREST;
 			sourceTree = "<group>";
 		};
+		580029F82927BB4A00FE781F /* RouteResolver */ = {
+			isa = PBXGroup;
+			children = (
+				580029F62927BB0C00FE781F /* RouteResolution.swift */,
+				580029F92927BB5A00FE781F /* POSIXError+errno.swift */,
+				580029FB2927BB6800FE781F /* ParseIPAddressError.swift */,
+				580029FD2927BB7700FE781F /* ParseNetmaskError.swift */,
+				580029FF2927BBD200FE781F /* RouteResolutionError.swift */,
+			);
+			path = RouteResolver;
+			sourceTree = "<group>";
+		};
 		580F8B88281A79A7002E0998 /* SettingsManager */ = {
 			isa = PBXGroup;
 			children = (
@@ -1062,6 +1086,9 @@
 				58CBA7D229238FFE000DD54D /* UDPConnectionProxy.swift */,
 				58159510291BBEC900F24AF4 /* Info.plist */,
 				58159511291BBEC900F24AF4 /* DNSProxy.entitlements */,
+				58CBA7D629251A95000DD54D /* route.h */,
+				58CBA7D529251A48000DD54D /* ObjCBridgingHeader.h */,
+				580029F82927BB4A00FE781F /* RouteResolver */,
 			);
 			path = DNSProxy;
 			sourceTree = "<group>";
@@ -2126,9 +2153,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				580029FC2927BB6800FE781F /* ParseIPAddressError.swift in Sources */,
 				5815950F291BBEC900F24AF4 /* DNSProxyProvider.swift in Sources */,
+				58002A002927BBD200FE781F /* RouteResolutionError.swift in Sources */,
 				5815951C291BCDBD00F24AF4 /* ApplicationConfiguration.swift in Sources */,
 				58CBA7D329238FFE000DD54D /* UDPConnectionProxy.swift in Sources */,
+				580029FA2927BB5A00FE781F /* POSIXError+errno.swift in Sources */,
+				580029FE2927BB7700FE781F /* ParseNetmaskError.swift in Sources */,
+				580029F72927BB0C00FE781F /* RouteResolution.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2715,6 +2747,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/DNSProxy/ObjCBridgingHeader.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -2741,6 +2774,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/DNSProxy/ObjCBridgingHeader.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

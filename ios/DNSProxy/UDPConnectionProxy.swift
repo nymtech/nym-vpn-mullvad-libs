@@ -13,7 +13,7 @@ import class NetworkExtension.NEAppProxyUDPFlow
 import class NetworkExtension.NWHostEndpoint
 
 final class UDPConnectionProxy {
-    private let logger: Logger
+    private var logger: Logger
     private let hostEndpoint: NWHostEndpoint
     private let queue: DispatchQueue
     private let flow: NEAppProxyUDPFlow
@@ -30,6 +30,7 @@ final class UDPConnectionProxy {
         queue: DispatchQueue
     ) {
         logger = Logger(label: "UDPConnectionProxy.\(nextConnectionId())")
+        logger.logLevel = .debug
         hostEndpoint = NWHostEndpoint(hostname: "\(ipAddress)", port: "\(port)")
 
         let parameters = NWParameters.udp
@@ -71,20 +72,15 @@ final class UDPConnectionProxy {
         connection.stateUpdateHandler = { state in
             self.handleStateChange(state)
         }
-        connection.pathUpdateHandler = { path in
-            let remoteEndpoint = path.remoteEndpoint.map { "\($0)" } ?? "(nil)"
 
-            self.logger.debug(
-                """
-                Path for remote endpoint: \(remoteEndpoint) via \
-                \(path.availableInterfaces.map { $0.name })
-                """
-            )
-        }
+        let interfaceName = connection.parameters.requiredInterface?.name ?? "default"
+        self.logger.debug(
+            """
+            Start UDP connection to \(hostEndpoint) via \(interfaceName).
+            """
+        )
 
         connection.start(queue: queue)
-
-        logger.debug("Start UDP connection to \(hostEndpoint).")
     }
 
     private func handleStateChange(_ state: NWConnection.State) {
@@ -118,7 +114,9 @@ final class UDPConnectionProxy {
             // If the datagrams and remoteEndpoints arrays are non-nil but are empty, then no more
             // datagrams can be subsequently read from the flow.
             guard let data = data, let endpoints = endpoints, !data.isEmpty else {
-                self.logger.debug("Reached the end of inbound flow.")
+                #if DEBUG
+                self.logger.trace("Reached the end of inbound flow.")
+                #endif
                 return
             }
 
@@ -128,7 +126,7 @@ final class UDPConnectionProxy {
                 dispatchGroup.enter()
 
                 #if DEBUG
-                self.logger.debug(
+                self.logger.trace(
                     """
                     Received datagram (\(payload.count) bytes) from \(endpoints[index])
                     """
@@ -171,14 +169,18 @@ final class UDPConnectionProxy {
                     }
 
                     if isComplete {
-                        self.logger.debug("UDP connection is complete.")
+                        #if DEBUG
+                        self.logger.trace("UDP connection is complete.")
+                        #endif
                         self.finish(error: nil)
                     } else {
                         self.receiveData()
                     }
                 }
             } else if isComplete {
-                self.logger.debug("UDP connection is complete.")
+                #if DEBUG
+                self.logger.trace("UDP connection is complete.")
+                #endif
                 self.finish(error: nil)
             } else {
                 // Must never happen
