@@ -113,23 +113,30 @@ class DNSProxyProvider: NEDNSProxyProvider {
               let remoteAddress = remoteEndpoint.ipAddress,
               let remotePort = UInt16(remoteEndpoint.port) else { return false }
 
-        flow.open(withLocalEndpoint: flow.localEndpoint as? NWHostEndpoint) { error in
-            if let error = error {
-                self.logger.error(error: error, message: "Failed to open the flow.")
-                return
+        do {
+            let routeResult = try resolveRoute(to: remoteAddress)
+            let requiredInterface = pathMonitor.currentPath.availableInterfaces.first { interface in
+                return interface.name == routeResult.interfaceName
             }
 
-            do {
-                let routeResult = try resolveRoute(to: remoteAddress)
-                let interfaces = self.pathMonitor.currentPath.availableInterfaces
-                let requiredInterface = interfaces.first { interface in
-                    return interface.name == routeResult.interfaceName
-                }
+            if "\(remoteAddress)".hasPrefix("10.64.0."),
+               !routeResult.interfaceName.hasPrefix("utun")
+            {
+                logger.error("Trying to route 10.64.0.x outside the tunnel.")
+            }
 
-                if "\(remoteAddress)".hasPrefix("10.64.0."),
-                   !routeResult.interfaceName.hasPrefix("utun")
-                {
-                    self.logger.error("Trying to route 10.64.0.x outside the tunnel.")
+            if #available(iOSApplicationExtension 13.4, *) {
+                if let inner = requiredInterface?.inner {
+                    // If the flow's data is transported using a different interface, this property
+                    // should be set to that interface.
+                    flow.networkInterface = inner
+                }
+            }
+
+            flow.open(withLocalEndpoint: flow.localEndpoint as? NWHostEndpoint) { error in
+                if let error = error {
+                    self.logger.error(error: error, message: "Failed to open the flow.")
+                    return
                 }
 
                 self.startUDPConnection(
@@ -138,13 +145,13 @@ class DNSProxyProvider: NEDNSProxyProvider {
                     requiredInterface: requiredInterface,
                     flow: flow
                 )
-            } catch {
-                self.logger.error(error: error, message: "Failed to resolve route.")
-
-                let refuseError = NEAppProxyFlowError(.refused)
-                flow.closeReadWithError(refuseError)
-                flow.closeWriteWithError(refuseError)
             }
+        } catch {
+            logger.error(error: error, message: "Failed to resolve route.")
+
+            let refuseError = NEAppProxyFlowError(.refused)
+            flow.closeReadWithError(refuseError)
+            flow.closeWriteWithError(refuseError)
         }
 
         return true
@@ -171,5 +178,14 @@ class DNSProxyProvider: NEDNSProxyProvider {
 private extension NWHostEndpoint {
     var ipAddress: IPAddress? {
         return IPv4Address(hostname) ?? IPv6Address(hostname)
+    }
+}
+
+private extension NWInterface {
+    var inner: nw_interface_t? {
+        let mirror = Mirror(reflecting: self)
+        let nw = mirror.children.first { $0.label == "nw" }
+
+        return nw?.value as? nw_interface_t
     }
 }
