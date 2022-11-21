@@ -125,13 +125,15 @@ class DNSProxyProvider: NEDNSProxyProvider {
                 logger.error("Trying to route 10.64.0.x outside the tunnel.")
             }
 
-            if #available(iOSApplicationExtension 13.4, *) {
+            /*
+             if #available(iOSApplicationExtension 13.4, *) {
                 if let inner = requiredInterface?.inner {
                     // If the flow's data is transported using a different interface, this property
                     // should be set to that interface.
                     flow.networkInterface = inner
                 }
             }
+             */
 
             flow.open(withLocalEndpoint: flow.localEndpoint as? NWHostEndpoint) { error in
                 if let error = error {

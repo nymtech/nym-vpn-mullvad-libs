@@ -165,6 +165,10 @@ class StartTunnelOperation: ResultOperation<Void, Error> {
             .packetTunnelExtensionIdentifier
         protocolConfig.serverAddress = ""
 
+        if #available(iOS 14.2, *) {
+            protocolConfig.excludeLocalNetworks = true
+        }
+
         tunnelProvider.isEnabled = true
         tunnelProvider.localizedDescription = "WireGuard"
         tunnelProvider.protocolConfiguration = protocolConfig

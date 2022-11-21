@@ -342,6 +342,29 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         tunnelMonitor.onWake()
     }
 
+    override func setTunnelNetworkSettings(
+        _ tunnelNetworkSettings: NETunnelNetworkSettings?,
+        completionHandler: ((Error?) -> Void)? = nil
+    ) {
+        if let tunnelNetworkSettings = tunnelNetworkSettings as? NEPacketTunnelNetworkSettings {
+            if let ipv4Settings = tunnelNetworkSettings.ipv4Settings {
+                ipv4Settings.excludedRoutes = [
+                    NEIPv4Route(destinationAddress: "10.0.0.0", subnetMask: "255.255.255.0"),
+                    NEIPv4Route(destinationAddress: "172.16.0.0", subnetMask: "255.240.0.0"),
+                    NEIPv4Route(destinationAddress: "192.168.0.0", subnetMask: "255.255.0.0"),
+                ]
+            }
+
+            if let ipv6Settings = tunnelNetworkSettings.ipv6Settings {
+                ipv6Settings.excludedRoutes = [
+                    NEIPv6Route(destinationAddress: "fe80::", networkPrefixLength: 10),
+                ]
+            }
+        }
+
+        super.setTunnelNetworkSettings(tunnelNetworkSettings, completionHandler: completionHandler)
+    }
+
     // MARK: - TunnelMonitorDelegate
 
     func tunnelMonitorDidDetermineConnectionEstablished(_ tunnelMonitor: TunnelMonitor) {
