@@ -119,6 +119,10 @@ class DNSProxyProvider: NEDNSProxyProvider {
                 return interface.name == routeResult.interfaceName
             }
 
+            logger.debug(
+                "Route to \(remoteAddress) via \(requiredInterface?.name ?? "(null)")"
+            )
+
             if "\(remoteAddress)".hasPrefix("10.64.0."),
                !routeResult.interfaceName.hasPrefix("utun")
             {
