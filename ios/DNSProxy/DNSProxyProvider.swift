@@ -130,14 +130,14 @@ class DNSProxyProvider: NEDNSProxyProvider {
             }
 
             /*
-             if #available(iOSApplicationExtension 13.4, *) {
-                if let inner = requiredInterface?.inner {
-                    // If the flow's data is transported using a different interface, this property
-                    // should be set to that interface.
-                    flow.networkInterface = inner
-                }
-            }
-             */
+              if #available(iOSApplicationExtension 13.4, *) {
+                 if let inner = requiredInterface?.inner {
+                     // If the flow's data is transported using a different interface, this property
+                     // should be set to that interface.
+                     flow.networkInterface = inner
+                 }
+             }
+              */
 
             flow.open(withLocalEndpoint: flow.localEndpoint as? NWHostEndpoint) { error in
                 if let error = error {
