@@ -137,7 +137,10 @@ class DNSProxyProvider: NEDNSProxyProvider {
 
             flow.open(withLocalEndpoint: flow.localEndpoint as? NWHostEndpoint) { error in
                 if let error = error {
-                    self.logger.error(error: error, message: "Failed to open the flow.")
+                    self.logger.error(
+                        error: error,
+                        message: "Failed to open the flow to \(remoteAddress)."
+                    )
                     return
                 }
 
