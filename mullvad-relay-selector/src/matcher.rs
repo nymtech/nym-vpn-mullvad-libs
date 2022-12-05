@@ -2,10 +2,11 @@ use mullvad_types::{
     endpoint::{MullvadEndpoint, MullvadWireguardEndpoint},
     relay_constraints::{
         Constraint, LocationConstraint, Match, OpenVpnConstraints, Ownership, Providers,
-        RelayConstraints, WireguardConstraints,
+        RelayConstraints, TransportPort, WireguardConstraints,
     },
     relay_list::{
-        OpenVpnEndpoint, OpenVpnEndpointData, Relay, RelayEndpointData, WireguardEndpointData,
+        BridgeEndpointData, OpenVpnEndpoint, OpenVpnEndpointData, Relay, RelayEndpointData,
+        ShadowsocksEndpointData, WireguardEndpointData,
     },
 };
 use rand::{
@@ -13,7 +14,9 @@ use rand::{
     Rng,
 };
 use std::net::{IpAddr, SocketAddr};
-use talpid_types::net::{all_of_the_internet, wireguard, Endpoint, IpVersion, TunnelType};
+use talpid_types::net::{
+    all_of_the_internet, openvpn::ProxySettings, wireguard, Endpoint, IpVersion, TunnelType,
+};
 
 #[derive(Clone)]
 pub struct RelayMatcher<T: EndpointMatcher> {
@@ -322,11 +325,60 @@ impl EndpointMatcher for WireguardMatcher {
 }
 
 #[derive(Clone)]
-pub struct BridgeMatcher(pub ());
+pub struct BridgeMatcher {
+    pub port: Constraint<TransportPort>,
+    pub data: BridgeEndpointData,
+}
+
+impl BridgeMatcher {
+    pub fn new(port: Constraint<TransportPort>, data: BridgeEndpointData) -> Self {
+        Self { port, data }
+    }
+
+    pub fn bridge_endpoint(&self, relay: &Relay) -> Option<ProxySettings> {
+        if !self.is_matching_relay(relay) {
+            return None;
+        }
+
+        self.data
+            .shadowsocks
+            .iter()
+            .filter(|endpoint| self.is_matching_bridge_endpoint(endpoint))
+            .choose(&mut rand::thread_rng())
+            .map(|shadowsocks_endpoint| {
+                shadowsocks_endpoint.to_proxy_settings(
+                    relay.ipv4_addr_in.into(),
+                    #[cfg(target_os = "linux")]
+                    mullvad_types::TUNNEL_FWMARK,
+                )
+            })
+    }
+
+    fn has_any_matching_bridge_endpoint(&self) -> bool {
+        self.data
+            .shadowsocks
+            .iter()
+            .any(|endpoint| self.is_matching_bridge_endpoint(endpoint))
+    }
+
+    fn is_matching_bridge_endpoint(&self, endpoint: &ShadowsocksEndpointData) -> bool {
+        match self.port {
+            Constraint::Any => true,
+            Constraint::Only(transport_port) => {
+                transport_port
+                    .port
+                    .map(|port| port == endpoint.port)
+                    .unwrap_or(true)
+                    && transport_port.protocol == endpoint.protocol
+            }
+        }
+    }
+}
 
 impl EndpointMatcher for BridgeMatcher {
     fn is_matching_relay(&self, relay: &Relay) -> bool {
         matches!(relay.endpoint_data, RelayEndpointData::Bridge)
+            && self.has_any_matching_bridge_endpoint()
     }
 
     fn mullvad_endpoint(&self, _relay: &Relay) -> Option<MullvadEndpoint> {

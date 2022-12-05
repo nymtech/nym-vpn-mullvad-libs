@@ -7,12 +7,12 @@ use mullvad_types::{
     endpoint::{MullvadEndpoint, MullvadWireguardEndpoint},
     location::{Coordinates, Location},
     relay_constraints::{
-        BridgeSettings, BridgeState, Constraint, InternalBridgeConstraints, LocationConstraint,
-        Match, ObfuscationSettings, OpenVpnConstraints, Ownership, Providers, RelayConstraints,
+        BridgeConstraints, BridgeSettings, BridgeState, Constraint, LocationConstraint, Match,
+        ObfuscationSettings, OpenVpnConstraints, Ownership, Providers, RelayConstraints,
         RelaySettings, SelectedObfuscation, Set, TransportPort, Udp2TcpObfuscationSettings,
         WireguardConstraints,
     },
-    relay_list::{BridgeEndpointData, Relay, RelayEndpointData, RelayList},
+    relay_list::{Relay, RelayEndpointData, RelayList},
     CustomTunnelEndpoint,
 };
 use parking_lot::{Mutex, MutexGuard};
@@ -728,32 +728,23 @@ impl RelaySelector {
         retry_attempt: u32,
     ) -> Result<Option<SelectedBridge>, Error> {
         match &config.bridge_settings {
-            BridgeSettings::Normal(settings) => {
-                let bridge_constraints = InternalBridgeConstraints {
-                    location: settings.location.clone(),
-                    providers: settings.providers.clone(),
-                    ownership: settings.ownership,
-                    // FIXME: This is temporary while talpid-core only supports TCP proxies
-                    transport_protocol: Constraint::Only(TransportProtocol::Tcp),
-                };
-                match config.bridge_state {
-                    BridgeState::On => {
-                        let (settings, relay) = self
-                            .get_proxy_settings(&bridge_constraints, Some(location))
-                            .ok_or(Error::NoBridge)?;
-                        Ok(Some(SelectedBridge::Normal(NormalSelectedBridge {
-                            settings,
-                            relay,
-                        })))
-                    }
-                    BridgeState::Auto if Self::should_use_bridge(retry_attempt) => Ok(self
-                        .get_proxy_settings(&bridge_constraints, Some(location))
-                        .map(|(settings, relay)| {
-                            SelectedBridge::Normal(NormalSelectedBridge { settings, relay })
-                        })),
-                    BridgeState::Auto | BridgeState::Off => Ok(None),
+            BridgeSettings::Normal(settings) => match config.bridge_state {
+                BridgeState::On => {
+                    let (settings, relay) = self
+                        .get_proxy_settings(settings, Some(location))
+                        .ok_or(Error::NoBridge)?;
+                    Ok(Some(SelectedBridge::Normal(NormalSelectedBridge {
+                        settings,
+                        relay,
+                    })))
                 }
-            }
+                BridgeState::Auto if Self::should_use_bridge(retry_attempt) => Ok(self
+                    .get_proxy_settings(settings, Some(location))
+                    .map(|(settings, relay)| {
+                        SelectedBridge::Normal(NormalSelectedBridge { settings, relay })
+                    })),
+                BridgeState::Auto | BridgeState::Off => Ok(None),
+            },
             BridgeSettings::Custom(bridge_settings) => match config.bridge_state {
                 BridgeState::On => Ok(Some(SelectedBridge::Custom(bridge_settings.clone()))),
                 BridgeState::Auto if Self::should_use_bridge(retry_attempt) => {
@@ -773,22 +764,13 @@ impl RelaySelector {
             _ => None,
         };
 
+        let default_constraints = BridgeConstraints::default();
         let constraints = match &config.bridge_settings {
-            BridgeSettings::Normal(settings) => InternalBridgeConstraints {
-                location: settings.location.clone(),
-                providers: settings.providers.clone(),
-                ownership: settings.ownership,
-                transport_protocol: Constraint::Only(TransportProtocol::Tcp),
-            },
-            BridgeSettings::Custom(_bridge_settings) => InternalBridgeConstraints {
-                location: Constraint::Any,
-                providers: Constraint::Any,
-                ownership: Constraint::Any,
-                transport_protocol: Constraint::Only(TransportProtocol::Tcp),
-            },
+            BridgeSettings::Normal(settings) => settings,
+            BridgeSettings::Custom(_bridge_settings) => &default_constraints,
         };
 
-        self.get_proxy_settings(&constraints, near_location)
+        self.get_proxy_settings(constraints, near_location)
             .map(|(settings, _relay)| settings)
     }
 
@@ -804,14 +786,21 @@ impl RelaySelector {
 
     fn get_proxy_settings<T: Into<Coordinates>>(
         &self,
-        constraints: &InternalBridgeConstraints,
+        constraints: &BridgeConstraints,
         location: Option<T>,
     ) -> Option<(ProxySettings, Relay)> {
         let matcher = RelayMatcher {
             location: constraints.location.clone(),
             providers: constraints.providers.clone(),
             ownership: constraints.ownership,
-            endpoint_matcher: BridgeMatcher(()),
+            endpoint_matcher: BridgeMatcher::new(
+                Constraint::Only(TransportPort {
+                    port: Constraint::Any,
+                    // FIXME: This is temporary while talpid-core only supports TCP proxies
+                    protocol: TransportProtocol::Tcp,
+                }),
+                self.parsed_relays.lock().locations.bridge.clone(),
+            ),
         };
         let matching_relays: Vec<Relay> =
             matcher.filter_matching_relay_list(self.parsed_relays.lock().relays());
@@ -864,8 +853,15 @@ impl RelaySelector {
             self.pick_random_relay(&matching_relays).cloned()
         };
         relay.and_then(|relay| {
-            self.pick_random_bridge(&self.parsed_relays.lock().locations.bridge, &relay)
-                .map(|bridge| (bridge, relay.clone()))
+            let bridge = matcher.endpoint_matcher.bridge_endpoint(&relay)?;
+            let endpoint = bridge.get_endpoint();
+            log::info!(
+                "Selected {} bridge {} at {}",
+                relay.hostname,
+                endpoint.proxy_type,
+                endpoint.endpoint,
+            );
+            Some((bridge, relay.clone()))
         })
     }
 
@@ -1117,33 +1113,6 @@ impl RelaySelector {
                     .expect("At least one relay must've had a weight above 0"),
             )
         }
-    }
-
-    /// Picks a random bridge from a relay.
-    fn pick_random_bridge(
-        &self,
-        data: &BridgeEndpointData,
-        relay: &Relay,
-    ) -> Option<ProxySettings> {
-        if relay.endpoint_data != RelayEndpointData::Bridge {
-            return None;
-        }
-        data.shadowsocks
-            .choose(&mut rand::thread_rng())
-            .map(|shadowsocks_endpoint| {
-                log::info!(
-                    "Selected Shadowsocks bridge {} at {}:{}/{}",
-                    relay.hostname,
-                    relay.ipv4_addr_in,
-                    shadowsocks_endpoint.port,
-                    shadowsocks_endpoint.protocol
-                );
-                shadowsocks_endpoint.to_proxy_settings(
-                    relay.ipv4_addr_in.into(),
-                    #[cfg(target_os = "linux")]
-                    mullvad_types::TUNNEL_FWMARK,
-                )
-            })
     }
 
     /// Try to read the relays from disk, preferring the newer ones.

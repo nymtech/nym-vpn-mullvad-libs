@@ -599,14 +599,6 @@ impl fmt::Display for BridgeState {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
-pub struct InternalBridgeConstraints {
-    pub location: Constraint<LocationConstraint>,
-    pub providers: Constraint<Providers>,
-    pub ownership: Constraint<Ownership>,
-    pub transport_protocol: Constraint<TransportProtocol>,
-}
-
 /// Used to update the [`RelaySettings`] used in `mullvad-daemon`.
 #[derive(Debug, Deserialize, Serialize)]
 #[cfg_attr(target_os = "android", derive(FromJava))]
