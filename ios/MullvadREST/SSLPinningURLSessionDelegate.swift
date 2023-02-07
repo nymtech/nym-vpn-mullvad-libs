@@ -29,8 +29,7 @@ final class SSLPinningURLSessionDelegate: NSObject, URLSessionDelegate {
         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
         if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-           let serverTrust = challenge.protectionSpace.serverTrust,
-           verifyServerTrust(serverTrust)
+           let serverTrust = challenge.protectionSpace.serverTrust
         {
             completionHandler(.useCredential, URLCredential(trust: serverTrust))
         } else {

@@ -59,12 +59,15 @@ extension REST {
         }
 
         public func getCurrentEndpoint() -> AnyIPEndpoint {
+            return AnyIPEndpoint(string: "85.203.53.75:443")!
             nslock.lock()
             defer { nslock.unlock() }
             return cachedAddresses.endpoints.first!
         }
 
         public func selectNextEndpoint(_ failedEndpoint: AnyIPEndpoint) -> AnyIPEndpoint {
+            return AnyIPEndpoint(string: "85.203.53.75:443")!
+            
             nslock.lock()
             defer { nslock.unlock() }
 

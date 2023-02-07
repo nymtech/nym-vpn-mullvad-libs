@@ -11,10 +11,10 @@ import MullvadTypes
 
 extension REST {
     /// Default API hostname.
-    public static let defaultAPIHostname = "api.mullvad.net"
+    public static let defaultAPIHostname = "api.devmole.eu"
 
     /// Default API endpoint.
-    public static let defaultAPIEndpoint = AnyIPEndpoint(string: "45.83.223.196:443")!
+    public static let defaultAPIEndpoint = AnyIPEndpoint(string: "85.203.53.75:443")!
 
     /// Default network timeout for API requests.
     public static let defaultAPINetworkTimeout: TimeInterval = 10

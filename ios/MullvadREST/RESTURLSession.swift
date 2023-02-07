@@ -22,7 +22,7 @@ extension REST {
 
         let session = URLSession(
             configuration: .ephemeral,
-            delegate: sessionDelegate,
+            delegate: nil,
             delegateQueue: nil
         )
 
