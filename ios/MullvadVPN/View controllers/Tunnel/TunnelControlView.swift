@@ -64,6 +64,10 @@ final class TunnelControlView: UIView {
     private let connectButton: AppButton = {
         let button = AppButton(style: .success)
         button.translatesAutoresizingMaskIntoConstraints = false
+        let cb: @convention(c) (Int32) -> Int32 = { num -> Int32 in
+            return num + 2;
+        };
+        let ret = abstract_test_fp(cb, 5)
         return button
     }()
 

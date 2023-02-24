@@ -123,6 +123,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     }
 
     override init() {
+
+
         var loggerBuilder = LoggerBuilder()
 
         let pid = ProcessInfo.processInfo.processIdentifier
@@ -141,11 +143,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
 
         loggerBuilder.install()
 
-        providerLogger = Logger(label: "PacketTunnelProvider")
         tunnelLogger = Logger(label: "WireGuard")
 
         let containerURL = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: ApplicationConfiguration.securityGroupIdentifier)!
+        providerLogger = Logger(label: "PacketTunnelProvider")
+
         let addressCache = REST.AddressCache(
             canWriteToCache: false, cacheFolder: containerURL
         )
@@ -164,6 +167,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         devicesProxy = proxyFactory.createDevicesProxy()
 
         super.init()
+
+
 
         adapter = WireGuardAdapter(
             with: self,
@@ -190,6 +195,13 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         dispatchQueue.async {
             let tunnelOptions = PacketTunnelOptions(rawOptions: options ?? [:])
             var appSelectorResult: RelaySelectorResult?
+        let cb: @convention(c) (Int32) -> Int32 = { num -> Int32 in
+            return num + 2;
+        };
+        let ret = abstract_test_fp(cb, 5)
+
+            self.providerLogger.error("eblan retval of abstract_test_fp = \(ret)")
+
 
             // Parse relay selector from tunnel options.
             do {

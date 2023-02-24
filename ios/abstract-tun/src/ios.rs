@@ -165,7 +165,7 @@ pub extern "C" fn abstract_tun_init_instance(
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_tun_handle_tunnel_traffic(
+pub extern fn abstract_tun_handle_tunnel_traffic(
     tun: *mut IOSTun,
     packet: *const u8,
     packet_size: usize,
@@ -176,7 +176,7 @@ pub extern "C" fn abstract_tun_handle_tunnel_traffic(
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_tun_handle_udp_packet(
+pub extern fn abstract_tun_handle_udp_packet(
     tun: *mut IOSTun,
     packet: *const u8,
     packet_size: usize,
@@ -187,18 +187,18 @@ pub extern "C" fn abstract_tun_handle_udp_packet(
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
+pub extern fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     tun.wg.handle_timer_tick();
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
+pub extern fn abstract_tun_drop(tun: *mut IOSTun) {
     let tun: Box<IOSTun> = unsafe { std::ptr::read(tun as *mut _) };
     std::mem::drop(tun);
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_test_fp(fp: extern "C" fn (i32) -> i32, num: i32) -> i32{
+pub extern fn abstract_test_fp(fp: extern "C" fn (i32) -> i32, num: i32) -> i32{
     fp(num) + 5
 }

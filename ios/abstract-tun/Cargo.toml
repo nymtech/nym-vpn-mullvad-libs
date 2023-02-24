@@ -28,3 +28,7 @@ crate-type = [ "staticlib" ]
 
 [profile.release]
 debug = true
+lto = false
+
+# [profile.debug]
+# lto = false
