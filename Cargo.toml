@@ -29,6 +29,9 @@ members = [
     "mullvad-management-interface",
     "tunnel-obfuscation",
 ]
+exclude = [
+ "ios/"
+]
 
 [profile.release]
 opt-level = 3
