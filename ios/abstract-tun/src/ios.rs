@@ -17,6 +17,10 @@ pub struct IOSTunParams {
     peer_addr_v4: u32,
     peer_port: u32,
 
+}
+
+#[repr(C)]
+pub struct IOSContext {
     udp_ctx: *const libc::c_void,
     udp_v4_callback: UdpV4Callback,
     udp_v6_callback: UdpV6Callback,
@@ -84,10 +88,8 @@ type TunCallbackV4 =
     Option<extern "C" fn(ctx: *const libc::c_void, buffer: *const u8, buf_size: usize)>;
 type TunCallbackV6 =
     Option<extern "C" fn(ctx: *const libc::c_void, buffer: *const u8, buf_size: usize)>;
-pub struct IOSTunWriter {
-    ctx: *const libc::c_void,
-    send_v4_traffic: TunCallbackV4,
-    send_v6_traffic: TunCallbackV6,
+pub struct IOSTunWriter<&'a> {
+    params: &IOSContext,
 }
 
 impl TunnelTransport for IOSTunWriter {
@@ -113,26 +115,13 @@ impl TunnelTransport for IOSTunWriter {
     }
 }
 
-impl From<&IOSTunParams> for IOSTunWriter {
-    fn from(params: &IOSTunParams) -> Self {
-        Self {
-            ctx: params.tun_ctx,
-            send_v4_traffic: params.tun_v4_callback,
-            send_v6_traffic: params.tun_v6_callback,
-        }
-    }
-}
-
 #[no_mangle]
 pub extern "C" fn abstract_tun_size() -> usize {
     std::mem::size_of::<IOSTun>()
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_tun_init_instance(
-    params: *const IOSTunParams,
-    object: *mut *mut IOSTun,
-) -> libc::c_int {
+pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mut IOSTun {
     let params = unsafe { &*params };
     let peer_addr = Ipv4Addr::from(params.peer_addr_v4);
 
@@ -159,27 +148,26 @@ pub extern "C" fn abstract_tun_init_instance(
     }));
 
     // SAFETY: it's assumed that the provided object pointer can hold a whole pointer
-    unsafe { *object = ptr };
-
-    0
+    ptr
 }
 
 #[no_mangle]
-pub extern fn abstract_tun_handle_tunnel_traffic(
+pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     tun: *mut IOSTun,
     packet: *const u8,
     packet_size: usize,
 ) {
-    let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
+    let tun: &mut IOSTun = unsafe { &mut *(tun) };
     let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
     tun.wg.handle_tunnel_traffic(packet);
 }
 
 #[no_mangle]
-pub extern fn abstract_tun_handle_udp_packet(
+pub extern "C" fn abstract_tun_handle_udp_packet(
     tun: *mut IOSTun,
     packet: *const u8,
     packet_size: usize,
+    ctx: IOSContext,
 ) {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
@@ -187,18 +175,23 @@ pub extern fn abstract_tun_handle_udp_packet(
 }
 
 #[no_mangle]
-pub extern fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
+pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun, ctx: IOSContext) {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     tun.wg.handle_timer_tick();
 }
 
 #[no_mangle]
-pub extern fn abstract_tun_drop(tun: *mut IOSTun) {
+pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
     let tun: Box<IOSTun> = unsafe { std::ptr::read(tun as *mut _) };
     std::mem::drop(tun);
 }
 
 #[no_mangle]
-pub extern fn abstract_test_fp(fp: extern "C" fn (i32) -> i32, num: i32) -> i32{
+pub extern "C" fn abstract_test_fp2(fp: extern "C" fn(i32) -> i32, num: i32) -> i32 {
     fp(num) + 5
 }
+
+// #[no_mangle]
+// pub extern fn abstract_test_fp2(fp: extern "C" fn (i32) -> i32, num: i32) -> i32{
+//     fp(num) + 5
+// }

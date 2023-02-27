@@ -10,6 +10,8 @@
 		01130D5B29A913E600CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5A29A913E600CD8272 /* libabstract_tun.a */; };
 		01130D5D29A914EA00CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5C29A914EA00CD8272 /* libabstract_tun.a */; };
 		01130D6029A92CEB00CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5C29A914EA00CD8272 /* libabstract_tun.a */; };
+		01130D6329AA8A4C00CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5C29A914EA00CD8272 /* libabstract_tun.a */; };
+		01130D6429AA8A6A00CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5A29A913E600CD8272 /* libabstract_tun.a */; };
 		062B45A328FD4CA700746E77 /* le_root_cert.cer in Resources */ = {isa = PBXBuildFile; fileRef = 06799AB428F98CE700ACD94E /* le_root_cert.cer */; };
 		062B45AE28FD503000746E77 /* WireGuardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 062B45AD28FD503000746E77 /* WireGuardKit */; };
 		062B45BC28FD8C3B00746E77 /* RESTDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 062B45BB28FD8C3B00746E77 /* RESTDefaults.swift */; };
@@ -1065,9 +1067,11 @@
 				5898D2AC2901845400EB5EBA /* libTunnelProviderMessaging.a in Frameworks */,
 				58D223EA294C8F3C0029F5F8 /* MullvadTypes.framework in Frameworks */,
 				58D223C6294C8B970029F5F8 /* Operations.framework in Frameworks */,
+				01130D6329AA8A4C00CD8272 /* libabstract_tun.a in Frameworks */,
 				58153071294CBE8B00D1702E /* MullvadREST.framework in Frameworks */,
 				58D22422294C921B0029F5F8 /* MullvadLogging.framework in Frameworks */,
 				062B45AE28FD503000746E77 /* WireGuardKit in Frameworks */,
+				01130D6429AA8A6A00CD8272 /* libabstract_tun.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2145,13 +2149,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 58CE5E72224146210008646E /* Build configuration list for PBXNativeTarget "MullvadVPN" */;
 			buildPhases = (
-				01130D5929A912BC00CD8272 /* Compile abstract-tun */,
 				58CE5E5C224146200008646E /* Sources */,
 				58CE5E5D224146200008646E /* Frameworks */,
 				58CE5E5E224146200008646E /* Resources */,
 				58CE5E85224146470008646E /* Embed Foundation Extensions */,
 				06799AD628F98E1D00ACD94E /* Embed Frameworks */,
-				01130D5E29A916CF00CD8272 /* Remove files */,
 			);
 			buildRules = (
 			);
@@ -2177,9 +2179,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 58CE5E82224146470008646E /* Build configuration list for PBXNativeTarget "PacketTunnel" */;
 			buildPhases = (
+				01130D6229AA88A800CD8272 /* Build abstract-tun */,
 				58CE5E75224146470008646E /* Sources */,
 				58CE5E76224146470008646E /* Frameworks */,
 				58CE5E77224146470008646E /* Resources */,
+				01130D6129AA888400CD8272 /* Remove abstract-tun */,
 			);
 			buildRules = (
 			);
@@ -2491,7 +2495,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		01130D5929A912BC00CD8272 /* Compile abstract-tun */ = {
+		01130D6129AA888400CD8272 /* Remove abstract-tun */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Remove abstract-tun";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n# rm -fv abstract-tun/target/universal/*/*.a\n";
+		};
+		01130D6229AA88A800CD8272 /* Build abstract-tun */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -2501,7 +2523,7 @@
 			);
 			inputPaths = (
 			);
-			name = "Compile abstract-tun";
+			name = "Build abstract-tun";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -2509,26 +2531,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=\"$HOME/.cargo/bin:$PATH\"\ncargo lipo --xcode-integ --manifest-path abstract-tun/Cargo.toml\n";
-		};
-		01130D5E29A916CF00CD8272 /* Remove files */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Remove files";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Delete the built libraries that were just linked.\n# If this isn't done, XCode won't try to rebuild them\n# by running the build scripts, because it won't think\n# they are out of date.\nrm -fv abstract-tun/target/universal/*/*.a\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nif [[ -n \"${DEVELOPER_SDK_DIR:-}\" ]]; then\n  # Assume we're in Xcode, which means we're probably cross-compiling.\n  # In this case, we need to add an extra library search path for build scripts and proc-macros,\n  # which run on the host instead of the target.\n  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)\n  export LIBRARY_PATH=\"${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}\"\nfi\n\ncargo lipo --xcode-integ --manifest-path abstract-tun/Cargo.toml\n";
 		};
 		063F028D2902BC8E001FA09F /* Run prebuild script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3580,8 +3583,9 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/abstract-tun/target/universal/debug/",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
+					"$(PROJECT_DIR)/abstract-tun/target/universal/release/",
 					"$(PROJECT_DIR)/abstract-tun/target/universal/debug",
+					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).PacketTunnel";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3607,8 +3611,9 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/abstract-tun/target/universal/debug/",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
+					"$(PROJECT_DIR)/abstract-tun/target/universal/release/",
 					"$(PROJECT_DIR)/abstract-tun/target/universal/debug",
+					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).PacketTunnel";
 				PRODUCT_NAME = "$(TARGET_NAME)";

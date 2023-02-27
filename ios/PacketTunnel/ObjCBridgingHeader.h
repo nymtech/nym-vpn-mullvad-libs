@@ -11,6 +11,6 @@
 
 #include "IPv4Header.h"
 #include "ICMPHeader.h"
-#import "abstract_tun.h"
+#include "abstract_tun.h"
 
 #endif /* OBJCBRIDGINGHEADER_H */

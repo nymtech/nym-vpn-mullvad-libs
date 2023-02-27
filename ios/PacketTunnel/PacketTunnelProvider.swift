@@ -195,10 +195,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         dispatchQueue.async {
             let tunnelOptions = PacketTunnelOptions(rawOptions: options ?? [:])
             var appSelectorResult: RelaySelectorResult?
-        let cb: @convention(c) (Int32) -> Int32 = { num -> Int32 in
-            return num + 2;
-        };
-        let ret = abstract_test_fp(cb, 5)
 
             self.providerLogger.error("eblan retval of abstract_test_fp = \(ret)")
 
@@ -874,4 +870,36 @@ extension PacketTunnelErrorWrapper {
             return nil
         }
     }
+}
+
+class AbstractTun {
+    private var tunRef: UnsafeRawPointer?;
+    private var udpSender: UdpSender;
+    private var tunWriter: TunWriter;
+    private var dispatchQueue: DispatchQueue;
+
+    private var singlePeer: PeerConfiguration
+
+    init(queue: DispatchQueue, tunnelConfig: PacketTunnelConfiguration){
+        self.dispatchQueue = queue;
+
+        self.singlePeer = tunnelConfig.wgTunnelConfig.peers[0];
+        let privateKey = tunnelConfig.wgTunnelConfig.interface.privateKey.rawValue;
+        privateKey.withUnsafeBytes { privateKeyPtr in
+            tunnelConfig.wgTunnelConfig.peers[0].publicKey.rawValue.withUnsafeBytes{ peerPubKeyPtr in
+
+
+            }
+        }
+        udpSender = UdpSender()
+        tunWriter = TunWriter()
+    }
+}
+
+class UdpSender {
+
+}
+
+class TunWriter {
+
 }
