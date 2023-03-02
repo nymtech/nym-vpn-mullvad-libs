@@ -159,6 +159,7 @@ fn into_mullvad_relay(
         ipv4_addr_in: relay.ipv4_addr_in,
         ipv6_addr_in: relay.ipv6_addr_in,
         include_in_country: relay.include_in_country,
+        same_ip: relay.same_ip,
         active: relay.active,
         owned: relay.owned,
         provider: relay.provider,
@@ -219,14 +220,25 @@ impl OpenVpn {
 #[derive(Debug, serde::Deserialize)]
 struct Relay {
     hostname: String,
-    active: bool,
-    owned: bool,
-    location: String,
-    provider: String,
     ipv4_addr_in: Ipv4Addr,
     ipv6_addr_in: Option<Ipv6Addr>,
-    weight: u64,
     include_in_country: bool,
+    /// Only relevant/present on WireGuard relays. OpenVPN does not have any concept
+    /// of "same IP" and does not use the field, so it does not hurt to have it default
+    /// to true there.
+    /// Defaults to `true` on WireGuard relays also if it's missing, so the field can
+    /// be removed from the API once all relays support Same IP.
+    #[serde(default = "same_ip_default")]
+    same_ip: bool,
+    active: bool,
+    owned: bool,
+    provider: String,
+    weight: u64,
+    location: String,
+}
+
+fn same_ip_default() -> bool {
+    true
 }
 
 impl Relay {

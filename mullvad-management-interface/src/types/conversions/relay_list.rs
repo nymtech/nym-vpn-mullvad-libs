@@ -111,6 +111,7 @@ impl From<mullvad_types::relay_list::Relay> for proto::Relay {
                 .map(|addr| addr.to_string())
                 .unwrap_or_default(),
             include_in_country: relay.include_in_country,
+            same_ip: relay.same_ip,
             active: relay.active,
             owned: relay.owned,
             provider: relay.provider,
@@ -264,6 +265,7 @@ impl TryFrom<proto::Relay> for mullvad_types::relay_list::Relay {
             })?,
             ipv6_addr_in,
             include_in_country: relay.include_in_country,
+            same_ip: relay.same_ip,
             active: relay.active,
             owned: relay.owned,
             provider: relay.provider,
