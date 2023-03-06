@@ -13,10 +13,6 @@ public final class NoFailedDependenciesCondition: OperationCondition {
         return "NoFailedDependenciesCondition"
     }
 
-    public var isMutuallyExclusive: Bool {
-        return false
-    }
-
     public let ignoreCancellations: Bool
     public init(ignoreCancellations: Bool) {
         self.ignoreCancellations = ignoreCancellations

@@ -11,17 +11,7 @@ import Foundation
 public final class AsyncOperationQueue: OperationQueue {
     override public func addOperation(_ operation: Operation) {
         if let operation = operation as? AsyncOperation {
-            let categories = operation.conditions
-                .filter { condition in
-                    return condition.isMutuallyExclusive
-                }
-                .map { condition in
-                    return condition.name
-                }
-
-            if !categories.isEmpty {
-                ExclusivityManager.shared.addOperation(operation, categories: Set(categories))
-            }
+            applyExclusivityRules(operation)
 
             super.addOperation(operation)
 
@@ -32,8 +22,14 @@ public final class AsyncOperationQueue: OperationQueue {
     }
 
     override public func addOperations(_ operations: [Operation], waitUntilFinished wait: Bool) {
-        for operation in operations {
-            addOperation(operation)
+        for case let operation as AsyncOperation in operations {
+            applyExclusivityRules(operation)
+        }
+
+        super.addOperations(operations, waitUntilFinished: false)
+
+        for case let operation as AsyncOperation in operations {
+            operation.didEnqueue()
         }
 
         if wait {
@@ -48,6 +44,31 @@ public final class AsyncOperationQueue: OperationQueue {
         queue.maxConcurrentOperationCount = 1
         return queue
     }
+
+    private func applyExclusivityRules(_ operation: AsyncOperation) {
+        let exclusivityRules = operation.conditions
+            .filter { condition in
+                return condition.isMutuallyExclusive
+            }
+            .map { condition in
+                return ExclusivityRule(
+                    categories: condition.mutuallyExclusiveCategories,
+                    behaviour: condition.exclusivityBehaviour
+                )
+            }
+
+        if !exclusivityRules.isEmpty {
+            ExclusivityManager.shared.addOperation(
+                operation,
+                exclusivityRules: exclusivityRules
+            )
+        }
+    }
+}
+
+private struct ExclusivityRule {
+    var categories: Set<String>
+    var behaviour: ExclusivityBehaviour
 }
 
 private final class ExclusivityManager {
@@ -58,26 +79,43 @@ private final class ExclusivityManager {
 
     private init() {}
 
-    func addOperation(_ operation: AsyncOperation, categories: Set<String>) {
+    func addOperation(_ operation: AsyncOperation, exclusivityRules: [ExclusivityRule]) {
         nslock.lock()
         defer { nslock.unlock() }
 
-        for category in categories {
-            var operations = operationsByCategory[category] ?? []
+        let operationsToCancel = NSMutableOrderedSet()
 
-            if let lastOperation = operations.last {
-                operation.addDependency(lastOperation)
+        for exclusivityRule in exclusivityRules {
+            for category in exclusivityRule.categories {
+                var operations = operationsByCategory[category] ?? []
+
+                switch exclusivityRule.behaviour {
+                case .cancelPreceding:
+                    operationsToCancel.addObjects(from: operations)
+
+                case .default:
+                    break
+                }
+
+                if !operations.contains(operation) {
+                    operations.last.flatMap { operation.addDependency($0) }
+                    operations.append(operation)
+
+                    operationsByCategory[category] = operations
+                }
             }
 
-            operations.append(operation)
-
-            operationsByCategory[category] = operations
-
             let blockObserver = OperationBlockObserver(didFinish: { [weak self] op, error in
-                self?.removeOperation(op, categories: categories)
+                self?.removeOperation(op, categories: exclusivityRule.categories)
             })
 
             operation.addObserver(blockObserver)
+        }
+
+        operationsToCancel.remove(operation)
+
+        for operationToCancel in operationsToCancel.array as! [Operation] {
+            operationToCancel.cancel()
         }
     }
 
@@ -90,9 +128,7 @@ private final class ExclusivityManager {
                 continue
             }
 
-            if let index = operations.firstIndex(of: operation) {
-                operations.remove(at: index)
-            }
+            operations.removeAll { $0 == operation }
 
             if operations.isEmpty {
                 operationsByCategory.removeValue(forKey: category)

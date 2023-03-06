@@ -87,9 +87,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     /// Last device check task.
     private var checkDeviceStateTask: Cancellable?
 
-    /// Last task to reconnect the tunnel.
-    private var reconnectTunnelTask: Operation?
-
     /// Internal operation queue.
     private let operationQueue = AsyncOperationQueue()
 
@@ -533,12 +530,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
             }
         }
 
-        if let reconnectTunnelTask = reconnectTunnelTask {
-            blockOperation.addDependency(reconnectTunnelTask)
-        }
-
-        reconnectTunnelTask?.cancel()
-        reconnectTunnelTask = blockOperation
+        blockOperation.addCondition(
+            MutuallyExclusive(
+                category: "ReconnectTunnel",
+                exclusivityBehaviour: .cancelPreceding
+            )
+        )
 
         operationQueue.addOperation(blockOperation)
     }

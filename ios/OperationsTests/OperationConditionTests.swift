@@ -141,4 +141,37 @@ class OperationConditionTests: XCTestCase {
         let expectations = [expectFirstOperationExecution, expectSecondOperationExecution]
         wait(for: expectations, timeout: 2, enforceOrder: true)
     }
+
+    func testMutuallyExclusiveCancelPrecedingCondition() {
+        let numOperations = 3
+        let operationQueue = AsyncOperationQueue()
+
+        let operations = (0 ... numOperations).map { index in
+            let isInverted = index != numOperations
+
+            let ex = expectation(
+                description: isInverted
+                    ? "Operation \(index) should not execute"
+                    : "Operation \(index) should execute"
+            )
+            ex.isInverted = isInverted
+
+            let operation = AsyncBlockOperation {
+                ex.fulfill()
+            }
+
+            operation.addCondition(
+                MutuallyExclusive(
+                    category: "exclusiveOperations",
+                    exclusivityBehaviour: .cancelPreceding
+                )
+            )
+
+            return operation
+        }
+
+        operationQueue.addOperations(operations, waitUntilFinished: false)
+
+        waitForExpectations(timeout: 1)
+    }
 }

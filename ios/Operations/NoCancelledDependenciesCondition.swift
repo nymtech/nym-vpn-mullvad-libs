@@ -13,10 +13,6 @@ public final class NoCancelledDependenciesCondition: OperationCondition {
         return "NoCancelledDependenciesCondition"
     }
 
-    public var isMutuallyExclusive: Bool {
-        return false
-    }
-
     public init() {}
 
     public func evaluate(for operation: Operation, completion: @escaping (Bool) -> Void) {

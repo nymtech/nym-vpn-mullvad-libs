@@ -10,13 +10,20 @@ import Foundation
 
 public final class MutuallyExclusive: OperationCondition {
     public let name: String
+    public let mutuallyExclusiveCategories: Set<String>
+    public let exclusivityBehaviour: ExclusivityBehaviour
 
-    public var isMutuallyExclusive: Bool {
-        return true
+    public convenience init(
+        category: String,
+        exclusivityBehaviour: ExclusivityBehaviour = .default
+    ) {
+        self.init(categories: [category], exclusivityBehaviour: exclusivityBehaviour)
     }
 
-    public init(category: String) {
-        name = "MutuallyExclusive<\(category)>"
+    public init(categories: Set<String>, exclusivityBehaviour: ExclusivityBehaviour = .default) {
+        name = "MutuallyExclusive<\(categories.joined(separator: ", "))>"
+        mutuallyExclusiveCategories = categories
+        self.exclusivityBehaviour = exclusivityBehaviour
     }
 
     public func evaluate(for operation: Operation, completion: @escaping (Bool) -> Void) {

@@ -15,10 +15,6 @@ public final class BlockCondition: OperationCondition {
         return "BlockCondition"
     }
 
-    public var isMutuallyExclusive: Bool {
-        return false
-    }
-
     public let block: HandlerBlock
     public init(block: @escaping HandlerBlock) {
         self.block = block
