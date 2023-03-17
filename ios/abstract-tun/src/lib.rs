@@ -18,9 +18,6 @@ pub struct WgInstance<S, T> {
 impl<S, T> WgInstance<S, T> {
     pub fn new(config: Config, udp_transport: S, tunnel_transport: T) -> Self {
         let peers = config.create_peers();
-        if peers.is_empty() {
-            panic!("peerless?")
-        }
 
         Self {
             peers,
