@@ -7,7 +7,6 @@ use boringtun::noise::{errors::WireGuardError, Tunn, TunnResult};
 
 pub mod ios;
 
-
 pub struct WgInstance<S, T> {
     peers: Vec<Peer>,
     udp_transport: S,
