@@ -123,8 +123,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     }
 
     override init() {
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 884d0021b (Useless)
         var loggerBuilder = LoggerBuilder()
 
         let pid = ProcessInfo.processInfo.processIdentifier
@@ -143,11 +146,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
 
         loggerBuilder.install()
 
+<<<<<<< HEAD
         tunnelLogger = Logger(label: "WireGuard")
 
         let containerURL = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: ApplicationConfiguration.securityGroupIdentifier)!
         providerLogger = Logger(label: "PacketTunnelProvider")
+=======
+        providerLogger = Logger(label: "PacketTunnelProvider")
+        tunnelLogger = Logger(label: "WireGuard")
+>>>>>>> 884d0021b (Useless)
 
         let addressCache = REST.AddressCache(
             canWriteToCache: false, cacheFolder: containerURL
@@ -167,8 +175,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         devicesProxy = proxyFactory.createDevicesProxy()
 
         super.init()
-
-
 
         adapter = WireGuardAdapter(
             with: self,
@@ -195,9 +201,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         dispatchQueue.async {
             let tunnelOptions = PacketTunnelOptions(rawOptions: options ?? [:])
             var appSelectorResult: RelaySelectorResult?
-
-            self.providerLogger.error("eblan retval of abstract_test_fp = \(ret)")
-
 
             // Parse relay selector from tunnel options.
             do {
@@ -871,6 +874,7 @@ extension PacketTunnelErrorWrapper {
         }
     }
 }
+<<<<<<< HEAD
 
 class AbstractTun {
     private var tunRef: UnsafeRawPointer?;
@@ -903,3 +907,5 @@ class UdpSender {
 class TunWriter {
 
 }
+=======
+>>>>>>> 884d0021b (Useless)

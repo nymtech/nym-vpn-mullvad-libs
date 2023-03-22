@@ -12,6 +12,7 @@
 		01130D6029A92CEB00CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5C29A914EA00CD8272 /* libabstract_tun.a */; };
 		01130D6329AA8A4C00CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5C29A914EA00CD8272 /* libabstract_tun.a */; };
 		01130D6429AA8A6A00CD8272 /* libabstract_tun.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 01130D5A29A913E600CD8272 /* libabstract_tun.a */; };
+		01ED3DD829C45F70000BFBE7 /* AbstractTun.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01ED3DD729C45F70000BFBE7 /* AbstractTun.swift */; };
 		062B45A328FD4CA700746E77 /* le_root_cert.cer in Resources */ = {isa = PBXBuildFile; fileRef = 06799AB428F98CE700ACD94E /* le_root_cert.cer */; };
 		062B45AE28FD503000746E77 /* WireGuardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 062B45AD28FD503000746E77 /* WireGuardKit */; };
 		062B45BC28FD8C3B00746E77 /* RESTDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 062B45BB28FD8C3B00746E77 /* RESTDefaults.swift */; };
@@ -639,6 +640,7 @@
 		01130D5A29A913E600CD8272 /* libabstract_tun.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libabstract_tun.a; path = "abstract-tun/target/universal/release/libabstract_tun.a"; sourceTree = "<group>"; };
 		01130D5C29A914EA00CD8272 /* libabstract_tun.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libabstract_tun.a; path = "abstract-tun/target/universal/debug/libabstract_tun.a"; sourceTree = "<group>"; };
 		01130D5F29A9276700CD8272 /* abstract_tun.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = abstract_tun.h; path = "abstract-tun/include/abstract_tun.h"; sourceTree = SOURCE_ROOT; };
+		01ED3DD729C45F70000BFBE7 /* AbstractTun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbstractTun.swift; sourceTree = "<group>"; };
 		062B45BB28FD8C3B00746E77 /* RESTDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RESTDefaults.swift; sourceTree = "<group>"; };
 		063687AF28EB083800BE7161 /* ProxyURLRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyURLRequest.swift; sourceTree = "<group>"; };
 		063687B928EB234F00BE7161 /* PacketTunnelTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelTransport.swift; sourceTree = "<group>"; };
@@ -1841,6 +1843,7 @@
 				58E07298288031D5008902F8 /* WireGuardAdapterError+Localization.swift */,
 				58E0729E28814ACC008902F8 /* WireGuardLogLevel+Logging.swift */,
 				58906DDF2445C7A5002F0673 /* NEProviderStopReason+Debug.swift */,
+				01ED3DD729C45F70000BFBE7 /* AbstractTun.swift */,
 			);
 			path = PacketTunnel;
 			sourceTree = "<group>";
@@ -2859,6 +2862,7 @@
 				58CE38C828992C9200A6D6E5 /* TunnelMonitorDelegate.swift in Sources */,
 				068CE5782927BE4800A068BB /* Migration.swift in Sources */,
 				58FC040A27B3EE03001C21F0 /* TunnelMonitor.swift in Sources */,
+				01ED3DD829C45F70000BFBE7 /* AbstractTun.swift in Sources */,
 				5838318B27C40A3900000571 /* Pinger.swift in Sources */,
 				06410E05292D0FC000AFC18C /* SettingsParser.swift in Sources */,
 				58E0729D28814AAE008902F8 /* PacketTunnelConfiguration.swift in Sources */,

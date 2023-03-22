@@ -28,7 +28,7 @@ impl<S, T> WgInstance<S, T> {
 }
 
 impl<S: UdpTransport, T> WgInstance<S, T> {
-    pub fn handle_tunnel_traffic(&mut self, packet: &[u8]) {
+    pub fn handle_host_traffic(&mut self, packet: &[u8]) {
         // best not to store u16::MAX bytes on the stack if we want to run on iOS
         let mut send_buf = vec![0u8; u16::MAX.into()];
 
@@ -93,7 +93,7 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
 }
 
 impl<S: UdpTransport, T: TunnelTransport> WgInstance<S, T> {
-    pub fn handle_incoming_tunnel_traffic(&mut self, packet: &[u8]) {
+    pub fn handle_tunnel_traffic(&mut self, packet: &[u8]) {
         match self.peers[0]
             .tun
             .decapsulate(None, packet, self.send_buf.as_mut_slice())
@@ -191,17 +191,6 @@ pub trait TunnelTransport {
 pub trait AsyncUdpTransport {
     async fn send_packet(&self, addr: IpAddr, buffer: &[u8]) -> io::Result<()>;
     async fn receive_packet(&self, addr: IpAddr, buffer: &[u8]) -> io::Result<()>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
 }
 
 fn new_send_buf() -> Box<[u8; u16::MAX as usize]> {

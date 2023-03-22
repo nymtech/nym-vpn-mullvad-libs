@@ -1,6 +1,6 @@
 use std::{
     io,
-    net::{Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     slice,
 };
 
@@ -14,9 +14,28 @@ pub struct IOSTun {
 pub struct IOSTunParams {
     private_key: [u8; 32],
     peer_key: [u8; 32],
-    peer_addr_v4: u32,
+    peer_addr_version: u8,
+    peer_addr_bytes: [u8; 16],
     peer_port: u16,
     ctx: IOSContext,
+}
+
+impl IOSTunParams {
+    fn peer_addr(&self) -> Option<IpAddr> {
+        match self.peer_addr_version {
+            0 => Some(
+                Ipv4Addr::new(
+                    self.peer_addr_bytes[0],
+                    self.peer_addr_bytes[1],
+                    self.peer_addr_bytes[2],
+                    self.peer_addr_bytes[3],
+                )
+                .into(),
+            ),
+            1 => Some(Ipv6Addr::from(self.peer_addr_bytes).into()),
+            _other => None,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -36,15 +55,15 @@ type UdpV4Callback = extern "C" fn(
     port: u16,
     buffer: *const u8,
     buf_size: usize,
-) -> libc::c_int;
+);
 
 type UdpV6Callback = extern "C" fn(
     ctx: *const libc::c_void,
-    addr: [u8; 16],
+    addr: *const [u8; 16],
     port: u16,
     buffer: *const u8,
     buf_size: usize,
-) -> libc::c_int;
+);
 
 pub struct IOSUdpSender {
     ctx: *const libc::c_void,
@@ -54,7 +73,7 @@ pub struct IOSUdpSender {
 
 impl UdpTransport for IOSUdpSender {
     fn send_packet(&self, addr: SocketAddr, buffer: &[u8]) -> io::Result<()> {
-        let result = match addr {
+        match addr {
             SocketAddr::V4(addr) => (self.send_udp_ipv4)(
                 self.ctx,
                 u32::from(*addr.ip()),
@@ -64,12 +83,9 @@ impl UdpTransport for IOSUdpSender {
             ),
             SocketAddr::V6(addr) => {
                 let octets = addr.ip().octets();
-                (self.send_udp_ipv6)(self.ctx, octets, addr.port(), buffer.as_ptr(), buffer.len())
+                (self.send_udp_ipv6)(self.ctx, &octets as *const _, addr.port(), buffer.as_ptr(), buffer.len())
             }
         };
-        if result != 0 {
-            return Err(std::io::Error::from_raw_os_error(0));
-        }
         Ok(())
     }
 }
@@ -137,12 +153,17 @@ pub extern "C" fn abstract_tun_size() -> usize {
 #[no_mangle]
 pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mut IOSTun {
     let params = unsafe { &*params };
-    let peer_addr = Ipv4Addr::from(params.peer_addr_v4);
+    let peer_addr = match params.peer_addr() {
+        Some(addr) => addr,
+        None => {
+            return std::ptr::null_mut();
+        }
+    };
 
     let config = Config {
         private_key: params.private_key,
         peers: vec![PeerConfig {
-            endpoint: SocketAddr::new(peer_addr.into(), params.peer_port),
+            endpoint: SocketAddr::new(peer_addr, params.peer_port),
             pub_key: params.peer_key,
         }],
     };
@@ -155,8 +176,18 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
         wg: WgInstance::new(config, udp_transport, tunnel_writer),
     }));
 
-    // SAFETY: it's assumed that the provided object pointer can hold a whole pointer
     ptr
+}
+
+#[no_mangle]
+pub extern "C" fn abstract_tun_handle_host_traffic(
+    tun: *mut IOSTun,
+    packet: *const u8,
+    packet_size: usize,
+) {
+    let tun: &mut IOSTun = unsafe { &mut *(tun) };
+    let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
+    tun.wg.handle_host_traffic(packet);
 }
 
 #[no_mangle]
@@ -165,20 +196,9 @@ pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     packet: *const u8,
     packet_size: usize,
 ) {
-    let tun: &mut IOSTun = unsafe { &mut *(tun) };
-    let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
-    tun.wg.handle_tunnel_traffic(packet);
-}
-
-#[no_mangle]
-pub extern "C" fn abstract_tun_handle_udp_packet(
-    tun: *mut IOSTun,
-    packet: *const u8,
-    packet_size: usize,
-) {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
-    tun.wg.handle_incoming_tunnel_traffic(packet);
+    tun.wg.handle_tunnel_traffic(packet);
 }
 
 #[no_mangle]

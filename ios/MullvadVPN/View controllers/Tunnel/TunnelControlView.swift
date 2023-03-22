@@ -67,7 +67,6 @@ final class TunnelControlView: UIView {
         let cb: @convention(c) (Int32) -> Int32 = { num -> Int32 in
             return num + 2;
         };
-        let ret = abstract_test_fp2(cb, 5)
         return button
     }()
 
