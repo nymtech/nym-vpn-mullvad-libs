@@ -11,6 +11,7 @@ pub use mullvad_management_interface::{self, new_rpc_client};
 
 mod cmds;
 mod format;
+mod interactive;
 mod location;
 mod state;
 

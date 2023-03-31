@@ -25,6 +25,9 @@ pub use self::disconnect::Disconnect;
 mod dns;
 pub use self::dns::Dns;
 
+mod interactive;
+pub use self::interactive::Interactive;
+
 mod lan;
 pub use self::lan::Lan;
 
@@ -65,6 +68,7 @@ pub fn get_commands() -> HashMap<&'static str, Box<dyn Command>> {
         Box::new(Connect),
         Box::new(Disconnect),
         Box::new(Dns),
+        Box::new(Interactive),
         Box::new(Reconnect),
         Box::new(Lan),
         Box::new(Obfuscation),
