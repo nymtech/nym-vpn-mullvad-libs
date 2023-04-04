@@ -389,7 +389,7 @@ impl ManagementService for ManagementServiceImpl {
         self.wait_for_result(rx)
             .await?
             .map(Response::new)
-            .map_err(map_daemon_error)
+            .map_err(|error| map_throttled_error(&error).unwrap_or_else(|| map_daemon_error(error)))
     }
 
     async fn login_account(&self, request: Request<AccountToken>) -> ServiceResult<()> {
@@ -400,7 +400,7 @@ impl ManagementService for ManagementServiceImpl {
         self.wait_for_result(rx)
             .await?
             .map(Response::new)
-            .map_err(map_daemon_error)
+            .map_err(|error| map_throttled_error(&error).unwrap_or_else(|| map_daemon_error(error)))
     }
 
     async fn logout_account(&self, _: Request<()>) -> ServiceResult<()> {
@@ -492,7 +492,7 @@ impl ManagementService for ManagementServiceImpl {
                     }),
                 })
             })
-            .map_err(map_daemon_error)
+            .map_err(|error| map_throttled_error(&error).unwrap_or_else(|| map_daemon_error(error)))
     }
 
     // Device management
@@ -933,6 +933,29 @@ impl ManagementInterfaceEventBroadcaster {
         let mut subscriptions = self.subscriptions.write();
         // TODO: using write-lock everywhere. use a mutex instead?
         subscriptions.retain(|tx| tx.send(Ok(value.clone())).is_ok());
+    }
+}
+
+/// Returns 'cancelled' status if the API demurred due to throttling
+fn map_throttled_error(error: &crate::Error) -> Option<Status> {
+    use std::error::Error as StdError;
+
+    let mut error: &dyn StdError = error;
+
+    loop {
+        if let Some(RestError::ApiError(status, message)) = error.downcast_ref() {
+            if *status == StatusCode::SERVICE_UNAVAILABLE
+                || *status == StatusCode::TOO_MANY_REQUESTS
+            {
+                return Some(Status::new(Code::Cancelled, message.to_owned()));
+            }
+            return None;
+        }
+
+        error = match error.source() {
+            Some(error) => error,
+            None => return None,
+        };
     }
 }
 
