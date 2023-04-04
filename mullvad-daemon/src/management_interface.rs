@@ -389,7 +389,7 @@ impl ManagementService for ManagementServiceImpl {
         self.wait_for_result(rx)
             .await?
             .map(Response::new)
-            .map_err(map_daemon_error)
+            .map_err(|error| map_throttled_error(&error).unwrap_or_else(|| map_daemon_error(error)))
     }
 
     async fn login_account(&self, request: Request<AccountToken>) -> ServiceResult<()> {
@@ -400,7 +400,7 @@ impl ManagementService for ManagementServiceImpl {
         self.wait_for_result(rx)
             .await?
             .map(Response::new)
-            .map_err(map_daemon_error)
+            .map_err(|error| map_throttled_error(&error).unwrap_or_else(|| map_daemon_error(error)))
     }
 
     async fn logout_account(&self, _: Request<()>) -> ServiceResult<()> {
@@ -492,7 +492,7 @@ impl ManagementService for ManagementServiceImpl {
                     }),
                 })
             })
-            .map_err(map_daemon_error)
+            .map_err(|error| map_throttled_error(&error).unwrap_or_else(|| map_daemon_error(error)))
     }
 
     // Device management
@@ -934,6 +934,15 @@ impl ManagementInterfaceEventBroadcaster {
         // TODO: using write-lock everywhere. use a mutex instead?
         subscriptions.retain(|tx| tx.send(Ok(value.clone())).is_ok());
     }
+}
+
+fn map_throttled_error(error: &crate::Error) -> Option<Status> {
+    if let crate::Error::RestError(RestError::ApiError(status, message)) = error {
+        if *status == StatusCode::SERVICE_UNAVAILABLE || *status == StatusCode::TOO_MANY_REQUESTS {
+            return Some(Status::new(Code::Cancelled, message.to_owned()));
+        }
+    }
+    None
 }
 
 /// Converts [`mullvad_daemon::Error`] into a tonic status.
