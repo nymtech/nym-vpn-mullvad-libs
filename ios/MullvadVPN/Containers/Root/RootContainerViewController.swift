@@ -41,6 +41,15 @@ protocol RootContainment {
 
     /// Return true if the view controller prefers header bar hidden
     var prefersHeaderBarHidden: Bool { get }
+
+    /// Return true if the view controller prefers notifications bar hidden
+    var wantsNotificationsHidden: Bool { get }
+}
+
+extension RootContainment {
+    var wantsNotificationsHidden: Bool {
+        false
+    }
 }
 
 protocol RootContainerViewControllerDelegate: AnyObject {
@@ -67,6 +76,8 @@ class RootContainerViewController: UIViewController {
     typealias CompletionHandler = () -> Void
 
     private let headerBarView = HeaderBarView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+    let notificationController = NotificationController()
+
     let transitionContainer = UIView(frame: UIScreen.main.bounds)
     private var presentationContainerAccountButton: UIButton?
     private var presentationContainerSettingsButton: UIButton?
@@ -118,6 +129,7 @@ class RootContainerViewController: UIViewController {
 
         addTransitionView()
         addHeaderBarView()
+        addNotificationController()
         updateHeaderBarBackground()
     }
 
@@ -332,6 +344,22 @@ class RootContainerViewController: UIViewController {
 
     // MARK: - Private
 
+    private func addNotificationController() {
+        let notificationView = notificationController.view!
+        notificationView.translatesAutoresizingMaskIntoConstraints = false
+
+        addChild(notificationController)
+        view.addSubview(notificationView)
+        notificationController.didMove(toParent: self)
+
+        NSLayoutConstraint.activate([
+            notificationView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            notificationView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            notificationView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            notificationView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+    }
+
     private func addTransitionView() {
         let constraints = [
             transitionContainer.topAnchor.constraint(equalTo: view.topAnchor),
@@ -490,6 +518,9 @@ class RootContainerViewController: UIViewController {
 
             self.updateInterfaceOrientation(attemptRotateToDeviceOrientation: true)
             self.updateAccessibilityElementsAndNotifyScreenChange()
+            
+            let shouldHideNotifications = (targetViewController as? RootContainment)?.wantsNotificationsHidden ?? false
+            self.showNotificationView(isVisible: !shouldHideNotifications)
 
             completion?()
         }
@@ -648,6 +679,12 @@ class RootContainerViewController: UIViewController {
             setHeaderBarPresentation(conforming.preferredHeaderBarPresentation, animated: animated)
         }
     }
+    
+    private func updateHeaderBarDataFromChildPreferences(animated: Bool) {
+        if let conforming = topViewController as? RootContainment {
+            setHeaderBarPresentation(conforming.preferredHeaderBarPresentation, animated: animated)
+        }
+    }
 
     private func updateHeaderBarHiddenFromChildPreferences(animated: Bool) {
         guard overrideHeaderBarHidden == nil else { return }
@@ -707,6 +744,9 @@ class RootContainerViewController: UIViewController {
         // Tell accessibility that the significant part of screen was changed.
         UIAccessibility.post(notification: .screenChanged, argument: nil)
     }
+    private func showNotificationView(isVisible: Bool) {
+        notificationController.view.isHidden = !isVisible
+    }
 }
 
 /// A UIViewController extension that gives view controllers an access to root container
@@ -733,8 +773,8 @@ extension UIViewController {
 extension RootContainerViewController {
     func update(configuration: RootConfigration) {
         self.configuration = configuration
-
         presentationContainerAccountButton?.isHidden = !configuration.showsAccountButton
         headerBarView.update(configuration: configuration)
     }
 }
+

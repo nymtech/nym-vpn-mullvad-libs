@@ -41,12 +41,14 @@ class LoginViewController: UIViewController, RootContainment {
         return view
     }()
 
+    
     private lazy var accountInputAccessoryCancelButton = UIBarButtonItem(
         barButtonSystemItem: .cancel,
         target: self,
         action: #selector(cancelLogin)
     )
 
+    
     private lazy var accountInputAccessoryLoginButton: UIBarButtonItem = {
         let barButtonItem = UIBarButtonItem(
             title: NSLocalizedString(
@@ -61,9 +63,11 @@ class LoginViewController: UIViewController, RootContainment {
         )
         barButtonItem.accessibilityIdentifier = "LoginBarButtonItem"
 
+        
         return barButtonItem
     }()
 
+    
     private lazy var accountInputAccessoryToolbar: UIToolbar = {
         let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
         toolbar.items = [
@@ -75,28 +79,42 @@ class LoginViewController: UIViewController, RootContainment {
         return toolbar
     }()
 
+    
     private let logger = Logger(label: "LoginViewController")
 
+    
     private var loginState = LoginState.default {
         didSet {
             loginStateDidChange()
         }
     }
 
+    
     private var canBeginLogin: Bool {
         return contentView.accountInputGroup.satisfiesMinimumTokenLengthRequirement
     }
 
+    
     private let interactor: LoginInteractor
 
+    
     var didFinishLogin: ((LoginAction, Error?) -> EndLoginAction)?
 
+    
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
     }
 
+    
     var preferredHeaderBarPresentation: HeaderBarPresentation {
         return HeaderBarPresentation(style: .transparent, showsDivider: false)
+    }
+    
+    var wantsNotificationsHidden: Bool {
+        return true
+    }
+    var shouldShowDeviceInfo: Bool {
+        return false
     }
 
     var prefersHeaderBarHidden: Bool {

@@ -112,6 +112,7 @@ final class ApplicationCoordinator: Coordinator, Presenting, RootContainerViewCo
         }
 
         continueFlow(animated: false)
+        NotificationManager.shared.delegate = self
     }
 
     // MARK: - ApplicationRouterDelegate
@@ -635,7 +636,7 @@ final class ApplicationCoordinator: Coordinator, Presenting, RootContainerViewCo
         switch deviceState {
         case let .loggedIn(accountData, _):
             updateOutOfTimeTimer(accountData: accountData)
-            updateView(deviceState: deviceState, showDeviceInfo: false)
+            updateView(deviceState: deviceState, showDeviceInfo: true)
 
             // Handle transition to and from expired state.
             let accountWasExpired = previousDeviceState.accountData?.isExpired ?? false
@@ -668,7 +669,6 @@ final class ApplicationCoordinator: Coordinator, Presenting, RootContainerViewCo
             showsAccountButton: deviceState.isLoggedIn,
             showsDeviceInfo: showDeviceInfo
         )
-
         primaryNavigationContainer.update(configuration: configuration)
         secondaryNavigationContainer.update(configuration: configuration)
     }
@@ -706,10 +706,6 @@ final class ApplicationCoordinator: Coordinator, Presenting, RootContainerViewCo
 
     func showAccount() {
         router.present(.account)
-    }
-
-    func didDismissRegisteredDeviceInAppBanner(deviceState: DeviceState) {
-        updateView(deviceState: deviceState)
     }
 
     // MARK: - UISplitViewControllerDelegate
@@ -800,5 +796,19 @@ final class ApplicationCoordinator: Coordinator, Presenting, RootContainerViewCo
 extension DeviceState {
     var splitViewMode: UISplitViewController.DisplayMode {
         return isLoggedIn ? .allVisible : .secondaryOnly
+    }
+}
+
+// MARK: - NotificationManagerDelegate
+
+extension ApplicationCoordinator: NotificationManagerDelegate {
+    func notificationManagerDidUpdateInAppNotifications(
+        _ manager: NotificationManager,
+        notifications: [InAppNotificationDescriptor]
+    ) {
+        let shouldHideDeviceInfo = notifications
+            .contains(where: { $0.identifier == InAppNotificationName.RegisteredDeviceInAppNotification.rawValue })
+        updateView(deviceState: tunnelManager.deviceState, showDeviceInfo: !shouldHideDeviceInfo)
+        primaryNavigationContainer.notificationController.setNotifications(notifications, animated: true)
     }
 }
