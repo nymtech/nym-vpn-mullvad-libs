@@ -14,6 +14,8 @@ pub struct IOSTun {
 pub struct IOSTunParams {
     private_key: [u8; 32],
     peer_key: [u8; 32],
+    tun_addr_version: u8,
+    tun_addr_bytes: [u8; 16],
     peer_addr_version: u8,
     peer_addr_bytes: [u8; 16],
     peer_port: u16,
@@ -83,7 +85,13 @@ impl UdpTransport for IOSUdpSender {
             ),
             SocketAddr::V6(addr) => {
                 let octets = addr.ip().octets();
-                (self.send_udp_ipv6)(self.ctx, &octets as *const _, addr.port(), buffer.as_ptr(), buffer.len())
+                (self.send_udp_ipv6)(
+                    self.ctx,
+                    &octets as *const _,
+                    addr.port(),
+                    buffer.as_ptr(),
+                    buffer.len(),
+                )
             }
         };
         Ok(())
@@ -161,6 +169,9 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
     };
 
     let config = Config {
+        // TODO: Use real address
+        #[cfg(not(target_os = "ios"))]
+        address: Ipv4Addr::UNSPECIFIED,
         private_key: params.private_key,
         peers: vec![PeerConfig {
             endpoint: SocketAddr::new(peer_addr, params.peer_port),

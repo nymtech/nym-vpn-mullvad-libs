@@ -1,11 +1,13 @@
 use std::{
     io,
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
 };
 
 use boringtun::noise::{errors::WireGuardError, Tunn, TunnResult};
 
 pub mod ios;
+#[cfg(target_os = "macos")]
+pub mod unix;
 
 pub struct WgInstance<S, T> {
     peers: Vec<Peer>,
@@ -103,21 +105,20 @@ impl<S: UdpTransport, T: TunnelTransport> WgInstance<S, T> {
                     log::error!("Failed to send packet to peer {err}");
                 }
 
-                loop {
-                    match self.peers[0]
-                        .tun
-                        .decapsulate(None, &[], self.send_buf.as_mut_slice())
-                    {
-                        TunnResult::WriteToNetwork(data) => {
-                            if let Err(err) =
-                                self.udp_transport.send_packet(self.peers[0].endpoint, data)
-                            {
-                                log::error!("Failed to send packet to peer {err}");
-                            }
+                match self.peers[0]
+                    .tun
+                    .decapsulate(None, &[], self.send_buf.as_mut_slice())
+                {
+                    TunnResult::WriteToNetwork(data) => {
+                        if let Err(err) =
+                            self.udp_transport.send_packet(self.peers[0].endpoint, data)
+                        {
+                            log::error!("Failed to send packet to peer {err}");
                         }
-                        _ => {}
                     }
+                    _ => {}
                 }
+                log::error!("donezo");
             }
             TunnResult::WriteToTunnelV4(clear_packet, _addr) => {
                 if let Err(err) = self.tunnel_transport.send_v4_packet(clear_packet) {
@@ -129,7 +130,7 @@ impl<S: UdpTransport, T: TunnelTransport> WgInstance<S, T> {
                     log::error!("Failed to send packet to tunnel interface: {err}");
                 }
             }
-            _ => {
+            _anything_else => {
                 // TODO: Consider handling other cases here
             }
         }
@@ -142,8 +143,10 @@ struct Peer {
 }
 
 pub struct Config {
-    private_key: [u8; 32],
-    peers: Vec<PeerConfig>,
+    pub private_key: [u8; 32],
+    #[cfg(not(target_os = "ios"))]
+    pub address: Ipv4Addr,
+    pub peers: Vec<PeerConfig>,
 }
 
 impl Config {
@@ -152,7 +155,7 @@ impl Config {
             .iter()
             .enumerate()
             .map(|(idx, peer)| {
-                let tun = Tunn::new(
+                let tun = *Tunn::new(
                     x25519_dalek::StaticSecret::from(self.private_key),
                     x25519_dalek::PublicKey::from(peer.pub_key),
                     None,
@@ -163,7 +166,7 @@ impl Config {
                 .expect("in practice this should never fail");
                 Peer {
                     endpoint: peer.endpoint,
-                    tun: *tun,
+                    tun,
                 }
             })
             .collect()
@@ -171,8 +174,8 @@ impl Config {
 }
 
 pub struct PeerConfig {
-    endpoint: SocketAddr,
-    pub_key: [u8; 32],
+    pub endpoint: SocketAddr,
+    pub pub_key: [u8; 32],
 }
 
 pub trait UdpTransport {
