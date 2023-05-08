@@ -1,4 +1,0 @@
-module AbstractTun {
-  header "abstract_tun.h"
-  export *
-}
