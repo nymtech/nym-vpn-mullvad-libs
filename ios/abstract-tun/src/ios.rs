@@ -14,8 +14,6 @@ pub struct IOSTun {
 pub struct IOSTunParams {
     private_key: [u8; 32],
     peer_key: [u8; 32],
-    tun_addr_version: u8,
-    tun_addr_bytes: [u8; 16],
     peer_addr_version: u8,
     peer_addr_bytes: [u8; 16],
     peer_port: u16,

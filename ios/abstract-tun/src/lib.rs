@@ -5,8 +5,10 @@ use std::{
 
 use boringtun::noise::{errors::WireGuardError, Tunn, TunnResult};
 
+
+#[cfg(target_os = "ios")]
 pub mod ios;
-#[cfg(target_os = "macos")]
+#[cfg(all(unix, not(target_os = "ios")))]
 pub mod unix;
 
 pub struct WgInstance<S, T> {
