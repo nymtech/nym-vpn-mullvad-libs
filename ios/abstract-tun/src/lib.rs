@@ -1,10 +1,11 @@
+#[cfg(not(target_os = "ios"))]
+use std::net::Ipv4Addr;
 use std::{
     io,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, SocketAddr},
 };
 
 use boringtun::noise::{errors::WireGuardError, Tunn, TunnResult};
-
 
 #[cfg(target_os = "ios")]
 pub mod ios;

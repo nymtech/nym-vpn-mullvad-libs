@@ -108,32 +108,37 @@ class AbstractTun {
     
     func readPacketTunnelBytes(_ traffic: [Data], ipversion: [NSNumber]) {
         dispatchQueue.async {
+            do {
+                
             for (traffic, _) in zip(traffic, ipversion) {
-                self.receiveTunnelTraffic(traffic)
+                try self.receiveTunnelTraffic(traffic)
             }
             
+            } catch {
+               // TODO: catch the error properly here.
+            }
             self.packetTunnelProvider.packetFlow.readPackets(completionHandler: {[ weak self] (data, ipv) in
-        self?.readPacketTunnelBytes(data, ipversion: ipv)
+            self?.readPacketTunnelBytes(data, ipversion: ipv)
         })
         }
     }
     
-    func receiveTunnelTraffic(_ data: Data) {
+    func receiveTunnelTraffic(_ data: Data) throws {
         guard let tunPtr = self.tunRef else {
             return
         }
-        data.withUnsafeBytes {
+        try data.withUnsafeBytes<Void> {
             ptr in
             abstract_tun_handle_tunnel_traffic(tunPtr, ptr, UInt(data.count))
         }
     }
     
-    func receiveHostTraffic(_ data: Data) {
+    func receiveHostTraffic(_ data: Data) throws {
         guard let tunPtr = self.tunRef else {
             return
         }
         
-        data.withUnsafeBytes {
+        try data.withUnsafeBytes<Void> {
             ptr in
             abstract_tun_handle_host_traffic(tunPtr, ptr, UInt(data.count))
         }
@@ -181,12 +186,16 @@ class AbstractTun {
             newSocket.setReadHandler( {
                 [weak abstractTun] (traffic, error) in
                 if let error = error {
-                    /// TODO: log error
+                    // TODO: log error
                     return;
                 }
                 guard let tun = abstractTun  else  { return }
                 for data in traffic ?? [] {
-                    tun.receiveTunnelTraffic(data)
+                    do {
+                        try tun.receiveTunnelTraffic(data)
+                    } catch {
+                       // TODO: log error
+                    }
                 }
             }, maxDatagrams: 1024)
         }
