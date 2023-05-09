@@ -16,6 +16,11 @@ struct WgStats {
         bytesReceived = 0
         bytesSent = 0
     }
+    
+    init(rx rx: UInt64, tx tx: UInt64) {
+        bytesReceived = rx
+        bytesSent = tx
+    }
 
     init?(from string: String) {
         var _bytesReceived: UInt64?

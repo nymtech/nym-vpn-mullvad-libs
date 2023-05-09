@@ -35,7 +35,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     private let dispatchQueue = DispatchQueue(label: "PacketTunnel", qos: .utility)
 
     /// WireGuard adapter.
-    private var adapter: WireGuardAdapter!
+    private var adapter: AbstractTunAdapter!
 
     /// Raised once tunnel establishes connection in the very first time, before calling the system
     /// completion handler passed into `startTunnel`.
@@ -55,7 +55,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     private var numberOfFailedAttempts: UInt = 0
 
     /// Last wireguard error.
-    private var wgError: WireGuardAdapterError?
+    private var wgError: AbstractTunError?
 
     /// Last configuration read error.
     private var configurationError: Error?
@@ -176,15 +176,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
 
         super.init()
 
-        adapter = WireGuardAdapter(
-            with: self,
-            shouldHandleReasserting: false,
-            logHandler: { [weak self] logLevel, message in
+        adapter = AbstractTunAdapter(queue: dispatchQueue, packetTunnel: self, logClosure: { [weak self] message in
                 self?.dispatchQueue.async {
-                    self?.tunnelLogger.log(level: logLevel.loggerLevel, "\(message)")
+                    self?.tunnelLogger.log(level: .debug, "\(message)")
                 }
-            }
-        )
+        })
+
 
         tunnelMonitor = TunnelMonitor(
             delegateQueue: dispatchQueue,
@@ -254,29 +251,28 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
             self.selectorResult = selectorResult
             self.providerLogger.debug("Set tunnel relay to \(selectorResult.relay.hostname).")
 
+            
             // Start tunnel.
-            self.adapter.start(tunnelConfiguration: tunnelConfiguration.wgTunnelConfig) { error in
-                self.dispatchQueue.async {
-                    if let error = error {
-                        self.providerLogger.error(
-                            error: error,
-                            message: "Failed to start the tunnel."
-                        )
+            let startResult = self.adapter.start(tunnelConfiguration: tunnelConfiguration)
+            
+            if case let .failure(error) = startResult {
+                self.providerLogger.error(
+                    error: error,
+                    message: "Failed to start the tunnel."
+                )
 
-                        completionHandler(error)
-                    } else {
-                        self.providerLogger.debug("Started the tunnel.")
+                completionHandler(error)
+            } else {
+                self.providerLogger.debug("Started the tunnel.")
 
-                        self.startTunnelCompletionHandler = { [weak self] in
-                            self?.isConnected = true
-                            completionHandler(nil)
-                        }
-
-                        self.tunnelMonitor.start(
-                            probeAddress: tunnelConfiguration.selectorResult.endpoint.ipv4Gateway
-                        )
-                    }
+                self.startTunnelCompletionHandler = { [weak self] in
+                    self?.isConnected = true
+                    completionHandler(nil)
                 }
+
+                self.tunnelMonitor.start(
+                    probeAddress: tunnelConfiguration.selectorResult.endpoint.ipv4Gateway
+                )
             }
         }
     }
@@ -527,26 +523,28 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
             interface: InterfaceConfiguration(privateKey: PrivateKey()),
             peers: []
         )
+        
+        completionHandler(nil)
 
-        adapter.start(tunnelConfiguration: emptyTunnelConfiguration) { error in
-            self.dispatchQueue.async {
-                if let error = error {
-                    self.providerLogger.error(
-                        error: error,
-                        message: "Failed to start an empty tunnel."
-                    )
-
-                    completionHandler(error)
-                } else {
-                    self.providerLogger.debug("Started an empty tunnel.")
-
-                    self.startTunnelCompletionHandler = { [weak self] in
-                        self?.isConnected = true
-                        completionHandler(nil)
-                    }
-                }
-            }
-        }
+//        adapter.start(tunnelConfiguration: emptyTunnelConfiguration) { error in
+//            self.dispatchQueue.async {
+//                if let error = error {
+//                    self.providerLogger.error(
+//                        error: error,
+//                        message: "Failed to start an empty tunnel."
+//                    )
+//
+//                    completionHandler(error)
+//                } else {
+//                    self.providerLogger.debug("Started an empty tunnel.")
+//
+//                    self.startTunnelCompletionHandler = { [weak self] in
+//                        self?.isConnected = true
+//                        completionHandler(nil)
+//                    }
+//                }
+//            }
+//        }
     }
 
     private func setReconnecting(_ reconnecting: Bool) {
@@ -652,29 +650,27 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         providerLogger.debug("Set tunnel relay to \(newTunnelRelay.hostname).")
         setReconnecting(true)
 
-        adapter.update(tunnelConfiguration: tunnelConfiguration.wgTunnelConfig) { error in
-            self.dispatchQueue.async {
-                if let error = error {
-                    self.wgError = error
-                    self.providerLogger.error(
-                        error: error,
-                        message: "Failed to update WireGuard configuration."
-                    )
+        let updateResult = adapter.update(tunnelConfiguration: tunnelConfiguration)
+        if case .failure(let error) = updateResult {
+            self.wgError = error
+            self.providerLogger.error(
+                error: error,
+                message: "Failed to update WireGuard configuration."
+            )
 
-                    // Revert to previously used relay selector as it's very likely that we keep
-                    // using previous configuration.
-                    self.selectorResult = oldSelectorResult
-                    self.providerLogger.debug(
-                        "Reset tunnel relay to \(oldSelectorResult?.relay.hostname ?? "none")."
-                    )
-                    self.setReconnecting(false)
-                } else {
-                    self.tunnelMonitor.start(
-                        probeAddress: tunnelConfiguration.selectorResult.endpoint.ipv4Gateway
-                    )
-                }
-                completionHandler?(error)
-            }
+            // Revert to previously used relay selector as it's very likely that we keep
+            // using previous configuration.
+            self.selectorResult = oldSelectorResult
+            self.providerLogger.debug(
+                "Reset tunnel relay to \(oldSelectorResult?.relay.hostname ?? "none")."
+            )
+            self.setReconnecting(false)
+            completionHandler?(error)
+        } else {
+            self.tunnelMonitor.start(
+                probeAddress: tunnelConfiguration.selectorResult.endpoint.ipv4Gateway
+            )
+            completionHandler?(nil)
         }
     }
 

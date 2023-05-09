@@ -218,6 +218,9 @@ pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
+    if tun.is_null() {
+        return;
+    }
     let tun: Box<IOSTun> = unsafe { Box::from_raw(tun) };
     std::mem::drop(tun);
 }

@@ -221,7 +221,7 @@ final class TunnelMonitor: PingerDelegate {
         var lastReplyDate: Date?
     }
 
-    private let adapter: WireGuardAdapter
+    private let adapter: AbstractTunAdapter
 
     private let nslock = NSLock()
     private let eventQueue = DispatchQueue(label: "TunnelMonitor-eventQueue")
@@ -256,7 +256,7 @@ final class TunnelMonitor: PingerDelegate {
     init(
         delegateQueue: DispatchQueue,
         packetTunnelProvider: NEPacketTunnelProvider,
-        adapter: WireGuardAdapter
+        adapter: AbstractTunAdapter
     ) {
         self.delegateQueue = delegateQueue
         self.packetTunnelProvider = packetTunnelProvider
@@ -644,30 +644,9 @@ final class TunnelMonitor: PingerDelegate {
     }
 
     private func getStats() -> WgStats? {
-        var result: String?
 
-        let dispatchGroup = DispatchGroup()
-        dispatchGroup.enter()
-        adapter.getRuntimeConfiguration { string in
-            result = string
-            dispatchGroup.leave()
-        }
+        // TODO: Fix mutli-threading woes
+        return adapter.stats()
 
-        guard case .success = dispatchGroup.wait(wallTimeout: .now() + .seconds(1)) else {
-            logger.debug("adapter.getRuntimeConfiguration timeout.")
-            return nil
-        }
-
-        guard let result = result else {
-            logger.debug("Received nil string for stats.")
-            return nil
-        }
-
-        guard let newStats = WgStats(from: result) else {
-            logger.debug("Couldn't parse stats.")
-            return nil
-        }
-
-        return newStats
     }
 }

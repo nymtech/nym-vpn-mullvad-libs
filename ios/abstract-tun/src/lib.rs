@@ -7,7 +7,7 @@ use std::{
 
 use boringtun::noise::{errors::WireGuardError, Tunn, TunnResult};
 
-#[cfg(target_os = "ios")]
+// #[cfg(target_os = "ios")]
 pub mod ios;
 #[cfg(all(unix, not(target_os = "ios")))]
 pub mod unix;

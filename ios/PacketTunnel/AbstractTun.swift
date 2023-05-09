@@ -10,12 +10,102 @@ import Foundation
 import WireGuardKitTypes
 import Network
 import NetworkExtension
+import WireGuardKit
+import WireGuardKitC
+
+// Wrapper class around AbstractTun to provide an interface similar to WireGuardAdapter.
+class AbstractTunAdapter {
+    private let abstractTun: AbstractTun
+    init(queue: DispatchQueue, packetTunnel: PacketTunnelProvider, logClosure: @escaping (String) -> Void) {
+        
+        self.abstractTun = AbstractTun(queue: queue, packetTunnel: packetTunnel, logClosure: logClosure)
+    }
+    
+    public func start(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
+        return self.abstractTun.start(tunnelConfig: tunnelConfiguration)
+    }
+    
+    public func update(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
+        return self.abstractTun.update(tunnelConfiguration: tunnelConfiguration)
+    }
+    
+    public func stop(completionHandler: @escaping (WireGuardAdapterError?) -> Void)  {
+        self.abstractTun.stop()
+        completionHandler(nil)
+    }
+    
+    public func stats() -> WgStats {
+        WgStats(rx: abstractTun.bytesReceived, tx: abstractTun.bytesSent)
+    }
+    
+    /// Returns the tunnel device interface name, or nil on error.
+    /// - Returns: String.
+    public var interfaceName: String? {
+        guard let tunnelFileDescriptor = self.tunnelFileDescriptor else { return nil }
+
+        var buffer = [UInt8](repeating: 0, count: Int(IFNAMSIZ))
+
+        return buffer.withUnsafeMutableBufferPointer { mutableBufferPointer in
+            guard let baseAddress = mutableBufferPointer.baseAddress else { return nil }
+
+            var ifnameSize = socklen_t(IFNAMSIZ)
+            let result = getsockopt(
+                tunnelFileDescriptor,
+                2 /* SYSPROTO_CONTROL */,
+                2 /* UTUN_OPT_IFNAME */,
+                baseAddress,
+                &ifnameSize)
+
+            if result == 0 {
+                return String(cString: baseAddress)
+            } else {
+                return nil
+            }
+        }
+    }
+    
+    /// Tunnel device file descriptor.
+    private var tunnelFileDescriptor: Int32? {
+        var ctlInfo = ctl_info()
+        withUnsafeMutablePointer(to: &ctlInfo.ctl_name) {
+            $0.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: $0.pointee)) {
+                _ = strcpy($0, "com.apple.net.utun_control")
+            }
+        }
+        for fd: Int32 in 0...1024 {
+            var addr = sockaddr_ctl()
+            var ret: Int32 = -1
+            var len = socklen_t(MemoryLayout.size(ofValue: addr))
+            withUnsafeMutablePointer(to: &addr) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    ret = getpeername(fd, $0, &len)
+                }
+            }
+            if ret != 0 || addr.sc_family != AF_SYSTEM {
+                continue
+            }
+            if ctlInfo.ctl_id == 0 {
+                ret = ioctl(fd, CTLIOCGINFO, &ctlInfo)
+                if ret != 0 {
+                    continue
+                }
+            }
+            if addr.sc_id == ctlInfo.ctl_id {
+                return fd
+            }
+        }
+        return nil
+    }
+    
+    
+
+    
+}
 
 class AbstractTun {
     private var tunRef: OpaquePointer?
     private var dispatchQueue: DispatchQueue
     
-    private var singlePeer: PeerConfiguration
     private var unmanagedSelf: Unmanaged<AbstractTun>?
     private let packetTunnelProvider: PacketTunnelProvider
     
@@ -23,16 +113,44 @@ class AbstractTun {
     private var v6SessionMap: [[UInt16]: NWUDPSession] = [[UInt16]: NWUDPSession]()
     
     private var wgTaskTimer: DispatchSourceTimer?
+    private let logClosure: (String) -> Void
     
-    init(queue: DispatchQueue, tunnelConfig: PacketTunnelConfiguration, packetTunnel: PacketTunnelProvider) throws {
-        self.dispatchQueue = queue;
-        self.packetTunnelProvider = packetTunnel
+    private (set) var bytesReceived: UInt64 = 0
+    private (set) var bytesSent: UInt64 = 0
+    
+    init(queue: DispatchQueue, packetTunnel: PacketTunnelProvider, logClosure: @escaping (String) -> Void) {
+        dispatchQueue = queue;
+        packetTunnelProvider = packetTunnel
+        self.logClosure = logClosure
+        wgTaskTimer = DispatchSource.makeTimerSource(queue: dispatchQueue)
         
-        singlePeer = tunnelConfig.wgTunnelConfig.peers[0];
+    }
+    
+    
+    
+    deinit {
+        self.wgTaskTimer?.cancel()
+        abstract_tun_drop(self.tunRef)
+    }
+    
+    func stop() {
+        self.wgTaskTimer?.cancel()
+        abstract_tun_drop(self.tunRef)
+    }
+    
+    func update(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
+        stop()
+        bytesSent = 0
+        bytesReceived = 0
+        return start(tunnelConfig: tunnelConfiguration)
+    }
+    
+    func start(tunnelConfig: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
+         let singlePeer = tunnelConfig.wgTunnelConfig.peers[0];
         
         let privateKey = tunnelConfig.wgTunnelConfig.interface.privateKey.rawValue;
         guard let peerEndpoint = singlePeer.endpoint else {
-            return
+            return .failure(AbstractTunError.noPeers)
         }
         let peerAddr = peerEndpoint.host
         
@@ -62,6 +180,7 @@ class AbstractTun {
         
         iosContext.tun_v4_callback = {
             (ctx, buffer, bufSize) in
+            AbstractTun.handleTunSendV4(ctx: ctx, data: buffer, size: bufSize)
         }
         
         iosContext.tun_v6_callback = {
@@ -84,7 +203,7 @@ class AbstractTun {
             tunRef = abstract_tun_init_instance($0)
         }
         if tunRef == nil {
-            throw AbstractTunError.initializationError
+            return .failure(AbstractTunError.initializationError)
         }
         packetTunnelProvider.packetFlow.readPackets(completionHandler: {[ weak self] (data, ipv) in
             self?.readPacketTunnelBytes(data, ipversion: ipv)
@@ -95,15 +214,8 @@ class AbstractTun {
             [weak self] in
             self?.handleTimerEvent()
         })
-        wgTaskTimer?.schedule(deadline: .now(), repeating: 0.001)
-        
-    }
-    
-    
-    
-    deinit {
-        self.wgTaskTimer?.cancel()
-        abstract_tun_drop(self.tunRef)
+        wgTaskTimer?.schedule(deadline: .now(), repeating: 0.25)
+        return .success(())
     }
     
     func readPacketTunnelBytes(_ traffic: [Data], ipversion: [NSNumber]) {
@@ -169,41 +281,62 @@ class AbstractTun {
         
         var addr = addr;
         
-        
-        var socket: NWUDPSession;
-        if let existingSocket = abstractTun.v4SessionMap[addr] {
-            socket = existingSocket
-        } else {
-            guard let address = IPv4Address(Data(bytes: &addr, count: MemoryLayout<UInt32>.size), nil) else {
-                return
-            }
-            let endpoint = NWHostEndpoint(hostname: "\(address)", port: "\(port)")
-            let newSocket = abstractTun.packetTunnelProvider.createUDPSession(to: endpoint, from: nil )
-            
-            socket = newSocket
-            abstractTun.v4SessionMap[addr] = newSocket
-            
-            newSocket.setReadHandler( {
-                [weak abstractTun] (traffic, error) in
-                if let error = error {
-                    // TODO: log error
-                    return;
+        abstractTun.dispatchQueue.sync {
+             var socket: NWUDPSession;
+            if let existingSocket = abstractTun.v4SessionMap[addr] {
+                socket = existingSocket
+            } else {
+                guard let address = IPv4Address(Data(bytes: &addr, count: MemoryLayout<UInt32>.size), nil) else {
+                    return
                 }
-                guard let tun = abstractTun  else  { return }
-                for data in traffic ?? [] {
-                    do {
-                        try tun.receiveTunnelTraffic(data)
-                    } catch {
-                       // TODO: log error
+                let endpoint = NWHostEndpoint(hostname: "\(address)", port: "\(port)")
+                let newSocket = abstractTun.packetTunnelProvider.createUDPSession(to: endpoint, from: nil )
+                
+                socket = newSocket
+                abstractTun.v4SessionMap[addr] = newSocket
+                
+                newSocket.setReadHandler( {
+                    [weak abstractTun] (traffic, error) in
+                    if let error = error {
+                        // TODO: log error
+                        return;
                     }
-                }
-            }, maxDatagrams: 1024)
+                    guard let tun = abstractTun  else  { return }
+                    for data in traffic ?? [] {
+                        do {
+                            try tun.receiveTunnelTraffic(data)
+                        } catch {
+                           // TODO: log error
+                        }
+                    }
+                }, maxDatagrams: 1024)
+            }
+
+            
+            socket.writeDatagram(packetBytes, completionHandler: {
+                error in
+            })
+                            
+            abstractTun.dispatchQueue.async {
+                abstractTun.bytesSent += UInt64(size)
+            }
         }
         
-        socket.writeDatagram(packetBytes, completionHandler: {
-            error in
-        })
+        
+
+        
     }
+    
+    private static func handleUdpSendV6(
+        ctx: UnsafeMutableRawPointer?,
+        addr: UInt32,
+        port: UInt16,
+        buffer: UnsafePointer<UInt8>?,
+        size: UInt
+    ) {
+        
+    }
+    
     
     private static func handleTunSendV4(
         ctx: UnsafeRawPointer?,
@@ -219,6 +352,10 @@ class AbstractTun {
         let packetBytes = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: data), count: Int(size), deallocator: .none)
         
         abstractTun.packetTunnelProvider.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
+        
+        abstractTun.dispatchQueue.async {
+            abstractTun.bytesReceived += UInt64(size)
+        }
     }
     
 }
@@ -226,5 +363,5 @@ class AbstractTun {
 
 enum AbstractTunError: Error {
     case initializationError
+    case noPeers
 }
-
