@@ -30,6 +30,9 @@ base64 = "0.21"
 nix = "0.26"
 libc = "0.2"
 
+[target.'cfg(target_os = "ios")'.dependencies]
+oslog = "0.2"
+
 [build-dependencies]
 cbindgen = "0.24"
 

@@ -17,13 +17,19 @@ import WireGuardKitC
 // Wrapper class around AbstractTun to provide an interface similar to WireGuardAdapter.
 class AbstractTunAdapter {
     private let abstractTun: AbstractTun
+    private let queue: DispatchQueue
     init(queue: DispatchQueue, packetTunnel: PacketTunnelProvider, logClosure: @escaping (String) -> Void) {
         
-        self.abstractTun = AbstractTun(queue: queue, packetTunnel: packetTunnel, logClosure: logClosure)
+        self.queue = queue
+        abstractTun = AbstractTun(queue: queue, packetTunnel: packetTunnel, logClosure: logClosure)
     }
     
     public func start(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
         return self.abstractTun.start(tunnelConfig: tunnelConfiguration)
+    }
+    
+    public func block(tunnelConfiguration: TunnelConfiguration) -> Result<(), AbstractTunError> {
+        return self.abstractTun.block(tunnelConfiguration: tunnelConfiguration)
     }
     
     public func update(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
@@ -36,19 +42,21 @@ class AbstractTunAdapter {
     }
     
     public func stats() -> WgStats {
-        WgStats(rx: abstractTun.bytesReceived, tx: abstractTun.bytesSent)
+        return queue.sync {
+            return WgStats(rx: abstractTun.bytesReceived, tx: abstractTun.bytesSent)
+        }
     }
     
     /// Returns the tunnel device interface name, or nil on error.
     /// - Returns: String.
     public var interfaceName: String? {
         guard let tunnelFileDescriptor = self.tunnelFileDescriptor else { return nil }
-
+        
         var buffer = [UInt8](repeating: 0, count: Int(IFNAMSIZ))
-
+        
         return buffer.withUnsafeMutableBufferPointer { mutableBufferPointer in
             guard let baseAddress = mutableBufferPointer.baseAddress else { return nil }
-
+            
             var ifnameSize = socklen_t(IFNAMSIZ)
             let result = getsockopt(
                 tunnelFileDescriptor,
@@ -56,7 +64,7 @@ class AbstractTunAdapter {
                 2 /* UTUN_OPT_IFNAME */,
                 baseAddress,
                 &ifnameSize)
-
+            
             if result == 0 {
                 return String(cString: baseAddress)
             } else {
@@ -99,7 +107,7 @@ class AbstractTunAdapter {
     }
     
     
-
+    
     
 }
 
@@ -113,7 +121,9 @@ class AbstractTun {
     private var v4SessionMap: [UInt32: NWUDPSession] = [UInt32: NWUDPSession]()
     private var v6SessionMap: [[UInt16]: NWUDPSession] = [[UInt16]: NWUDPSession]()
     
-    private var wgTaskTimer: DispatchSourceTimer?
+    private let tunQueue = DispatchQueue(label: "AbstractTun", qos: .userInitiated)
+    
+    private var wgTaskTimer: DispatchSourceTimer
     private let logClosure: (String) -> Void
     
     private (set) var bytesReceived: UInt64 = 0
@@ -123,20 +133,29 @@ class AbstractTun {
         dispatchQueue = queue;
         packetTunnelProvider = packetTunnel
         self.logClosure = logClosure
-        wgTaskTimer = DispatchSource.makeTimerSource(queue: dispatchQueue)
+        wgTaskTimer = DispatchSource.makeTimerSource(queue: queue)
+        wgTaskTimer.setEventHandler(handler: {
+            [weak self] in
+            self?.handleTimerEvent()
+        })
+        wgTaskTimer.schedule(deadline: .now() + .milliseconds(10), repeating: .milliseconds(250))
         
     }
     
     
     
     deinit {
-        self.wgTaskTimer?.cancel()
+        self.stop()
+    }
+    
+    func stopAbstractTun() {
         abstract_tun_drop(self.tunRef)
+        self.tunRef = nil
     }
     
     func stop() {
-        self.wgTaskTimer?.cancel()
-        abstract_tun_drop(self.tunRef)
+        self.wgTaskTimer.suspend()
+        stopAbstractTun()
     }
     
     func update(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
@@ -147,7 +166,7 @@ class AbstractTun {
     }
     
     func start(tunnelConfig: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
-         let singlePeer = tunnelConfig.wgTunnelConfig.peers[0];
+        let singlePeer = tunnelConfig.wgTunnelConfig.peers[0];
         
         let privateKey = tunnelConfig.wgTunnelConfig.interface.privateKey.rawValue;
         guard let peerEndpoint = singlePeer.endpoint else {
@@ -214,12 +233,7 @@ class AbstractTun {
             self?.readPacketTunnelBytes(data, ipversion: ipv)
         })
         
-        
-        wgTaskTimer?.setEventHandler(handler: {
-            [weak self] in
-            self?.handleTimerEvent()
-        })
-        wgTaskTimer?.schedule(deadline: .now(), repeating: 0.001)
+        wgTaskTimer.resume()
         
         return setConfiguration(tunnelConfig.wgTunnelConfig)
     }
@@ -245,22 +259,20 @@ class AbstractTun {
             return .success(())
             
         }
-        }
+    }
     
     func readPacketTunnelBytes(_ traffic: [Data], ipversion: [NSNumber]) {
         dispatchQueue.async {
             do {
                 
-            for (traffic, _) in zip(traffic, ipversion) {
-                try self.receiveTunnelTraffic(traffic)
-            }
-            
+                for (traffic, _) in zip(traffic, ipversion) {
+                    try self.receiveHostTraffic(traffic)
+                }
+                
             } catch {
-               // TODO: catch the error properly here.
+                // TODO: catch the error properly here.
             }
-            self.packetTunnelProvider.packetFlow.readPackets(completionHandler: {[ weak self] (data, ipv) in
-            self?.readPacketTunnelBytes(data, ipversion: ipv)
-        })
+            self.packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
         }
     }
     
@@ -268,6 +280,7 @@ class AbstractTun {
         guard let tunPtr = self.tunRef else {
             return
         }
+        self.bytesReceived += UInt64(data.count)
         try data.withUnsafeBytes<Void> {
             ptr in
             abstract_tun_handle_tunnel_traffic(tunPtr, ptr, UInt(data.count))
@@ -310,22 +323,26 @@ class AbstractTun {
         
         var addr = addr;
         
-        abstractTun.dispatchQueue.sync {
-             var socket: NWUDPSession;
-            if let existingSocket = abstractTun.v4SessionMap[addr] {
-                socket = existingSocket
-            } else {
-                guard let address = IPv4Address(Data(bytes: &addr, count: MemoryLayout<UInt32>.size), nil) else {
-                    return
-                }
-                let endpoint = NWHostEndpoint(hostname: "\(address)", port: "\(port)")
-                let newSocket = abstractTun.packetTunnelProvider.createUDPSession(to: endpoint, from: nil )
+        // abstractTun.dispatchQueue.sync {
+        var socket: NWUDPSession;
+        if let existingSocket = abstractTun.v4SessionMap[addr] {
+            socket = existingSocket
+        } else {
+            guard let address = IPv4Address(Data(bytes: &addr, count: MemoryLayout<UInt32>.size), nil) else {
+                return
+            }
+            let endpoint = NWHostEndpoint(hostname: "\(address)", port: "\(port)")
+            let newSocket = abstractTun.packetTunnelProvider.createUDPSession(to: endpoint, from: nil )
+            
+            
+            socket = newSocket
+            abstractTun.v4SessionMap[addr] = newSocket
+            
+            newSocket.setReadHandler( {
+                [weak abstractTun] (traffic, error) in
                 
-                socket = newSocket
-                abstractTun.v4SessionMap[addr] = newSocket
-                
-                newSocket.setReadHandler( {
-                    [weak abstractTun] (traffic, error) in
+                guard let tun = abstractTun else { return }
+                tun.dispatchQueue.async {
                     if let error = error {
                         // TODO: log error
                         return;
@@ -335,24 +352,33 @@ class AbstractTun {
                         do {
                             try tun.receiveTunnelTraffic(data)
                         } catch {
-                           // TODO: log error
+                            // TODO: log error
                         }
                     }
-                }, maxDatagrams: 1024)
-            }
-
-            
-            socket.writeDatagram(packetBytes, completionHandler: {
-                error in
-            })
-                            
-            abstractTun.dispatchQueue.async {
-                abstractTun.bytesSent += UInt64(size)
-            }
+                }
+                
+            }, maxDatagrams: 1024)
         }
         
         
-
+        socket.writeDatagram(packetBytes, completionHandler: {
+            [weak abstractTun]
+            error in
+            if let error = error {
+                // TODO: handle error
+            } else {
+                abstractTun?.dispatchQueue.async {
+                    abstractTun?.bytesSent += UInt64(size)
+                }
+            }
+        })
+       
+        _ = socket.observe(\.state) { udpSession, newState in
+            print(newState.newValue ?? "no new value: \(newState.oldValue)")
+        }
+        
+        // abstractTun.bytesSent += UInt64(size)
+        // }
         
     }
     
@@ -387,105 +413,109 @@ class AbstractTun {
         }
     }
     
+    func block(tunnelConfiguration: TunnelConfiguration) -> Result<(), AbstractTunError> {
+        return setConfiguration(tunnelConfiguration)
+    }
+    
 }
 func generateNetworkSettings(tunnelConfiguration: TunnelConfiguration) -> NEPacketTunnelNetworkSettings {
-        /* iOS requires a tunnel endpoint, whereas in WireGuard it's valid for
-         * a tunnel to have no endpoint, or for there to be many endpoints, in
-         * which case, displaying a single one in settings doesn't really
-         * make sense. So, we fill it in with this placeholder, which is not
-         * a valid IP address that will actually route over the Internet.
-         */
-        let networkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-
-        if !tunnelConfiguration.interface.dnsSearch.isEmpty || !tunnelConfiguration.interface.dns.isEmpty {
-            let dnsServerStrings = tunnelConfiguration.interface.dns.map { $0.stringRepresentation }
-            let dnsSettings = NEDNSSettings(servers: dnsServerStrings)
-            dnsSettings.searchDomains = tunnelConfiguration.interface.dnsSearch
-            if !tunnelConfiguration.interface.dns.isEmpty {
-                dnsSettings.matchDomains = [""] // All DNS queries must first go through the tunnel's DNS
-            }
-            networkSettings.dnsSettings = dnsSettings
+    /* iOS requires a tunnel endpoint, whereas in WireGuard it's valid for
+     * a tunnel to have no endpoint, or for there to be many endpoints, in
+     * which case, displaying a single one in settings doesn't really
+     * make sense. So, we fill it in with this placeholder, which is not
+     * a valid IP address that will actually route over the Internet.
+     */
+    let networkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
+    
+    if !tunnelConfiguration.interface.dnsSearch.isEmpty || !tunnelConfiguration.interface.dns.isEmpty {
+        let dnsServerStrings = tunnelConfiguration.interface.dns.map { $0.stringRepresentation }
+        let dnsSettings = NEDNSSettings(servers: dnsServerStrings)
+        dnsSettings.searchDomains = tunnelConfiguration.interface.dnsSearch
+        if !tunnelConfiguration.interface.dns.isEmpty {
+            dnsSettings.matchDomains = [""] // All DNS queries must first go through the tunnel's DNS
         }
-
-        let mtu = tunnelConfiguration.interface.mtu ?? 0
-
-        /* 0 means automatic MTU. In theory, we should just do
-         * `networkSettings.tunnelOverheadBytes = 80` but in
-         * practice there are too many broken networks out there.
-         * Instead set it to 1280. Boohoo. Maybe someday we'll
-         * add a nob, maybe, or iOS will do probing for us.
-         */
-        if mtu == 0 {
-            #if os(iOS)
-            networkSettings.mtu = NSNumber(value: 1280)
-            #elseif os(macOS)
-            networkSettings.tunnelOverheadBytes = 80
-            #else
-            #error("Unimplemented")
-            #endif
-        } else {
-            networkSettings.mtu = NSNumber(value: mtu)
-        }
-
-        let (ipv4Addresses, ipv6Addresses) = addresses(tunnelConfiguration: tunnelConfiguration)
-        let (ipv4IncludedRoutes, ipv6IncludedRoutes) = includedRoutes(tunnelConfiguration: tunnelConfiguration)
-
-        let ipv4Settings = NEIPv4Settings(addresses: ipv4Addresses.map { $0.destinationAddress }, subnetMasks: ipv4Addresses.map { $0.destinationSubnetMask })
-        ipv4Settings.includedRoutes = ipv4IncludedRoutes
-        networkSettings.ipv4Settings = ipv4Settings
-
-        let ipv6Settings = NEIPv6Settings(addresses: ipv6Addresses.map { $0.destinationAddress }, networkPrefixLengths: ipv6Addresses.map { $0.destinationNetworkPrefixLength })
-        ipv6Settings.includedRoutes = ipv6IncludedRoutes
-        networkSettings.ipv6Settings = ipv6Settings
-
-        return networkSettings
+        networkSettings.dnsSettings = dnsSettings
     }
+    
+    let mtu = tunnelConfiguration.interface.mtu ?? 0
+    
+    /* 0 means automatic MTU. In theory, we should just do
+     * `networkSettings.tunnelOverheadBytes = 80` but in
+     * practice there are too many broken networks out there.
+     * Instead set it to 1280. Boohoo. Maybe someday we'll
+     * add a nob, maybe, or iOS will do probing for us.
+     */
+    if mtu == 0 {
+#if os(iOS)
+        networkSettings.mtu = NSNumber(value: 1280)
+#elseif os(macOS)
+        networkSettings.tunnelOverheadBytes = 80
+#else
+#error("Unimplemented")
+#endif
+    } else {
+        networkSettings.mtu = NSNumber(value: mtu)
+    }
+    
+    let (ipv4Addresses, ipv6Addresses) = addresses(tunnelConfiguration: tunnelConfiguration)
+    let (ipv4IncludedRoutes, ipv6IncludedRoutes) = includedRoutes(tunnelConfiguration: tunnelConfiguration)
+    
+    let ipv4Settings = NEIPv4Settings(addresses: ipv4Addresses.map { $0.destinationAddress }, subnetMasks: ipv4Addresses.map { $0.destinationSubnetMask })
+    ipv4Settings.includedRoutes = ipv4IncludedRoutes
+    networkSettings.ipv4Settings = ipv4Settings
+    
+    let ipv6Settings = NEIPv6Settings(addresses: ipv6Addresses.map { $0.destinationAddress }, networkPrefixLengths: ipv6Addresses.map { $0.destinationNetworkPrefixLength })
+    ipv6Settings.includedRoutes = ipv6IncludedRoutes
+    networkSettings.ipv6Settings = ipv6Settings
+    
+    return networkSettings
+}
 
 private func addresses(tunnelConfiguration: TunnelConfiguration) -> ([NEIPv4Route], [NEIPv6Route]) {
-        var ipv4Routes = [NEIPv4Route]()
-        var ipv6Routes = [NEIPv6Route]()
-        for addressRange in tunnelConfiguration.interface.addresses {
-            if addressRange.address is IPv4Address {
-                ipv4Routes.append(NEIPv4Route(destinationAddress: "\(addressRange.address)", subnetMask: "\(addressRange.subnetMask())"))
-            } else if addressRange.address is IPv6Address {
-                /* Big fat ugly hack for broken iOS networking stack: the smallest prefix that will have
-                 * any effect on iOS is a /120, so we clamp everything above to /120. This is potentially
-                 * very bad, if various network parameters were actually relying on that subnet being
-                 * intentionally small. TODO: talk about this with upstream iOS devs.
-                 */
-                ipv6Routes.append(NEIPv6Route(destinationAddress: "\(addressRange.address)", networkPrefixLength: NSNumber(value: min(120, addressRange.networkPrefixLength))))
-            }
+    var ipv4Routes = [NEIPv4Route]()
+    var ipv6Routes = [NEIPv6Route]()
+    for addressRange in tunnelConfiguration.interface.addresses {
+        if addressRange.address is IPv4Address {
+            ipv4Routes.append(NEIPv4Route(destinationAddress: "\(addressRange.address)", subnetMask: "\(addressRange.subnetMask())"))
+        } else if addressRange.address is IPv6Address {
+            /* Big fat ugly hack for broken iOS networking stack: the smallest prefix that will have
+             * any effect on iOS is a /120, so we clamp everything above to /120. This is potentially
+             * very bad, if various network parameters were actually relying on that subnet being
+             * intentionally small. TODO: talk about this with upstream iOS devs.
+             */
+            ipv6Routes.append(NEIPv6Route(destinationAddress: "\(addressRange.address)", networkPrefixLength: NSNumber(value: min(120, addressRange.networkPrefixLength))))
         }
-        return (ipv4Routes, ipv6Routes)
     }
+    return (ipv4Routes, ipv6Routes)
+}
 
 private func includedRoutes(tunnelConfiguration: TunnelConfiguration) -> ([NEIPv4Route], [NEIPv6Route]) {
-        var ipv4IncludedRoutes = [NEIPv4Route]()
-        var ipv6IncludedRoutes = [NEIPv6Route]()
-
-        for addressRange in tunnelConfiguration.interface.addresses {
-            if addressRange.address is IPv4Address {
-                let route = NEIPv4Route(destinationAddress: "\(addressRange.maskedAddress())", subnetMask: "\(addressRange.subnetMask())")
-                route.gatewayAddress = "\(addressRange.address)"
-                ipv4IncludedRoutes.append(route)
-            } else if addressRange.address is IPv6Address {
-                let route = NEIPv6Route(destinationAddress: "\(addressRange.maskedAddress())", networkPrefixLength: NSNumber(value: addressRange.networkPrefixLength))
-                route.gatewayAddress = "\(addressRange.address)"
-                ipv6IncludedRoutes.append(route)
-            }
+    var ipv4IncludedRoutes = [NEIPv4Route]()
+    var ipv6IncludedRoutes = [NEIPv6Route]()
+    
+    for addressRange in tunnelConfiguration.interface.addresses {
+        if addressRange.address is IPv4Address {
+            let route = NEIPv4Route(destinationAddress: "\(addressRange.maskedAddress())", subnetMask: "\(addressRange.subnetMask())")
+            route.gatewayAddress = "\(addressRange.address)"
+            ipv4IncludedRoutes.append(route)
+        } else if addressRange.address is IPv6Address {
+            let route = NEIPv6Route(destinationAddress: "\(addressRange.maskedAddress())", networkPrefixLength: NSNumber(value: addressRange.networkPrefixLength))
+            route.gatewayAddress = "\(addressRange.address)"
+            ipv6IncludedRoutes.append(route)
         }
-
-        for peer in tunnelConfiguration.peers {
-            for addressRange in peer.allowedIPs {
-                if addressRange.address is IPv4Address {
-                    ipv4IncludedRoutes.append(NEIPv4Route(destinationAddress: "\(addressRange.address)", subnetMask: "\(addressRange.subnetMask())"))
-                } else if addressRange.address is IPv6Address {
-                    ipv6IncludedRoutes.append(NEIPv6Route(destinationAddress: "\(addressRange.address)", networkPrefixLength: NSNumber(value: addressRange.networkPrefixLength)))
-                }
-            }
-        }
-        return (ipv4IncludedRoutes, ipv6IncludedRoutes)
     }
+    
+    for peer in tunnelConfiguration.peers {
+        for addressRange in peer.allowedIPs {
+            if addressRange.address is IPv4Address {
+                ipv4IncludedRoutes.append(NEIPv4Route(destinationAddress: "\(addressRange.address)", subnetMask: "\(addressRange.subnetMask())"))
+            } else if addressRange.address is IPv6Address {
+                ipv6IncludedRoutes.append(NEIPv6Route(destinationAddress: "\(addressRange.address)", networkPrefixLength: NSNumber(value: addressRange.networkPrefixLength)))
+            }
+        }
+    }
+    return (ipv4IncludedRoutes, ipv6IncludedRoutes)
+}
 
 
 

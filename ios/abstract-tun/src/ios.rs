@@ -2,9 +2,13 @@ use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     slice,
+    sync::Once,
 };
 
 use crate::{Config, PeerConfig, TunnelTransport, UdpTransport, WgInstance};
+
+
+const INIT_LOGGING: Once = Once::new();
 
 pub struct IOSTun {
     wg: super::WgInstance<IOSUdpSender, IOSTunWriter>,
@@ -158,6 +162,13 @@ pub extern "C" fn abstract_tun_size() -> usize {
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mut IOSTun {
+    INIT_LOGGING.call_once(|| {
+        let _ = oslog::OsLogger::new("net.mullvad.MullvadVPN.ShadowSocks")
+            .level_filter(log::LevelFilter::Info)
+            .init();
+    });
+
+
     let params = unsafe { &*params };
     let peer_addr = match params.peer_addr() {
         Some(addr) => addr,
@@ -194,6 +205,7 @@ pub extern "C" fn abstract_tun_handle_host_traffic(
     packet: *const u8,
     packet_size: usize,
 ) {
+    log::error!("HANDLING HOST TRAFFIC");
     let tun: &mut IOSTun = unsafe { &mut *(tun) };
     let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
     tun.wg.handle_host_traffic(packet);
@@ -205,13 +217,16 @@ pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     packet: *const u8,
     packet_size: usize,
 ) {
+    log::error!("HANDLING TUNNEL TRAFFIC");
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
-    let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
+    let mut packet = unsafe { slice::from_raw_parts(packet, packet_size) };
+
     tun.wg.handle_tunnel_traffic(packet);
 }
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
+    log::error!("HANDLING TIMER EVENT");
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     tun.wg.handle_timer_tick();
 }
@@ -219,8 +234,10 @@ pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
 #[no_mangle]
 pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
     if tun.is_null() {
+        log::error!("CALLING DROP ON A NULL POINTER");
         return;
     }
+    log::error!("CALLING DROP");
     let tun: Box<IOSTun> = unsafe { Box::from_raw(tun) };
     std::mem::drop(tun);
 }

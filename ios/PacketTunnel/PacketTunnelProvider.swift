@@ -32,7 +32,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     private let tunnelLogger: Logger
 
     /// Internal queue.
-    private let dispatchQueue = DispatchQueue(label: "PacketTunnel", qos: .utility)
+   private let dispatchQueue = DispatchQueue(label: "PacketTunnel", qos: .utility)
+
 
     /// WireGuard adapter.
     private var adapter: AbstractTunAdapter!
@@ -524,7 +525,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
             peers: []
         )
         
-        completionHandler(nil)
+        self.dispatchQueue.async {
+            let result = self.adapter.block(tunnelConfiguration: emptyTunnelConfiguration )
+            completionHandler(result.error)
+        }
+        
 
 //        adapter.start(tunnelConfiguration: emptyTunnelConfiguration) { error in
 //            self.dispatchQueue.async {

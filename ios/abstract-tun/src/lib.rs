@@ -39,6 +39,7 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
 
         match self.peers[0].tun.encapsulate(packet, &mut send_buf) {
             TunnResult::WriteToNetwork(buf) => {
+                log::error!("SENDING PACKET TO RELAY");
                 if let Err(err) = self.udp_transport.send_packet(self.peers[0].endpoint, buf) {
                     log::error!("Failed to send UDP packet: {err}");
                 }
@@ -48,6 +49,7 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
             }
             TunnResult::Done => {}
             other => {
+                    oopsie(&other);
                 log::error!("Unexpected WireGuard state during encapsulation: {other:?}");
             }
         }
@@ -79,6 +81,7 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
                 }
 
                 TunnResult::WriteToNetwork(packet) => {
+                    log::error!("SENDING PACKET TO RELAY");
                     let _ = self
                         .udp_transport
                         .send_packet(self.peers[0].endpoint, packet);
@@ -89,6 +92,7 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
                     break;
                 }
                 other => {
+                    oopsie(&other);
                     log::error!("Unexpected WireGuard state {other:?}");
                     break;
                 }
@@ -104,6 +108,7 @@ impl<S: UdpTransport, T: TunnelTransport> WgInstance<S, T> {
             .decapsulate(None, packet, self.send_buf.as_mut_slice())
         {
             TunnResult::WriteToNetwork(data) => {
+                log::error!("SENDING PACKET TO RELAY");
                 if let Err(err) = self.udp_transport.send_packet(self.peers[0].endpoint, data) {
                     log::error!("Failed to send packet to peer {err}");
                 }
@@ -124,17 +129,19 @@ impl<S: UdpTransport, T: TunnelTransport> WgInstance<S, T> {
                 log::error!("donezo");
             }
             TunnResult::WriteToTunnelV4(clear_packet, _addr) => {
+                log::error!("SENDING PACKET TO HOST");
                 if let Err(err) = self.tunnel_transport.send_v4_packet(clear_packet) {
                     log::error!("Failed to send packet to tunnel interface: {err}");
                 }
             }
             TunnResult::WriteToTunnelV6(clear_packet, _addr) => {
+                log::error!("SENDING PACKET TO HOST");
                 if let Err(err) = self.tunnel_transport.send_v6_packet(clear_packet) {
                     log::error!("Failed to send packet to tunnel interface: {err}");
                 }
             }
-            _anything_else => {
-                // TODO: Consider handling other cases here
+            anything_else => {
+                oopsie(&anything_else);
             }
         }
     }
@@ -201,4 +208,9 @@ pub trait AsyncUdpTransport {
 
 fn new_send_buf() -> Box<[u8; u16::MAX as usize]> {
     Box::<[u8; u16::MAX as usize]>::try_from(vec![0u8; u16::MAX as usize]).unwrap()
+}
+
+extern "C" fn oopsie(res: &TunnResult) {
+    let s = format!("{res:?}");
+    log::error!("{s}");
 }
