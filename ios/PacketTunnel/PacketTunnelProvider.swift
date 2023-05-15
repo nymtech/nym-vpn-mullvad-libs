@@ -297,17 +297,19 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
             self.operationQueue.addBarrierBlock {
                 self.tunnelMonitor.stop()
 
-                self.adapter.stop { error in
-                    self.dispatchQueue.async {
-                        if let error = error {
-                            self.providerLogger.error(
-                                error: error,
-                                message: "Failed to stop the tunnel gracefully."
-                            )
-                        } else {
-                            self.providerLogger.debug("Stopped the tunnel.")
+                self.dispatchQueue.async {
+                    self.adapter.stop { error in
+                        self.dispatchQueue.async {
+                            if let error = error {
+                                self.providerLogger.error(
+                                    error: error,
+                                    message: "Failed to stop the tunnel gracefully."
+                                )
+                            } else {
+                                self.providerLogger.debug("Stopped the tunnel.")
+                            }
+                            completionHandler()
                         }
-                        completionHandler()
                     }
                 }
             }
@@ -601,7 +603,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         // Ignore all requests to reconnect once tunnel is preparing to stop.
         guard !isStopping else { return }
 
-        let blockOperation = AsyncBlockOperation(dispatchQueue: dispatchQueue, block: { finish in
+        let blockOperation = AsyncBlockOperation(dispatchQueue: dispatchQueue, block: { [nextRelay] finish in
             if shouldStopTunnelMonitor {
                 self.tunnelMonitor.stop()
             }

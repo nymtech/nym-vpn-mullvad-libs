@@ -131,9 +131,9 @@ final class Pinger {
     /// Send ping packet to the given address.
     /// Returns `SendResult` on success, otherwise throws a `Pinger.Error`.
     func send(to address: IPv4Address) throws -> SendResult {
-        stateLock.lock()
-        defer { stateLock.unlock() }
-
+//        stateLock.lock()
+//        defer { stateLock.unlock() }
+//
         guard let socket = socket else {
             throw Error.closedSocket
         }
@@ -194,9 +194,13 @@ final class Pinger {
             &address,
             &addressLength
         )
+        
+        print("bytes read from socket: \(bytesRead)")
 
         do {
-            guard bytesRead > 0 else { throw Error.receivePacket(errno) }
+            guard bytesRead > 0 else {
+                throw Error.receivePacket(errno)
+            }
 
             let icmpHeader = try parseICMPResponse(buffer: &readBuffer, length: bytesRead)
             guard let sender = Self.makeIPAddress(from: address) else { throw Error.parseIPAddress }
@@ -208,33 +212,37 @@ final class Pinger {
                     icmpHeader: icmpHeader
                 )
             }
-        } catch Pinger.Error.clientIdentifierMismatch {
-            // Ignore responses from other senders.
-        } catch {
-            delegateQueue.async {
-                self.delegate?.pinger(self, didFailWithError: error)
-            }
         }
+        catch {
+            print(error)
+        }
+//        catch Pinger.Error.clientIdentifierMismatch {
+//            // Ignore responses from other senders.
+//        } catch {
+//            delegateQueue.async {
+//                self.delegate?.pinger(self, didFailWithError: error)
+//            }
+//        }
     }
 
     private func parseICMPResponse(buffer: inout [UInt8], length: Int) throws -> ICMPHeader {
         return try buffer.withUnsafeMutableBytes { bufferPointer in
             // Check IP packet size.
-            guard length >= MemoryLayout<IPv4Header>.size else {
-                throw Error.malformedResponse(.ipv4PacketTooSmall)
-            }
+//            guard length >= MemoryLayout<IPv4Header>.size else {
+//                throw Error.malformedResponse(.ipv4PacketTooSmall)
+//            }
 
             // Verify IPv4 header.
             let ipv4Header = bufferPointer.load(as: IPv4Header.self)
             let payloadLength = length - ipv4Header.headerLength
 
-            guard payloadLength >= MemoryLayout<ICMPHeader>.size else {
-                throw Error.malformedResponse(.icmpHeaderTooSmall)
-            }
+//            guard payloadLength >= MemoryLayout<ICMPHeader>.size else {
+//                throw Error.malformedResponse(.icmpHeaderTooSmall)
+//            }
 
-            guard ipv4Header.isIPv4Version else {
-                throw Error.malformedResponse(.invalidIPVersion)
-            }
+//            guard ipv4Header.isIPv4Version else {
+//                throw Error.malformedResponse(.invalidIPVersion)
+//            }
 
             // Parse ICMP header.
             let icmpHeaderPointer = bufferPointer.baseAddress!
@@ -242,14 +250,14 @@ final class Pinger {
                 .assumingMemoryBound(to: ICMPHeader.self)
 
             // Check if ICMP response identifier matches the one from sender.
-            guard icmpHeaderPointer.pointee.identifier.bigEndian == identifier else {
-                throw Error.clientIdentifierMismatch
-            }
+//            guard icmpHeaderPointer.pointee.identifier.bigEndian == identifier else {
+//                throw Error.clientIdentifierMismatch
+//            }
 
             // Verify ICMP type.
-            guard icmpHeaderPointer.pointee.type == ICMP_ECHOREPLY else {
-                throw Error.malformedResponse(.invalidEchoReplyType)
-            }
+//            guard icmpHeaderPointer.pointee.type == ICMP_ECHOREPLY else {
+//                throw Error.malformedResponse(.invalidEchoReplyType)
+//            }
 
             // Copy server checksum.
             let serverChecksum = icmpHeaderPointer.pointee.checksum.bigEndian
@@ -263,9 +271,9 @@ final class Pinger {
                 count: payloadLength
             )
             let clientChecksum = in_chksum(payloadPointer)
-            if clientChecksum != serverChecksum {
-                throw Error.malformedResponse(.checksumMismatch(clientChecksum, serverChecksum))
-            }
+//            if clientChecksum != serverChecksum {
+//                throw Error.malformedResponse(.checksumMismatch(clientChecksum, serverChecksum))
+//            }
 
             // Ensure endianness before returning ICMP packet to delegate.
             var icmpHeader = icmpHeaderPointer.pointee

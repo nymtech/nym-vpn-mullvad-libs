@@ -241,13 +241,17 @@ final class TunnelMonitor: PingerDelegate {
     weak var delegate: TunnelMonitorDelegate? {
         set {
             nslock.lock()
-            defer { nslock.unlock() }
+            defer {
+                nslock.unlock()
+            }
 
             _delegate = newValue
         }
         get {
             nslock.lock()
-            defer { nslock.unlock() }
+            defer {
+                nslock.unlock()
+            }
 
             return _delegate
         }
@@ -261,6 +265,8 @@ final class TunnelMonitor: PingerDelegate {
         self.delegateQueue = delegateQueue
         self.packetTunnelProvider = packetTunnelProvider
         self.adapter = adapter
+        
+        nslock.name = "\(PingStats.self)Lock"
 
         pinger = Pinger(delegateQueue: eventQueue)
         pinger.delegate = self
@@ -370,8 +376,8 @@ final class TunnelMonitor: PingerDelegate {
             .observe(\.defaultPath, options: [.new]) { [weak self] _, change in
                 guard let self = self else { return }
 
-                self.nslock.lock()
-                defer { self.nslock.unlock() }
+//                self.nslock.lock()
+//                defer { self.nslock.unlock() }
 
                 let newValue = change.newValue.flatMap { $0 }
                 if let newPath = newValue {
@@ -394,8 +400,10 @@ final class TunnelMonitor: PingerDelegate {
     }
 
     private func checkConnectivity() {
-        nslock.lock()
-        defer { nslock.unlock() }
+//        nslock.lock()
+//        defer {
+//            nslock.unlock()
+//        }
 
         guard let probeAddress = probeAddress, let newStats = getStats(),
               state.connectionState == .connecting || state.connectionState == .connected
@@ -521,7 +529,9 @@ final class TunnelMonitor: PingerDelegate {
 
     private func didReceivePing(from sender: IPAddress, icmpHeader: ICMPHeader) {
         nslock.lock()
-        defer { nslock.unlock() }
+        defer {
+            nslock.unlock()
+        }
 
         guard let probeAddress = probeAddress else { return }
 
@@ -590,8 +600,8 @@ final class TunnelMonitor: PingerDelegate {
         timer.setEventHandler { [weak self] in
             self?.checkConnectivity()
         }
-        timer.schedule(wallDeadline: .now(), repeating: connectivityCheckInterval)
-        timer.activate()
+//        timer.schedule(wallDeadline: .now(), repeating: connectivityCheckInterval)
+//        timer.activate()
 
         self.timer?.cancel()
         self.timer = timer

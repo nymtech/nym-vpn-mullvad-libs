@@ -17,7 +17,7 @@ struct WgStats {
         bytesSent = 0
     }
     
-    init(rx rx: UInt64, tx tx: UInt64) {
+    init(rx: UInt64, tx: UInt64) {
         bytesReceived = rx
         bytesSent = tx
     }

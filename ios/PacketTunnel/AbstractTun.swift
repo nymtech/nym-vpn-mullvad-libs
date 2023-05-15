@@ -25,26 +25,24 @@ class AbstractTunAdapter {
     }
     
     public func start(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
-        return self.abstractTun.start(tunnelConfig: tunnelConfiguration)
+        return abstractTun.start(tunnelConfig: tunnelConfiguration)
     }
     
     public func block(tunnelConfiguration: TunnelConfiguration) -> Result<(), AbstractTunError> {
-        return self.abstractTun.block(tunnelConfiguration: tunnelConfiguration)
+        return abstractTun.block(tunnelConfiguration: tunnelConfiguration)
     }
     
     public func update(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
-        return self.abstractTun.update(tunnelConfiguration: tunnelConfiguration)
+        return abstractTun.update(tunnelConfiguration: tunnelConfiguration)
     }
     
     public func stop(completionHandler: @escaping (WireGuardAdapterError?) -> Void)  {
-        self.abstractTun.stop()
+        abstractTun.stop()
         completionHandler(nil)
     }
     
     public func stats() -> WgStats {
-        return queue.sync {
-            return WgStats(rx: abstractTun.bytesReceived, tx: abstractTun.bytesSent)
-        }
+        return WgStats(rx: abstractTun.bytesReceived, tx: abstractTun.bytesSent)
     }
     
     /// Returns the tunnel device interface name, or nil on error.
@@ -111,20 +109,22 @@ class AbstractTunAdapter {
     
 }
 
-class AbstractTun {
+class AbstractTun: NSObject {
     private var tunRef: OpaquePointer?
     private var dispatchQueue: DispatchQueue
     
     private var unmanagedSelf: Unmanaged<AbstractTun>?
-    private let packetTunnelProvider: PacketTunnelProvider
+    private let packetTunnelProvider: PacketTunnelProvider?
     
     private var v4SessionMap: [UInt32: NWUDPSession] = [UInt32: NWUDPSession]()
     private var v6SessionMap: [[UInt16]: NWUDPSession] = [[UInt16]: NWUDPSession]()
     
     private let tunQueue = DispatchQueue(label: "AbstractTun", qos: .userInitiated)
     
-    private var wgTaskTimer: DispatchSourceTimer
+    private var wgTaskTimer: DispatchSourceTimer?
     private let logClosure: (String) -> Void
+    
+    private var socketObservers: [UInt32: NSKeyValueObservation] = [:]
     
     private (set) var bytesReceived: UInt64 = 0
     private (set) var bytesSent: UInt64 = 0
@@ -133,13 +133,6 @@ class AbstractTun {
         dispatchQueue = queue;
         packetTunnelProvider = packetTunnel
         self.logClosure = logClosure
-        wgTaskTimer = DispatchSource.makeTimerSource(queue: queue)
-        wgTaskTimer.setEventHandler(handler: {
-            [weak self] in
-            self?.handleTimerEvent()
-        })
-        wgTaskTimer.schedule(deadline: .now() + .milliseconds(10), repeating: .milliseconds(250))
-        
     }
     
     
@@ -154,11 +147,13 @@ class AbstractTun {
     }
     
     func stop() {
-        self.wgTaskTimer.suspend()
+        wgTaskTimer?.cancel()
+        wgTaskTimer = nil
         stopAbstractTun()
     }
     
     func update(tunnelConfiguration: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
+        dispatchPrecondition(condition: .onQueue(dispatchQueue))
         stop()
         bytesSent = 0
         bytesReceived = 0
@@ -166,6 +161,15 @@ class AbstractTun {
     }
     
     func start(tunnelConfig: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
+        dispatchPrecondition(condition: .onQueue(dispatchQueue))
+        wgTaskTimer = DispatchSource.makeTimerSource(queue: dispatchQueue)
+        wgTaskTimer?.setEventHandler(handler: {
+            [weak self] in
+            guard let self = self else { return }
+            self.handleTimerEvent()
+        })
+        wgTaskTimer?.schedule(deadline: .now() + .milliseconds(10), repeating: .milliseconds(250))
+        
         let singlePeer = tunnelConfig.wgTunnelConfig.peers[0];
         
         let privateKey = tunnelConfig.wgTunnelConfig.interface.privateKey.rawValue;
@@ -229,11 +233,11 @@ class AbstractTun {
         if tunRef == nil {
             return .failure(AbstractTunError.initializationError)
         }
-        packetTunnelProvider.packetFlow.readPackets(completionHandler: {[ weak self] (data, ipv) in
+        packetTunnelProvider?.packetFlow.readPackets(completionHandler: { [weak self] (data, ipv) in
             self?.readPacketTunnelBytes(data, ipversion: ipv)
         })
         
-        wgTaskTimer.resume()
+        wgTaskTimer?.resume()
         
         return setConfiguration(tunnelConfig.wgTunnelConfig)
     }
@@ -243,7 +247,7 @@ class AbstractTun {
         dispatchGroup.enter()
         var systemError: Error?
         
-        self.packetTunnelProvider.setTunnelNetworkSettings(generateNetworkSettings(tunnelConfiguration: config)) { error in
+        self.packetTunnelProvider?.setTunnelNetworkSettings(generateNetworkSettings(tunnelConfiguration: config)) { error in
             systemError = error
             dispatchGroup.leave()
         }
@@ -262,17 +266,17 @@ class AbstractTun {
     }
     
     func readPacketTunnelBytes(_ traffic: [Data], ipversion: [NSNumber]) {
-        dispatchQueue.async {
-            do {
-                
-                for (traffic, _) in zip(traffic, ipversion) {
-                    try self.receiveHostTraffic(traffic)
-                }
-                
-            } catch {
-                // TODO: catch the error properly here.
+        do {
+            for (traffic, _) in zip(traffic, ipversion) {
+                try receiveHostTraffic(traffic)
             }
-            self.packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
+            dispatchQueue.async { [weak self] in
+                guard let self = self else { return }
+                packetTunnelProvider?.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
+            }
+            
+        } catch {
+            print(error)
         }
     }
     
@@ -319,20 +323,33 @@ class AbstractTun {
         let unmanagedInstance = Unmanaged<AbstractTun>.fromOpaque(ctx)
         let abstractTun = unmanagedInstance.takeRetainedValue()
         let rawPtr = UnsafeMutableRawPointer(mutating: buffer)
-        let packetBytes = Data(bytesNoCopy: rawPtr, count: Int(size), deallocator: .none)
+        let packetBytes = Data(bytes: rawPtr, count: Int(size))
         
         var addr = addr;
         
+        let writeDatagram: (NWUDPSession, Data, AbstractTun) -> Void = { session, bytesToSend, abstractTun in
+            session.writeDatagram(bytesToSend) { error in
+                if let error = error {
+                    print(error)
+                }
+                abstractTun.bytesSent += UInt64(size)
+            }
+        }
+
         // abstractTun.dispatchQueue.sync {
         var socket: NWUDPSession;
         if let existingSocket = abstractTun.v4SessionMap[addr] {
             socket = existingSocket
+            
+            if socket.state == .ready {
+                writeDatagram(socket, packetBytes, abstractTun)
+            }
         } else {
             guard let address = IPv4Address(Data(bytes: &addr, count: MemoryLayout<UInt32>.size), nil) else {
                 return
             }
             let endpoint = NWHostEndpoint(hostname: "\(address)", port: "\(port)")
-            let newSocket = abstractTun.packetTunnelProvider.createUDPSession(to: endpoint, from: nil )
+            guard let newSocket = abstractTun.packetTunnelProvider?.createUDPSession(to: endpoint, from: nil ) else { return }
             
             
             socket = newSocket
@@ -344,7 +361,7 @@ class AbstractTun {
                 guard let tun = abstractTun else { return }
                 tun.dispatchQueue.async {
                     if let error = error {
-                        // TODO: log error
+                        print(error)
                         return;
                     }
                     guard let tun = abstractTun  else  { return }
@@ -358,28 +375,34 @@ class AbstractTun {
                 }
                 
             }, maxDatagrams: 1024)
-        }
-        
-        
-        socket.writeDatagram(packetBytes, completionHandler: {
-            [weak abstractTun]
-            error in
-            if let error = error {
-                // TODO: handle error
-            } else {
-                abstractTun?.dispatchQueue.async {
-                    abstractTun?.bytesSent += UInt64(size)
+
+            if abstractTun.socketObservers[addr] == nil {
+                let socketObserver = socket.observe(\.state, options: [.old, .new]) { session, _ in
+                    let newState = session.state
+                    switch newState {
+                    case .ready:
+                        let bytesToSend = packetBytes
+                        writeDatagram(session, bytesToSend, abstractTun)
+                    default:
+                        print(newState)
+                    }
                 }
+                abstractTun.socketObservers[addr] = socketObserver
             }
-        })
-       
-        _ = socket.observe(\.state) { udpSession, newState in
-            print(newState.newValue ?? "no new value: \(newState.oldValue)")
         }
-        
-        // abstractTun.bytesSent += UInt64(size)
-        // }
-        
+//        abstractTun.tunQueue.sync {
+//            socket.writeDatagram(packetBytes, completionHandler: {
+//                [weak abstractTun]
+//                error in
+//                if let error = error {
+//                    print(error)
+//                } else {
+//                    abstractTun?.dispatchQueue.async {
+//                        abstractTun?.bytesSent += UInt64(size)
+//                    }
+//                }
+//            })
+//        }
     }
     
     private static func handleUdpSendV6(
@@ -402,13 +425,13 @@ class AbstractTun {
         guard let data = data else { return }
         
         let unmanagedInstance = Unmanaged<AbstractTun>.fromOpaque(ctx)
-        let abstractTun = unmanagedInstance.takeRetainedValue()
+        let abstractTun = unmanagedInstance.takeUnretainedValue()
         
-        let packetBytes = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: data), count: Int(size), deallocator: .none)
-        
-        abstractTun.packetTunnelProvider.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
-        
-        abstractTun.dispatchQueue.async {
+        withExtendedLifetime(abstractTun) {
+            let packetBytes = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: data), count: Int(size), deallocator: .none)
+            
+            abstractTun.packetTunnelProvider?.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
+            
             abstractTun.bytesReceived += UInt64(size)
         }
     }
@@ -525,3 +548,4 @@ enum AbstractTunError: Error {
     case noPeers
     case setNetworkSettings(Error)
 }
+
