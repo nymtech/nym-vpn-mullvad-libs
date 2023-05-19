@@ -129,13 +129,13 @@ impl<S: UdpTransport, T: TunnelTransport> WgInstance<S, T> {
                 log::error!("donezo");
             }
             TunnResult::WriteToTunnelV4(clear_packet, _addr) => {
-                log::error!("SENDING PACKET TO HOST");
+                log::error!("SENDING PACKET TO HOST: {}", clear_packet.len());
                 if let Err(err) = self.tunnel_transport.send_v4_packet(clear_packet) {
                     log::error!("Failed to send packet to tunnel interface: {err}");
                 }
             }
             TunnResult::WriteToTunnelV6(clear_packet, _addr) => {
-                log::error!("SENDING PACKET TO HOST");
+                log::error!("SENDING PACKET TO HOST: {}", clear_packet.len());
                 if let Err(err) = self.tunnel_transport.send_v6_packet(clear_packet) {
                     log::error!("Failed to send packet to tunnel interface: {err}");
                 }
