@@ -124,11 +124,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     }
 
     override init() {
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 884d0021b (Useless)
         var loggerBuilder = LoggerBuilder()
 
         let pid = ProcessInfo.processInfo.processIdentifier
@@ -147,16 +142,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
 
         loggerBuilder.install()
 
-<<<<<<< HEAD
         tunnelLogger = Logger(label: "WireGuard")
 
         let containerURL = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: ApplicationConfiguration.securityGroupIdentifier)!
         providerLogger = Logger(label: "PacketTunnelProvider")
-=======
-        providerLogger = Logger(label: "PacketTunnelProvider")
-        tunnelLogger = Logger(label: "WireGuard")
->>>>>>> 884d0021b (Useless)
+
 
         let addressCache = REST.AddressCache(
             canWriteToCache: false, cacheFolder: containerURL
@@ -877,38 +868,3 @@ extension PacketTunnelErrorWrapper {
         }
     }
 }
-<<<<<<< HEAD
-
-class AbstractTun {
-    private var tunRef: UnsafeRawPointer?;
-    private var udpSender: UdpSender;
-    private var tunWriter: TunWriter;
-    private var dispatchQueue: DispatchQueue;
-
-    private var singlePeer: PeerConfiguration
-
-    init(queue: DispatchQueue, tunnelConfig: PacketTunnelConfiguration){
-        self.dispatchQueue = queue;
-
-        self.singlePeer = tunnelConfig.wgTunnelConfig.peers[0];
-        let privateKey = tunnelConfig.wgTunnelConfig.interface.privateKey.rawValue;
-        privateKey.withUnsafeBytes { privateKeyPtr in
-            tunnelConfig.wgTunnelConfig.peers[0].publicKey.rawValue.withUnsafeBytes{ peerPubKeyPtr in
-
-
-            }
-        }
-        udpSender = UdpSender()
-        tunWriter = TunWriter()
-    }
-}
-
-class UdpSender {
-
-}
-
-class TunWriter {
-
-}
-=======
->>>>>>> 884d0021b (Useless)
