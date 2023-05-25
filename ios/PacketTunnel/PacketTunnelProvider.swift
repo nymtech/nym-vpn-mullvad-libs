@@ -522,27 +522,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
             let result = self.adapter.block(tunnelConfiguration: emptyTunnelConfiguration )
             completionHandler(result.error)
         }
-        
-
-//        adapter.start(tunnelConfiguration: emptyTunnelConfiguration) { error in
-//            self.dispatchQueue.async {
-//                if let error = error {
-//                    self.providerLogger.error(
-//                        error: error,
-//                        message: "Failed to start an empty tunnel."
-//                    )
-//
-//                    completionHandler(error)
-//                } else {
-//                    self.providerLogger.debug("Started an empty tunnel.")
-//
-//                    self.startTunnelCompletionHandler = { [weak self] in
-//                        self?.isConnected = true
-//                        completionHandler(nil)
-//                    }
-//                }
-//            }
-//        }
     }
 
     private func setReconnecting(_ reconnecting: Bool) {

@@ -600,11 +600,11 @@ final class TunnelMonitor: PingerDelegate {
         timer.setEventHandler { [weak self] in
             self?.checkConnectivity()
         }
-//        timer.schedule(wallDeadline: .now(), repeating: connectivityCheckInterval)
-//        timer.activate()
+        timer.schedule(wallDeadline: .now(), repeating: connectivityCheckInterval)
+        timer.activate()
 
-        self.timer?.cancel()
-        self.timer = timer
+//        self.timer?.cancel()
+//        self.timer = timer
 
         state.timeoutReference = Date()
 

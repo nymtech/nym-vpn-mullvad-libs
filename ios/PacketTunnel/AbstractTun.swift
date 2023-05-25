@@ -6,6 +6,7 @@
 //  Copyright © 2023 Mullvad VPN AB. All rights reserved.
 //
 
+import CoreFoundation
 import Foundation
 import WireGuardKitTypes
 import Network
@@ -37,7 +38,7 @@ class AbstractTunAdapter {
     }
     
     public func stop(completionHandler: @escaping (WireGuardAdapterError?) -> Void)  {
-        abstractTun.stop()
+        abstractTun.stopOnQueue()
         completionHandler(nil)
     }
     
@@ -114,7 +115,7 @@ class AbstractTun: NSObject {
     private var dispatchQueue: DispatchQueue
     
     private var unmanagedSelf: Unmanaged<AbstractTun>?
-    private let packetTunnelProvider: PacketTunnelProvider?
+    private let packetTunnelProvider: PacketTunnelProvider
     
     private var v4SessionMap: [UInt32: NWUDPSession] = [UInt32: NWUDPSession]()
     private var v6SessionMap: [[UInt16]: NWUDPSession] = [[UInt16]: NWUDPSession]()
@@ -146,6 +147,12 @@ class AbstractTun: NSObject {
         self.tunRef = nil
     }
     
+    func stopOnQueue() {
+        dispatchQueue.sync {
+            [weak self] in
+            self?.stop()
+        }
+    }
     func stop() {
         wgTaskTimer?.cancel()
         wgTaskTimer = nil
@@ -162,6 +169,7 @@ class AbstractTun: NSObject {
     
     func start(tunnelConfig: PacketTunnelConfiguration) -> Result<(), AbstractTunError> {
         dispatchPrecondition(condition: .onQueue(dispatchQueue))
+        
         wgTaskTimer = DispatchSource.makeTimerSource(queue: dispatchQueue)
         wgTaskTimer?.setEventHandler(handler: {
             [weak self] in
@@ -191,6 +199,7 @@ class AbstractTun: NSObject {
         default :
             break;
         };
+        
         
         var iosContext = IOSContext();
         iosContext.ctx = UnsafeRawPointer(Unmanaged.passRetained(self).toOpaque())
@@ -233,9 +242,11 @@ class AbstractTun: NSObject {
         if tunRef == nil {
             return .failure(AbstractTunError.initializationError)
         }
-        packetTunnelProvider?.packetFlow.readPackets(completionHandler: { [weak self] (data, ipv) in
+        packetTunnelProvider.packetFlow.readPackets(completionHandler: { [weak self] (data, ipv) in
             self?.readPacketTunnelBytes(data, ipversion: ipv)
         })
+        
+        self.initializeV4Sockets(peerConfigurations: tunnelConfig.wgTunnelConfig.peers)
         
         wgTaskTimer?.resume()
         
@@ -247,7 +258,7 @@ class AbstractTun: NSObject {
         dispatchGroup.enter()
         var systemError: Error?
         
-        self.packetTunnelProvider?.setTunnelNetworkSettings(generateNetworkSettings(tunnelConfiguration: config)) { error in
+        self.packetTunnelProvider.setTunnelNetworkSettings(generateNetworkSettings(tunnelConfiguration: config)) { error in
             systemError = error
             dispatchGroup.leave()
         }
@@ -260,7 +271,7 @@ class AbstractTun: NSObject {
             }
             return .success(())
         case .timedOut:
-            return .success(())
+            return .failure(AbstractTunError.setNetworkSettingsTimeout)
             
         }
     }
@@ -272,7 +283,7 @@ class AbstractTun: NSObject {
             }
             dispatchQueue.async { [weak self] in
                 guard let self = self else { return }
-                packetTunnelProvider?.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
+                packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
             }
             
         } catch {
@@ -345,11 +356,12 @@ class AbstractTun: NSObject {
                 writeDatagram(socket, packetBytes, abstractTun)
             }
         } else {
+            print("NO VALID SOCKET IS OPEN");
             guard let address = IPv4Address(Data(bytes: &addr, count: MemoryLayout<UInt32>.size), nil) else {
                 return
             }
             let endpoint = NWHostEndpoint(hostname: "\(address)", port: "\(port)")
-            guard let newSocket = abstractTun.packetTunnelProvider?.createUDPSession(to: endpoint, from: nil ) else { return }
+            let newSocket = abstractTun.packetTunnelProvider.createUDPSession(to: endpoint, from: nil)
             
             
             socket = newSocket
@@ -405,6 +417,73 @@ class AbstractTun: NSObject {
 //        }
     }
     
+    private func initializeV4Sockets(peerConfigurations peers: [PeerConfiguration]) {
+        var map = [UInt32: NWUDPSession]()
+        let dispatchGroup = DispatchGroup()
+        var socketObservers: [NSKeyValueObservation] = []
+        
+        for peer in peers {
+            if let endpoint = peer.endpoint,  case let .ipv4(addr) = endpoint.host, endpoint.hasHostAsIPAddress() {
+                let endpoint = NetworkExtension.NWHostEndpoint(hostname: "\(endpoint.host)", port: "\(endpoint.port)")
+                                                                
+                let session = packetTunnelProvider.createUDPSession(to: endpoint, from: nil)
+                let addrBytes = addr.rawValue.withUnsafeBytes { rawPtr in
+                    return CFSwapInt32(rawPtr.load(as: UInt32.self))
+                }
+                let observer = session.observe(\.state, options: [.old, .new]) { session, _ in
+                        let newState = session.state
+                        switch newState {
+                        case .ready:
+                            dispatchGroup.leave()
+                        default:
+                            break
+                        }
+                    }
+                if session.state != .ready {
+                    dispatchGroup.enter()
+                    socketObservers.append(observer)
+                } else {
+                    observer.invalidate()
+                }
+                
+                map[addrBytes] = session
+            }
+        }
+        
+        // TODO: add timeout here, and error out if the sockets fail to get ready _soon_ enough
+        dispatchGroup.wait()
+        for observer in socketObservers {
+            observer.invalidate()
+        }
+        
+        v4SessionMap = map
+        initializeReadHandlers()
+    }
+    
+    private func initializeReadHandlers() {
+        let readHandler = {
+            [weak self] (traffic: [Data]?, error: (any Error)?) -> Void in
+                guard let self else { return }
+                
+                self.dispatchQueue.async {
+                    for data in traffic ?? [] {
+                        do {
+                            try self.receiveTunnelTraffic(data)
+                        } catch {
+                            // TODO: log error
+                        }
+                    }
+                }
+            }
+        for (_, socket) in self.v4SessionMap {
+            socket.setReadHandler(readHandler, maxDatagrams: 1024)
+        }
+        
+        for (_, socket) in self.v6SessionMap {
+            socket.setReadHandler(readHandler, maxDatagrams: 1024)
+        }
+    }
+    
     private static func handleUdpSendV6(
         ctx: UnsafeMutableRawPointer?,
         addr: UInt32,
@@ -430,7 +509,7 @@ class AbstractTun: NSObject {
         withExtendedLifetime(abstractTun) {
             let packetBytes = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: data), count: Int(size), deallocator: .none)
             
-            abstractTun.packetTunnelProvider?.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
+            abstractTun.packetTunnelProvider.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
             
             abstractTun.bytesReceived += UInt64(size)
         }
@@ -547,5 +626,7 @@ enum AbstractTunError: Error {
     case initializationError
     case noPeers
     case setNetworkSettings(Error)
+    case setNetworkSettingsTimeout
+    case noOpenSocket
 }
 
