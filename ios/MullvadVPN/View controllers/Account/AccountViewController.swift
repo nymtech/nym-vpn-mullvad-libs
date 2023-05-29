@@ -13,9 +13,17 @@ import Operations
 import StoreKit
 import UIKit
 
+enum AccountsNavigationRoute {
+    case redeemVoucher
+}
+
 protocol AccountViewControllerDelegate: AnyObject {
     func accountViewControllerDidFinish(_ controller: AccountViewController)
     func accountViewControllerDidLogout(_ controller: AccountViewController)
+    func accountViewController(
+        _ controller: AccountViewController,
+        didRequestRoutePresentation route: AccountsNavigationRoute
+    )
 }
 
 class AccountViewController: UIViewController {
@@ -100,7 +108,17 @@ class AccountViewController: UIViewController {
             action: #selector(doPurchase),
             for: .touchUpInside
         )
-        contentView.logoutButton.addTarget(self, action: #selector(doLogout), for: .touchUpInside)
+        contentView.redeemVoucherButton.addTarget(
+            self,
+            action: #selector(doRedeemVoucher),
+            for: .touchUpInside
+        )
+
+        contentView.logoutButton.addTarget(
+            self,
+            action: #selector(doLogout),
+            for: .touchUpInside
+        )
 
         interactor.didReceiveDeviceState = { [weak self] deviceState in
             self?.updateView(from: deviceState)
@@ -349,5 +367,9 @@ class AccountViewController: UIViewController {
 
             setPaymentState(.none, animated: true)
         }
+    }
+
+    @objc private func doRedeemVoucher() {
+        delegate?.accountViewController(self, didRequestRoutePresentation: .redeemVoucher)
     }
 }

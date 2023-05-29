@@ -86,6 +86,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             application: application,
             tunnelStore: tunnelStore,
             relayCacheTracker: relayCacheTracker,
+            apiProxy: apiProxy,
             accountsProxy: accountsProxy,
             devicesProxy: devicesProxy
         )

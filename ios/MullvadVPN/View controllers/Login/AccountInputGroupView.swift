@@ -313,11 +313,13 @@ final class AccountInputGroupView: UIView {
     func setAccount(_ account: String) {
         privateTextField.autoformattingText = account
         updateSendButtonAppearance(animated: false)
+        updateKeyboardReturnKeyEnabled()
     }
 
     func clearAccount() {
         privateTextField.autoformattingText = ""
         updateSendButtonAppearance(animated: false)
+        updateKeyboardReturnKeyEnabled()
     }
 
     func setLastUsedAccount(_ accountNumber: String?, animated: Bool) {

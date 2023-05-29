@@ -1,5 +1,5 @@
 //
-//  FormsheetPresentationController.swift
+//  FormSheetPresentationController.swift
 //  MullvadVPN
 //
 //  Created by pronebird on 18/02/2023.
@@ -8,14 +8,10 @@
 
 import UIKit
 
-private let dimmingViewOpacity: CGFloat = 0.5
-private let presentedViewCornerRadius: CGFloat = 8
-private let animationDuration: TimeInterval = 0.5
-
 /**
  Custom implementation of a formsheet presentation controller.
  */
-class FormsheetPresentationController: UIPresentationController {
+class FormSheetPresentationController: UIPresentationController {
     /**
      Name of notification posted when fullscreen presentation changes, including during initial presentation.
      */
@@ -32,6 +28,11 @@ class FormsheetPresentationController: UIPresentationController {
      Last known presentation style used to prevent emitting duplicate `willChangeFullScreenPresentation` notifications.
      */
     private var lastKnownIsInFullScreen: Bool?
+
+    private let dimmingViewOpacity: CGFloat = 0.5
+    private let presentedViewCornerRadius: CGFloat = 8
+
+    private var keyboardResponder: AutomaticKeyboardResponder?
 
     private let dimmingView: UIView = {
         let dimmingView = UIView()
@@ -55,6 +56,11 @@ class FormsheetPresentationController: UIPresentationController {
     var isInFullScreenPresentation: Bool {
         return useFullScreenPresentationInCompactWidth &&
             traitCollection.horizontalSizeClass == .compact
+    }
+
+    override init(presentedViewController: UIViewController, presenting presentingViewController: UIViewController?) {
+        super.init(presentedViewController: presentedViewController, presenting: presentingViewController)
+        addKeyboardResponder()
     }
 
     override var frameOfPresentedViewInContainerView: CGRect {
@@ -92,7 +98,7 @@ class FormsheetPresentationController: UIPresentationController {
         presentedView?.clipsToBounds = true
 
         let revealDimmingView = {
-            self.dimmingView.alpha = dimmingViewOpacity
+            self.dimmingView.alpha = self.dimmingViewOpacity
         }
 
         if let transitionCoordinator = presentingViewController.transitionCoordinator {
@@ -151,21 +157,38 @@ class FormsheetPresentationController: UIPresentationController {
             userInfo: [Self.isFullScreenUserInfoKey: NSNumber(booleanLiteral: currentIsInFullScreen)]
         )
     }
+
+    private func addKeyboardResponder() {
+        keyboardResponder = .init(targetView: presentedView!, handler: { [weak self] view, adjustment in
+            guard let self, let containerView else { return }
+            let frame = view.frame
+            let margin = adjustment > 0 ? 8.0 : 0
+            view.frame = .init(
+                origin: CGPoint(
+                    x: frame.origin.x,
+                    y: containerView.bounds.midY - presentedViewController.preferredContentSize
+                        .height * 0.5 - adjustment - margin
+                ),
+                size: frame.size
+            )
+            view.layoutIfNeeded()
+        })
+    }
 }
 
-class FormsheetTransitioningDelegate: NSObject, UIViewControllerTransitioningDelegate {
+class FormSheetTransitioningDelegate: NSObject, UIViewControllerTransitioningDelegate {
     func animationController(
         forPresented presented: UIViewController,
         presenting: UIViewController,
         source: UIViewController
     ) -> UIViewControllerAnimatedTransitioning? {
-        return FormsheetPresentationAnimator()
+        return FormSheetPresentationAnimator()
     }
 
     func animationController(forDismissed dismissed: UIViewController)
         -> UIViewControllerAnimatedTransitioning?
     {
-        return FormsheetPresentationAnimator()
+        return FormSheetPresentationAnimator()
     }
 
     func presentationController(
@@ -173,14 +196,15 @@ class FormsheetTransitioningDelegate: NSObject, UIViewControllerTransitioningDel
         presenting: UIViewController?,
         source: UIViewController
     ) -> UIPresentationController? {
-        return FormsheetPresentationController(
+        return FormSheetPresentationController(
             presentedViewController: presented,
             presenting: source
         )
     }
 }
 
-class FormsheetPresentationAnimator: NSObject, UIViewControllerAnimatedTransitioning {
+class FormSheetPresentationAnimator: NSObject, UIViewControllerAnimatedTransitioning {
+    private let animationDuration: TimeInterval = 0.5
     func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?)
         -> TimeInterval
     {

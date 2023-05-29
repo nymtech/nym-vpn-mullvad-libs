@@ -46,6 +46,7 @@ final class TunnelManager: StorePaymentObserver {
     private let application: UIApplication
     fileprivate let tunnelStore: TunnelStore
     private let relayCacheTracker: RelayCacheTracker
+    private let apiProxy: REST.APIProxy
     private let accountsProxy: REST.AccountsProxy
     private let devicesProxy: REST.DevicesProxy
 
@@ -81,12 +82,14 @@ final class TunnelManager: StorePaymentObserver {
         application: UIApplication,
         tunnelStore: TunnelStore,
         relayCacheTracker: RelayCacheTracker,
+        apiProxy: REST.APIProxy,
         accountsProxy: REST.AccountsProxy,
         devicesProxy: REST.DevicesProxy
     ) {
         self.application = application
         self.tunnelStore = tunnelStore
         self.relayCacheTracker = relayCacheTracker
+        self.apiProxy = apiProxy
         self.accountsProxy = accountsProxy
         self.devicesProxy = devicesProxy
         self.operationQueue.name = "TunnelManager.operationQueue"
@@ -492,6 +495,34 @@ final class TunnelManager: StorePaymentObserver {
             },
             completionHandler: completionHandler
         )
+    }
+
+    func redeemVoucher(
+        _ voucherCode: String,
+        completion: ((Result<REST.SubmitVoucherResponse, Error>) -> Void)? = nil
+    ) -> Cancellable {
+        let operation = RedeemVoucherOperation(
+            dispatchQueue: internalQueue,
+            interactor: TunnelInteractorProxy(self),
+            voucherCode: voucherCode,
+            apiProxy: apiProxy
+        )
+
+        operation.completionQueue = .main
+        operation.completionHandler = completion
+
+        operation.addObserver(
+            BackgroundObserver(
+                application: application,
+                name: "Redeem voucher",
+                cancelUponExpiration: true
+            )
+        )
+
+        operation.addCondition(MutuallyExclusive(category: OperationCategory.deviceStateUpdate.category))
+
+        operationQueue.addOperation(operation)
+        return operation
     }
 
     // MARK: - Tunnel observeration
