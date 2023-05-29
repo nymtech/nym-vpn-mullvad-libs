@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "android/translations-converter",
+    "ios/abstract-tun",
     "mullvad-daemon",
     "mullvad-cli",
     "mullvad-fs",
@@ -28,9 +29,6 @@ members = [
     "talpid-wireguard",
     "mullvad-management-interface",
     "tunnel-obfuscation",
-]
-exclude = [
- "ios/"
 ]
 
 [profile.release]

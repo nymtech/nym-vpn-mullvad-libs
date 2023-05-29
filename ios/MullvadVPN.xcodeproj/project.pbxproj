@@ -2530,11 +2530,10 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(PROJECT_DIR)/../target/universal/$(CONFIGURATION:lower)/libabstract_tun.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nif [[ -n \"${DEVELOPER_SDK_DIR:-}\" ]]; then\n  # Assume we're in Xcode, which means we're probably cross-compiling.\n  # In this case, we need to add an extra library search path for build scripts and proc-macros,\n  # which run on the host instead of the target.\n  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)\n  export LIBRARY_PATH=\"${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}\"\nfi\n\ncargo lipo --xcode-integ --manifest-path abstract-tun/Cargo.toml\n";
+			shellScript = "CARGO_TARGET_DIR=${PROJECT_DIR}/../target bash ${PROJECT_DIR}/build-rust-crate.sh abstract-tun\n\n";
 		};
 		063F028D2902BC8E001FA09F /* Run prebuild script */ = {
 			isa = PBXShellScriptBuildPhase;
