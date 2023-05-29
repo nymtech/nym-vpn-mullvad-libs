@@ -286,22 +286,29 @@ class AbstractTun: NSObject {
             for packet in traffic {
                 try receiveHostTraffic(packet)
             }
-            packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
-
         } catch {
             print(error)
         }
+        packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
     }
 
-    func receiveTunnelTraffic(_ data: Data) throws {
+    func receiveTunnelTraffic(_ data: Data) {
         guard let tunPtr = self.tunRef else {
             return
         }
         self.bytesReceived += UInt64(data.count)
-        try data.withUnsafeBytes<Void> {
-            ptr in
-            abstract_tun_handle_tunnel_traffic(tunPtr, ptr, UInt(data.count))
+        
+        data.withUnsafeBytes { buffer in
+            buffer.withMemoryRebound(to: UInt8.self) { buffer in
+                if let ptr = buffer.baseAddress {
+                    abstract_tun_handle_tunnel_traffic(tunPtr, ptr, UInt(buffer.count))
+                }
+            }
         }
+//        try data.withUnsafeBytes<Void> {
+//            ptr: UnsafeBufferPointer in
+//            abstract_tun_handle_tunnel_traffic(tunPtr, ptr, UInt(data.count))
+//        }
     }
 
     func receiveHostTraffic(_ data: Data) throws {
@@ -396,21 +403,17 @@ class AbstractTun: NSObject {
         }
 
         v4SessionMap = map
-        initializeReadHandlers()
+        initializeUdpSessionReadHandlers()
     }
 
-    private func initializeReadHandlers() {
+    private func initializeUdpSessionReadHandlers() {
         let readHandler = {
             [weak self] (traffic: [Data]?, error: (any Error)?) -> Void in
                 guard let self else { return }
 
                 self.dispatchQueue.async {
                     for data in traffic ?? [] {
-                        do {
-                            try self.receiveTunnelTraffic(data)
-                        } catch {
-                            // TODO: log error
-                        }
+                        self.receiveTunnelTraffic(data)
                     }
                 }
             }
