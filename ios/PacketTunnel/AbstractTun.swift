@@ -281,7 +281,7 @@ class AbstractTun: NSObject {
         }
     }
 
-    func readPacketTunnelBytes(_ traffic: [Data], _ipversion: [NSNumber]) {
+    func readPacketTunnelBytes(_ traffic: [Data], ipversion: [NSNumber]) {
         do {
             for packet in traffic {
                 try receiveHostTraffic(packet)
