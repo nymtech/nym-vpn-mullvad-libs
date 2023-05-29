@@ -162,9 +162,9 @@ pub extern "C" fn abstract_tun_size() -> usize {
 #[no_mangle]
 pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mut IOSTun {
     INIT_LOGGING.call_once(|| {
-        let _ = oslog::OsLogger::new("net.mullvad.MullvadVPN.ShadowSocks")
-            .level_filter(log::LevelFilter::Info)
-            .init();
+        // let _ = oslog::OsLogger::new("net.mullvad.MullvadVPN.ShadowSocks")
+        //     .level_filter(log::LevelFilter::Error)
+        //     .init();
     });
 
     let params = unsafe { &*params };
@@ -203,7 +203,6 @@ pub extern "C" fn abstract_tun_handle_host_traffic(
     packet: *const u8,
     packet_size: usize,
 ) {
-    log::error!("HANDLING HOST TRAFFIC");
     let tun: &mut IOSTun = unsafe { &mut *(tun) };
     let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
     tun.wg.handle_host_traffic(packet);
@@ -215,16 +214,14 @@ pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     packet: *const u8,
     packet_size: usize,
 ) {
-    log::error!("HANDLING TUNNEL TRAFFIC");
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
-    let mut packet = unsafe { slice::from_raw_parts(packet, packet_size) };
+    let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
 
     tun.wg.handle_tunnel_traffic(packet);
 }
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
-    log::error!("HANDLING TIMER EVENT");
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     tun.wg.handle_timer_tick();
 }
@@ -235,7 +232,6 @@ pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
         log::error!("CALLING DROP ON A NULL POINTER");
         return;
     }
-    log::error!("CALLING DROP");
     let tun: Box<IOSTun> = unsafe { Box::from_raw(tun) };
     std::mem::drop(tun);
 }
