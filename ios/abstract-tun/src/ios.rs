@@ -7,7 +7,6 @@ use std::{
 
 use crate::{Config, PeerConfig, TunnelTransport, UdpTransport, WgInstance};
 
-
 const INIT_LOGGING: Once = Once::new();
 
 pub struct IOSTun {
@@ -26,8 +25,8 @@ pub struct IOSTunParams {
 
 impl IOSTunParams {
     fn peer_addr(&self) -> Option<IpAddr> {
-        match self.peer_addr_version {
-            0 => Some(
+        match self.peer_addr_version as i32 {
+            libc::AF_INET => Some(
                 Ipv4Addr::new(
                     self.peer_addr_bytes[0],
                     self.peer_addr_bytes[1],
@@ -36,7 +35,7 @@ impl IOSTunParams {
                 )
                 .into(),
             ),
-            1 => Some(Ipv6Addr::from(self.peer_addr_bytes).into()),
+            libc::AF_INET6 => Some(Ipv6Addr::from(self.peer_addr_bytes).into()),
             _other => None,
         }
     }
@@ -167,7 +166,6 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
             .level_filter(log::LevelFilter::Info)
             .init();
     });
-
 
     let params = unsafe { &*params };
     let peer_addr = match params.peer_addr() {
