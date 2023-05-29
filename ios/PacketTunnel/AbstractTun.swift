@@ -43,7 +43,7 @@ class AbstractTunAdapter {
     }
 
     public func stats() -> WgStats {
-        return WgStats(rx: abstractTun.bytesReceived, tx: abstractTun.bytesSent)
+        return abstractTun.stats
     }
 
     /// Returns the tunnel device interface name, or nil on error.
@@ -128,6 +128,12 @@ class AbstractTun: NSObject {
 
     private (set) var bytesReceived: UInt64 = 0
     private (set) var bytesSent: UInt64 = 0
+    
+    var stats: WgStats {
+        get {
+            return WgStats(bytesReceived: bytesReceived, bytesSent: bytesSent)
+        }
+    }
 
     init(queue: DispatchQueue, packetTunnel: PacketTunnelProvider, logClosure: @escaping (String) -> Void) {
         dispatchQueue = queue;
@@ -448,7 +454,7 @@ class AbstractTun: NSObject {
         let abstractTun = unmanagedInstance.takeUnretainedValue()
 
         withExtendedLifetime(abstractTun) {
-            let packetBytes = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: data), count: Int(size), deallocator: .none)
+            let packetBytes = Data(bytes: UnsafeMutableRawPointer(mutating: data), count: Int(size))
 
             abstractTun.packetTunnelProvider.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
 

@@ -17,7 +17,7 @@ struct WgStats {
         bytesSent = 0
     }
     
-    init(rx: UInt64, tx: UInt64) {
+    init(bytesReceived rx: UInt64, bytesSent tx: UInt64) {
         bytesReceived = rx
         bytesSent = tx
     }
@@ -38,7 +38,7 @@ struct WgStats {
             }
         }
 
-        guard let _bytesReceived = _bytesReceived, let _bytesSent = _bytesSent else {
+        guard let _bytesReceived, let _bytesSent else {
             return nil
         }
 
