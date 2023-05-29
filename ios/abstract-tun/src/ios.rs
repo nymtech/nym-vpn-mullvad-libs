@@ -162,9 +162,9 @@ pub extern "C" fn abstract_tun_size() -> usize {
 #[no_mangle]
 pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mut IOSTun {
     INIT_LOGGING.call_once(|| {
-        // let _ = oslog::OsLogger::new("net.mullvad.MullvadVPN.ShadowSocks")
-        //     .level_filter(log::LevelFilter::Error)
-        //     .init();
+        let _ = oslog::OsLogger::new("net.mullvad.MullvadVPN.ShadowSocks")
+            .level_filter(log::LevelFilter::Error)
+            .init();
     });
 
     let params = unsafe { &*params };
