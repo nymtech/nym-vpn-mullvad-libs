@@ -346,18 +346,20 @@ class AbstractTun: NSObject {
         let packetBytes = Data(bytes: rawPtr, count: Int(size))
 
         var socket: NWUDPSession;
+        var dispatchGroup = DispatchGroup()
         if let existingSocket = abstractTun.v4SessionMap[addr] {
             socket = existingSocket
-
+            
             if socket.state == .ready {
+                dispatchGroup.enter()
                 socket.writeDatagram(packetBytes) { error in
-                if let error = error {
-                    print(error)
+                    if let error = error {
+                        print(error)
+                    }
+                    dispatchGroup.leave()
                 }
-                abstractTun.dispatchQueue.async { [weak abstractTun] in
-                    abstractTun?.bytesSent += UInt64(size)
-                }
-            }
+                dispatchGroup.wait()
+                abstractTun.bytesSent += UInt64(size)
             }
         }
     }
@@ -569,4 +571,38 @@ enum AbstractTunError: Error {
     case setNetworkSettingsTimeout
     case noOpenSocket
 }
+
+//class UdpSession {
+//    private var session: NWUDPSession
+//    var ready: Bool
+//    var dispatchGroup: DispatchGroup
+//
+//    init(packetTunnelProvider: PacketTunnelProvider, hostname: String, port: String) {
+//
+//        let endpoint = NetworkExtension.NWHostEndpoint(hostname: hostname, port: port)
+//        session = packetTunnelProvider.createUDPSession(to: endpoint, from: nil)
+//
+//        ready = session.state == .ready
+//    }
+//
+//    func waitToBeReady() {
+//
+//    }
+//
+//    func sendData(data: [Data], completion: ((any Error)?) -> Void) {
+//        self.waitToBeReady()
+//
+//        dispatchGroup.enter()
+//        session.writeMultipleDatagrams(data) { [weak self] error in
+//            self?.dispatchGroup.leave()
+//            completion(error)
+//        }
+//
+//        dispatchGroup.wait()
+//    }
+//
+//    func setReadHandler(maxDatagrams: Int, readHandler: (traffic: [Data]?, error: (any Error)?)) {
+//        session.setReadHandler(readHandler, maxDatagrams: maxDatagrams)
+//    }
+//}
 
