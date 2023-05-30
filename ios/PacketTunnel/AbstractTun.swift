@@ -282,28 +282,27 @@ class AbstractTun: NSObject {
     }
 
     func readPacketTunnelBytes(_ traffic: [Data], ipversion: [NSNumber]) {
-        do {
-            for packet in traffic {
-                try receiveHostTraffic(packet)
-            }
-        } catch {
-            print(error)
+        guard let tunPtr = self.tunRef else {
+            return
+        }
+        traffic.forEach { packet in
+            receiveHostTraffic(tunPtr: tunPtr, packet)
         }
         packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
     }
 
-    func receiveTunnelTraffic(_ data: Data) {
+    func receiveTunnelTraffic(_ traffic: [Data]) {
         guard let tunPtr = self.tunRef else {
             return
         }
-        self.bytesReceived += UInt64(data.count)
+        let totalDataReceived = traffic.reduce(into: UInt64(0)) {result, current in
+            result += UInt64(current.count)
+        }
+        self.bytesReceived += totalDataReceived
         
-        data.withUnsafeBytes { buffer in
-            buffer.withMemoryRebound(to: UInt8.self) { buffer in
-                if let ptr = buffer.baseAddress {
-                    abstract_tun_handle_tunnel_traffic(tunPtr, ptr, UInt(buffer.count))
-                }
-            }
+        traffic.forEach { data in
+            let rawData = (data as NSData).bytes
+            abstract_tun_handle_tunnel_traffic(tunPtr, rawData, UInt(data.count))
         }
 //        try data.withUnsafeBytes<Void> {
 //            ptr: UnsafeBufferPointer in
@@ -311,15 +310,9 @@ class AbstractTun: NSObject {
 //        }
     }
 
-    func receiveHostTraffic(_ data: Data) throws {
-        guard let tunPtr = self.tunRef else {
-            return
-        }
-
-        try data.withUnsafeBytes<Void> {
-            ptr in
-            abstract_tun_handle_host_traffic(tunPtr, ptr, UInt(data.count))
-        }
+    func receiveHostTraffic(tunPtr: OpaquePointer, _ data: Data) {
+        let rawData = (data as NSData).bytes
+        abstract_tun_handle_host_traffic(tunPtr, rawData, UInt(data.count))
     }
 
     func handleTimerEvent() {
@@ -342,11 +335,10 @@ class AbstractTun: NSObject {
 
         let unmanagedInstance = Unmanaged<AbstractTun>.fromOpaque(ctx)
         let abstractTun = unmanagedInstance.takeUnretainedValue()
-        let rawPtr = UnsafeMutableRawPointer(mutating: buffer)
-        let packetBytes = Data(bytes: rawPtr, count: Int(size))
+        let packetBytes = Data(bytes: buffer, count: Int(size))
 
         var socket: NWUDPSession;
-        var dispatchGroup = DispatchGroup()
+        let dispatchGroup = DispatchGroup()
         if let existingSocket = abstractTun.v4SessionMap[addr] {
             socket = existingSocket
             
@@ -411,12 +403,10 @@ class AbstractTun: NSObject {
     private func initializeUdpSessionReadHandlers() {
         let readHandler = {
             [weak self] (traffic: [Data]?, error: (any Error)?) -> Void in
-                guard let self else { return }
+                guard let self, let traffic else { return }
 
                 self.dispatchQueue.async {
-                    for data in traffic ?? [] {
-                        self.receiveTunnelTraffic(data)
-                    }
+                    self.receiveTunnelTraffic(traffic)
                 }
             }
         for (_, socket) in self.v4SessionMap {
@@ -450,7 +440,7 @@ class AbstractTun: NSObject {
         let unmanagedInstance = Unmanaged<AbstractTun>.fromOpaque(ctx)
         let abstractTun = unmanagedInstance.takeUnretainedValue()
 
-        let packetBytes = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: data), count: Int(size), deallocator: .none)
+        let packetBytes = Data(bytes: data, count: Int(size))
 
         abstractTun.packetTunnelProvider.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
 
