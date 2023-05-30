@@ -3527,8 +3527,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/debug",
+					"$(PROJECT_DIR)/../target/aarch64-apple-ios/debug",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3557,8 +3556,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/debug",
+					"$(PROJECT_DIR)/../target/aarch64-apple-ios/release",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3583,10 +3581,8 @@
 					"@executable_path/../../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = (
-					"$(PROJECT_DIR)/abstract-tun/target/universal/debug/",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release/",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/debug",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
+					"$(inherited)",
+					"$(PROJECT_DIR)/../target/aarch64-apple-ios/debug",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).PacketTunnel";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3611,10 +3607,8 @@
 					"@executable_path/../../Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = (
-					"$(PROJECT_DIR)/abstract-tun/target/universal/debug/",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release/",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/debug",
-					"$(PROJECT_DIR)/abstract-tun/target/universal/release",
+					"$(inherited)",
+					"$(PROJECT_DIR)/../target/aarch64-apple-ios/release",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).PacketTunnel";
 				PRODUCT_NAME = "$(TARGET_NAME)";
