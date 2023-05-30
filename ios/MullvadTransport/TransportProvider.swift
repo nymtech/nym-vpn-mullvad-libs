@@ -20,19 +20,28 @@ public final class TransportProvider: RESTTransport {
     private let addressCache: REST.AddressCache
     private var transportStrategy: TransportStrategy
 
+    /// In memory cache of the current mode of transport
     private var currentTransport: RESTTransport?
+    /// Protects internal state when multiple requests are made in parallel
     private let parallelRequestsMutex = NSLock()
+
+    /// The cached shadowsocks configuration
+    private let shadowsocksCache: ShadowsocksConfigurationCache
+    /// Forces getting a new shadowsocks configuration for the next request when set to `true`
+    private var skipShadowsocksCache = false
 
     public init(
         urlSessionTransport: URLSessionTransport,
         relayCache: RelayCache,
         addressCache: REST.AddressCache,
-        transportStrategy: TransportStrategy = .init()
+        transportStrategy: TransportStrategy = .init(),
+        shadowsocksCache: ShadowsocksConfigurationCache
     ) {
         self.urlSessionTransport = urlSessionTransport
         self.relayCache = relayCache
         self.addressCache = addressCache
         self.transportStrategy = transportStrategy
+        self.shadowsocksCache = shadowsocksCache
     }
 
     // MARK: -
@@ -45,22 +54,12 @@ public final class TransportProvider: RESTTransport {
 
     private func shadowsocksTransport() -> RESTTransport? {
         do {
-            let cachedRelays = try relayCache.read()
-            let shadowsocksConfiguration = RelaySelector.getShadowsocksTCPBridge(relays: cachedRelays.relays)
-            let shadowsocksBridgeRelay = RelaySelector.getShadowsocksRelay(relays: cachedRelays.relays)
-
-            guard let shadowsocksConfiguration,
-                  let shadowsocksBridgeRelay
-            else {
-                logger.error("Could not get shadow socks bridge information.")
-                return nil
-            }
+            let shadowsocksConfiguration = try shadowsocksConfiguration()
 
             let shadowsocksURLSession = urlSessionTransport.urlSession
             let shadowsocksTransport = URLSessionShadowsocksTransport(
                 urlSession: shadowsocksURLSession,
                 shadowsocksConfiguration: shadowsocksConfiguration,
-                shadowsocksBridgeRelay: shadowsocksBridgeRelay,
                 addressCache: addressCache
             )
 
@@ -107,6 +106,8 @@ public final class TransportProvider: RESTTransport {
                     if currentStrategy == transportStrategy {
                         transportStrategy.didFail()
                         currentTransport = nil
+                        // Force getting a new shadowsocks relay instead of a cached one
+                        skipShadowsocksCache = true
                     }
                     parallelRequestsMutex.unlock()
                 }
@@ -116,7 +117,7 @@ public final class TransportProvider: RESTTransport {
         return transport.sendRequest(request, completion: failureCompletionHandler)
     }
 
-    func makeTransport() -> RESTTransport? {
+    private func makeTransport() -> RESTTransport? {
         if currentTransport == nil {
             switch transportStrategy.connectionTransport() {
             case .useShadowsocks:
@@ -126,5 +127,35 @@ public final class TransportProvider: RESTTransport {
             }
         }
         return currentTransport
+    }
+
+    /// The last used shadowsocks configuration
+    ///
+    /// The last used shadowsocks configuration if any, otherwise a random one selected by `RelaySelector`
+    /// - Returns: A shadowsocks configuration
+    private func shadowsocksConfiguration() throws -> ShadowsocksConfiguration {
+        // If a previous shadowsocks configuration was in cache, return it directly
+        if skipShadowsocksCache == false, let configuration = shadowsocksCache.configuration {
+            return configuration
+        }
+        // Reset the flag to avoid getting a new configuration until the current one becomes invalid
+        skipShadowsocksCache = false
+
+        // There is no previous configuration either if this is the first time this code ran
+        // Or because the previous shadowsocks configuration was invalid, therefore generate a new one.
+        let cachedRelays = try relayCache.read()
+        let bridgeAddress = RelaySelector.getShadowsocksRelay(relays: cachedRelays.relays)?.ipv4AddrIn
+        let bridgeConfiguration = RelaySelector.getShadowsocksTCPBridge(relays: cachedRelays.relays)
+
+        guard let bridgeAddress, let bridgeConfiguration else { throw POSIXError(.ENOENT) }
+
+        let newConfiguration = ShadowsocksConfiguration(
+            bridgeAddress: bridgeAddress,
+            bridgePort: bridgeConfiguration.port,
+            password: bridgeConfiguration.password,
+            cipher: bridgeConfiguration.cipher
+        )
+        shadowsocksCache.configuration = newConfiguration
+        return newConfiguration
     }
 }
