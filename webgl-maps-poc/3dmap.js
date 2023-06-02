@@ -30,6 +30,12 @@ const animationMaxTime = 2.5;
 // The angle in degrees that the camera sees in
 const angleOfView = 70;
 
+const ConnectionState = {
+    Disconnected: 0,
+    Connecting: 1,
+    Connected: 2,
+}
+
 // A geographical latitude, longitude coordinate in *degrees*.
 // This class is also being abused as a 2D vector in some parts of the code.
 class Coordinate {
@@ -378,7 +384,7 @@ class Map {
         this.locationMarkerUnsecure = new LocationMarker(gl, locationMarkerUnsecureColor);
 
         this.coordinate = startCoordinate;
-        this.zoom = connectionState ? connectedZoom : disconnectedZoom;
+        this.zoom = connectionStateToZoom(connectionState);
         this.connectionState = connectionState;
         // `targetCoordinate` is the same as `coordinate` when no animation is in progress.
         // This is where the location marker is drawn.
@@ -392,7 +398,7 @@ class Map {
     // Move the location marker to `newCoordinate` (with state `connectionState`) and queue
     // animation to move to that coordinate.
     setLocation(newCoordinate, connectionState, now) {
-        const endZoom = connectionState ? connectedZoom : disconnectedZoom;
+        const endZoom = connectionStateToZoom(connectionState);
 
         // Only perform a coordinate animation if the new coordinate is
         // different from the current position/latest ongoing animation.
@@ -449,8 +455,14 @@ class Map {
         this.globe.draw(projectionMatrix, viewMatrix);
 
         // Draw the appropriate location marker depending on our connection state.
-        const locationMarker = this.connectionState ? this.locationMarkerSecure : this.locationMarkerUnsecure;
-        locationMarker.draw(projectionMatrix, viewMatrix, this.targetCoordinate, 0.03 * this.zoom);
+        switch (this.connectionState) {
+            case ConnectionState.Disconnected:
+                this.locationMarkerUnsecure.draw(projectionMatrix, viewMatrix, this.targetCoordinate, 0.03 * this.zoom);
+                break;
+            case ConnectionState.Connected:
+                this.locationMarkerSecure.draw(projectionMatrix, viewMatrix, this.targetCoordinate, 0.03 * this.zoom);
+                break;
+        }
     }
 
     // Private function that just updates internal animation state to match with time `now`.
@@ -531,7 +543,7 @@ function main() {
         return;
     }
 
-    const map = new Map(gl, gothenburgCoordinate, true);
+    const map = new Map(gl, gothenburgCoordinate, ConnectionState.Connected);
 
     // Hide triangles not facing the camera
     gl.enable(gl.CULL_FACE);
@@ -562,14 +574,14 @@ function main() {
         now *= 0.001; // convert to seconds
 
         if (now > 1.0 && hasSetCoordinate == 0) {
-            map.setLocation(newYorkCoordinate, false, now);
+            map.setLocation(newYorkCoordinate, ConnectionState.Disconnected, now);
             hasSetCoordinate = 1;
         } else if (now > 2.8 && hasSetCoordinate == 1) {
-            map.setLocation(newYorkCoordinate, true, now);
+            map.setLocation(newYorkCoordinate, ConnectionState.Connected, now);
             hasSetCoordinate = 2;
-        // } else if (now > 4.5 && hasSetCoordinate == 2) {
-        //     map.setLocation(losAngelesCoordinate, true, now);
-        //     hasSetCoordinate = 3;
+        } else if (now > 4.5 && hasSetCoordinate == 2) {
+            map.setLocation(newYorkCoordinate, ConnectionState.Connecting, now);
+            hasSetCoordinate = 3;
         // } else if (now > 8 && hasSetCoordinate == 3) {
         //     map.setLocation(helsinkiCoordinate, true, now);
         //     hasSetCoordinate = 4;
@@ -750,6 +762,19 @@ function circleFanVertices(numEdges, radius, offset, centerColor, ringColor) {
         colors.push(...ringColor);
     }
     return { positions: positions, colors: colors };
+}
+
+function connectionStateToZoom(connectionState) {
+    switch (connectionState) {
+        case ConnectionState.Disconnected:
+            return disconnectedZoom;
+        case ConnectionState.Connecting:
+            return disconnectedZoom;
+        case ConnectionState.Connected:
+            return connectedZoom;
+        default:
+            console.log("Invalid connectionState");
+    }
 }
 
 
