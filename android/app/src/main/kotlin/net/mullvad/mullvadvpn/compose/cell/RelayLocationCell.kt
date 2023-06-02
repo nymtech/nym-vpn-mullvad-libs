@@ -36,6 +36,7 @@ import net.mullvad.mullvadvpn.lib.theme.color.Alpha40
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaInactive
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaInvisible
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaVisible
+import net.mullvad.mullvadvpn.lib.theme.color.onSelected
 import net.mullvad.mullvadvpn.lib.theme.color.selected
 import net.mullvad.mullvadvpn.model.GeographicLocationConstraint
 import net.mullvad.mullvadvpn.relaylist.Relay
@@ -168,14 +169,22 @@ fun RelayLocationCell(
         rememberSaveable(key = relay.expanded.toString()) { mutableStateOf(relay.expanded) }
     val backgroundColor =
         when {
-            selected -> MaterialTheme.colorScheme.inversePrimary
-            relay.type == RelayItemType.Country -> MaterialTheme.colorScheme.primary
+            selected -> MaterialTheme.colorScheme.selected
+            relay.type == RelayItemType.Country -> MaterialTheme.colorScheme.primaryContainer
             relay.type == RelayItemType.City ->
-                MaterialTheme.colorScheme.primary
+                MaterialTheme.colorScheme.primaryContainer
                     .copy(alpha = Alpha40)
                     .compositeOver(MaterialTheme.colorScheme.background)
-            relay.type == RelayItemType.Relay -> MaterialTheme.colorScheme.secondaryContainer
+            relay.type == RelayItemType.Relay -> MaterialTheme.colorScheme.tertiaryContainer
             else -> MaterialTheme.colorScheme.primary
+        }
+    val onBackgroundColor =
+        when {
+            selected -> MaterialTheme.colorScheme.onSelected
+            relay.type == RelayItemType.Country -> MaterialTheme.colorScheme.onPrimaryContainer
+            relay.type == RelayItemType.City -> MaterialTheme.colorScheme.onPrimaryContainer
+            relay.type == RelayItemType.Relay -> MaterialTheme.colorScheme.onTertiaryContainer
+            else -> MaterialTheme.colorScheme.onPrimary
         }
     Column(
         modifier =
@@ -239,7 +248,7 @@ fun RelayLocationCell(
                 }
                 Text(
                     text = relay.name,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = onBackgroundColor,
                     modifier =
                         Modifier.weight(1f)
                             .align(Alignment.CenterVertically)
@@ -263,6 +272,7 @@ fun RelayLocationCell(
                 )
                 ChevronView(
                     isExpanded = expanded.value,
+                    color = onBackgroundColor,
                     modifier =
                         Modifier.fillMaxHeight()
                             .clickable { expanded.value = !expanded.value }

@@ -52,6 +52,7 @@ import net.mullvad.mullvadvpn.compose.textfield.SearchTextField
 import net.mullvad.mullvadvpn.compose.transitions.SelectLocationTransition
 import net.mullvad.mullvadvpn.lib.theme.AppTheme
 import net.mullvad.mullvadvpn.lib.theme.Dimens
+import net.mullvad.mullvadvpn.lib.theme.color.Alpha10
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaScrollbar
 import net.mullvad.mullvadvpn.relaylist.RelayCountry
 import net.mullvad.mullvadvpn.relaylist.RelayItem
@@ -114,7 +115,7 @@ fun SelectLocationScreen(
     removeOwnershipFilter: () -> Unit = {},
     removeProviderFilter: () -> Unit = {}
 ) {
-    val backgroundColor = MaterialTheme.colorScheme.background
+    val backgroundColor = MaterialTheme.colorScheme.surface
 
     Scaffold {
         Column(modifier = Modifier.padding(it).background(backgroundColor).fillMaxSize()) {
@@ -123,7 +124,7 @@ fun SelectLocationScreen(
                     Icon(
                         modifier = Modifier.rotate(270f),
                         painter = painterResource(id = R.drawable.icon_back),
-                        tint = Color.Unspecified,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         contentDescription = null,
                     )
                 }
@@ -132,13 +133,13 @@ fun SelectLocationScreen(
                     modifier = Modifier.align(Alignment.CenterVertically).weight(weight = 1f),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 IconButton(onClick = onFilterClick) {
                     Icon(
                         painter = painterResource(id = R.drawable.icons_more_circle),
                         contentDescription = null,
-                        tint = Color.Unspecified,
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
@@ -158,6 +159,7 @@ fun SelectLocationScreen(
             }
 
             SearchTextField(
+                backgroundColor = MaterialTheme.colorScheme.onSurface.copy(alpha = Alpha10),
                 modifier =
                     Modifier.fillMaxWidth()
                         .height(Dimens.searchFieldHeight)
@@ -188,7 +190,7 @@ fun SelectLocationScreen(
                     Modifier.fillMaxSize()
                         .drawVerticalScrollbar(
                             lazyListState,
-                            MaterialTheme.colorScheme.onBackground.copy(alpha = AlphaScrollbar)
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaScrollbar)
                         ),
                 state = lazyListState,
                 horizontalAlignment = Alignment.CenterHorizontally,

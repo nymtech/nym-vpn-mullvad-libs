@@ -19,13 +19,14 @@ import net.mullvad.mullvadvpn.lib.theme.AppTheme
 import net.mullvad.mullvadvpn.lib.theme.Dimens
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaInvisible
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaVisible
+import net.mullvad.mullvadvpn.lib.theme.color.onSelected
 import net.mullvad.mullvadvpn.lib.theme.color.selected
 
 @Preview
 @Composable
 private fun PreviewSelectableCell() {
     AppTheme {
-        SpacedColumn(Modifier.background(MaterialTheme.colorScheme.background)) {
+        SpacedColumn(Modifier.background(MaterialTheme.colorScheme.surface)) {
             SelectableCell(title = "Selected", isSelected = true)
             SelectableCell(title = "Not Selected", isSelected = false)
         }
@@ -41,7 +42,7 @@ fun SelectableCell(
         Icon(
             painter = painterResource(id = R.drawable.icon_tick),
             contentDescription = iconContentDescription,
-            tint = MaterialTheme.colorScheme.onPrimary,
+            tint = MaterialTheme.colorScheme.onSelected,
             modifier =
                 Modifier.padding(end = Dimens.selectableCellTextMargin)
                     .alpha(if (isSelected) AlphaVisible else AlphaInvisible)
@@ -50,13 +51,26 @@ fun SelectableCell(
     titleStyle: TextStyle = MaterialTheme.typography.labelLarge,
     startPadding: Dp = Dimens.cellStartPadding,
     selectedColor: Color = MaterialTheme.colorScheme.selected,
-    backgroundColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    backgroundColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    onSelectedColor: Color = MaterialTheme.colorScheme.onSelected,
+    onBackgroundColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
     onCellClicked: () -> Unit = {},
     testTag: String = ""
 ) {
     BaseCell(
         onCellClicked = onCellClicked,
-        title = { BaseCellTitle(title = title, style = titleStyle) },
+        title = {
+            BaseCellTitle(
+                title = title,
+                style = titleStyle,
+                textColor =
+                    if (isSelected) {
+                        onSelectedColor
+                    } else {
+                        onBackgroundColor
+                    }
+            )
+        },
         background =
             if (isSelected) {
                 selectedColor

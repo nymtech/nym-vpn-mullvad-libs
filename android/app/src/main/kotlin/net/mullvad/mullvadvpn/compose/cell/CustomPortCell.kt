@@ -69,7 +69,7 @@ fun CustomPortCell(
                         if (isSelected) {
                             MaterialTheme.colorScheme.selected
                         } else {
-                            MaterialTheme.colorScheme.secondaryContainer
+                            MaterialTheme.colorScheme.primaryContainer
                         }
                     )
                     .padding(start = Dimens.cellStartPadding)
@@ -78,7 +78,7 @@ fun CustomPortCell(
             Icon(
                 painter = painterResource(id = R.drawable.icon_tick),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
+                tint = MaterialTheme.colorScheme.onSecondary,
                 modifier =
                     Modifier.padding(end = Dimens.selectableCellTextMargin)
                         .alpha(if (isSelected) AlphaVisible else AlphaInvisible)
@@ -86,7 +86,12 @@ fun CustomPortCell(
             BaseCellTitle(
                 title = title,
                 style = MaterialTheme.typography.labelLarge,
-                textAlign = TextAlign.Start
+                textAlign = TextAlign.Start,
+                textColor = if (isSelected) {
+                    MaterialTheme.colorScheme.onSecondary
+                } else {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                }
             )
         }
         Spacer(modifier = Modifier.width(Dimens.verticalSpacer))

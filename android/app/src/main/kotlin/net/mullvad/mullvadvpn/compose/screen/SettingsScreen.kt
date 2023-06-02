@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -22,8 +24,11 @@ import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import net.mullvad.mullvadvpn.R
 import net.mullvad.mullvadvpn.compose.cell.DefaultExternalLinkView
+import net.mullvad.mullvadvpn.compose.cell.HeaderSwitchComposeCell
+import net.mullvad.mullvadvpn.compose.cell.InformationComposeCell
 import net.mullvad.mullvadvpn.compose.cell.NavigationCellBody
 import net.mullvad.mullvadvpn.compose.cell.NavigationComposeCell
+import net.mullvad.mullvadvpn.compose.cell.SelectableCell
 import net.mullvad.mullvadvpn.compose.component.NavigateBackDownIconButton
 import net.mullvad.mullvadvpn.compose.component.ScaffoldWithMediumTopBar
 import net.mullvad.mullvadvpn.compose.destinations.ReportProblemDestination
@@ -35,6 +40,7 @@ import net.mullvad.mullvadvpn.compose.test.LAZY_LIST_TEST_TAG
 import net.mullvad.mullvadvpn.compose.transitions.SettingsTransition
 import net.mullvad.mullvadvpn.lib.common.util.openLink
 import net.mullvad.mullvadvpn.lib.theme.AppTheme
+import net.mullvad.mullvadvpn.lib.theme.DarkThemeState
 import net.mullvad.mullvadvpn.lib.theme.Dimens
 import net.mullvad.mullvadvpn.util.appendHideNavOnPlayBuild
 import net.mullvad.mullvadvpn.viewmodel.SettingsViewModel
@@ -51,7 +57,9 @@ private fun PreviewSettings() {
                     appVersion = "2222.22",
                     isLoggedIn = true,
                     isUpdateAvailable = true,
-                    isPlayBuild = false
+                    isPlayBuild = false,
+                    isMaterialYouTheme = false,
+                    darkThemeState = DarkThemeState.SYSTEM
                 ),
         )
     }
@@ -74,6 +82,8 @@ fun Settings(navigator: DestinationsNavigator) {
         onReportProblemCellClick = {
             navigator.navigate(ReportProblemDestination) { launchSingleTop = true }
         },
+        onUseMaterialYouThemeClick = vm::setUseMaterialYouTheme,
+        onDarkThemeStateSelected = vm::onDarkThemeStateSelected,
         onBackClick = navigator::navigateUp
     )
 }
@@ -85,6 +95,8 @@ fun SettingsScreen(
     onVpnSettingCellClick: () -> Unit = {},
     onSplitTunnelingCellClick: () -> Unit = {},
     onReportProblemCellClick: () -> Unit = {},
+    onUseMaterialYouThemeClick: (Boolean) -> Unit = {},
+    onDarkThemeStateSelected: (DarkThemeState) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -114,6 +126,49 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(Dimens.cellVerticalSpacing))
                 }
+            }
+            item {
+                HeaderSwitchComposeCell(
+                    title = stringResource(id = R.string.use_material_you),
+                    isToggled = uiState.isMaterialYouTheme,
+                    onCellClicked = onUseMaterialYouThemeClick,
+                    onInfoClicked = null
+                )
+                Spacer(modifier = Modifier.height(Dimens.cellVerticalSpacing))
+            }
+            itemWithDivider {
+                InformationComposeCell(
+                    title = stringResource(id = R.string.use_dark_theme),
+                    onCellClicked = {},
+                    onInfoClicked = null
+                )
+            }
+            itemWithDivider {
+                SelectableCell(
+                    title = stringResource(id = R.string.use_system_setting),
+                    isSelected = uiState.darkThemeState == DarkThemeState.SYSTEM,
+                    iconContentDescription = stringResource(id = R.string.use_system_setting),
+                    onCellClicked = { onDarkThemeStateSelected(DarkThemeState.SYSTEM) }
+                )
+            }
+            itemWithDivider {
+                SelectableCell(
+                    title = stringResource(id = R.string.on),
+                    isSelected = uiState.darkThemeState == DarkThemeState.ON,
+                    iconContentDescription = stringResource(id = R.string.on),
+                    onCellClicked = { onDarkThemeStateSelected(DarkThemeState.ON) }
+                )
+            }
+            itemWithDivider {
+                SelectableCell(
+                    title = stringResource(id = R.string.off),
+                    isSelected = uiState.darkThemeState == DarkThemeState.OFF,
+                    iconContentDescription = stringResource(id = R.string.off),
+                    onCellClicked = { onDarkThemeStateSelected(DarkThemeState.OFF) }
+                )
+            }
+            item {
+                Spacer(modifier = Modifier.height(Dimens.cellVerticalSpacing))
             }
             item {
                 NavigationComposeCell(
@@ -153,9 +208,10 @@ fun SettingsScreen(
                     Text(
                         text = stringResource(id = R.string.update_available_footer),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier =
-                            Modifier.background(MaterialTheme.colorScheme.secondary)
+                            Modifier.fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
                                 .padding(
                                     start = Dimens.cellStartPadding,
                                     top = Dimens.cellTopPadding,
@@ -179,7 +235,14 @@ fun SettingsScreen(
                     val faqGuideLabel = stringResource(id = R.string.faqs_and_guides)
                     NavigationComposeCell(
                         title = faqGuideLabel,
-                        bodyView = @Composable { DefaultExternalLinkView(faqGuideLabel) },
+                        bodyView =
+                            @Composable {
+                                DefaultExternalLinkView(
+                                    faqGuideLabel,
+                                    colorFilter =
+                                        ColorFilter.tint(MaterialTheme.colorScheme.onPrimary)
+                                )
+                            },
                         onClick = {
                             context.openLink(
                                 Uri.parse(context.resources.getString(R.string.faqs_and_guides_url))
@@ -193,7 +256,13 @@ fun SettingsScreen(
                 val privacyPolicyLabel = stringResource(id = R.string.privacy_policy_label)
                 NavigationComposeCell(
                     title = privacyPolicyLabel,
-                    bodyView = @Composable { DefaultExternalLinkView(privacyPolicyLabel) },
+                    bodyView =
+                        @Composable {
+                            DefaultExternalLinkView(
+                                privacyPolicyLabel,
+                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary)
+                            )
+                        },
                     onClick = {
                         context.openLink(
                             Uri.parse(

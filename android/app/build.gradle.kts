@@ -324,6 +324,7 @@ dependencies {
 
     implementation(Dependencies.commonsValidator)
     implementation(Dependencies.AndroidX.coreKtx)
+    implementation(Dependencies.AndroidX.dataStorePreferences)
     implementation(Dependencies.AndroidX.lifecycleRuntimeKtx)
     implementation(Dependencies.AndroidX.lifecycleViewmodelKtx)
     implementation(Dependencies.Compose.constrainLayout)

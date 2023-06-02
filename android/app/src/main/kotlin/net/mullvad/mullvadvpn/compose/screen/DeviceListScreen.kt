@@ -47,6 +47,7 @@ import net.mullvad.mullvadvpn.lib.theme.AppTheme
 import net.mullvad.mullvadvpn.lib.theme.Dimens
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaDescription
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaTopBar
+import net.mullvad.mullvadvpn.lib.theme.color.selected
 import net.mullvad.mullvadvpn.lib.theme.typeface.listItemSubText
 import net.mullvad.mullvadvpn.lib.theme.typeface.listItemText
 import net.mullvad.mullvadvpn.model.Device
@@ -140,10 +141,7 @@ fun DeviceListScreen(
             val scrollState = rememberScrollState()
             Column(
                 modifier =
-                    Modifier.drawVerticalScrollbar(
-                            scrollState,
-                            MaterialTheme.colorScheme.onBackground
-                        )
+                    Modifier.drawVerticalScrollbar(scrollState, MaterialTheme.colorScheme.onSurface)
                         .verticalScroll(scrollState)
                         .weight(1f)
             ) {
@@ -294,7 +292,7 @@ private fun DeviceListButtonPanel(
             text = stringResource(id = R.string.continue_login),
             onClick = onContinueWithLogin,
             isEnabled = state.hasTooManyDevices.not() && state.isLoading.not(),
-            background = MaterialTheme.colorScheme.secondary
+            background = MaterialTheme.colorScheme.selected
         )
 
         PrimaryButton(

@@ -29,14 +29,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import net.mullvad.mullvadvpn.R
 import net.mullvad.mullvadvpn.lib.theme.AppTheme
 import net.mullvad.mullvadvpn.lib.theme.Dimens
-import net.mullvad.mullvadvpn.lib.theme.color.MullvadWhite10
+import net.mullvad.mullvadvpn.lib.theme.color.Alpha10
+import net.mullvad.mullvadvpn.lib.theme.color.AlphaDescription
 
 @Preview
 @Composable
 private fun PreviewSearchTextField() {
     AppTheme {
-        Column(modifier = Modifier.background(color = MaterialTheme.colorScheme.background)) {
-            SearchTextField(placeHolder = "Search for...") {}
+        Column(modifier = Modifier.background(color = MaterialTheme.colorScheme.surface)) {
+            SearchTextField(
+                placeHolder = "Search for...",
+                backgroundColor = MaterialTheme.colorScheme.onSurface.copy(alpha = Alpha10)
+            ) {}
         }
     }
 }
@@ -46,7 +50,7 @@ private fun PreviewSearchTextField() {
 fun SearchTextField(
     modifier: Modifier = Modifier,
     placeHolder: String = stringResource(id = R.string.search_placeholder),
-    backgroundColor: Color = MullvadWhite10,
+    backgroundColor: Color,
     enabled: Boolean = true,
     singleLine: Boolean = true,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
@@ -58,13 +62,16 @@ fun SearchTextField(
     BasicTextField(
         value = searchTerm,
         textStyle =
-            MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.onSecondary),
+            MaterialTheme.typography.labelLarge.copy(
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaDescription)
+            ),
         onValueChange = { text: String ->
             searchTerm = text
             onValueChange.invoke(text)
         },
         singleLine = singleLine,
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.onSecondary),
+        cursorBrush =
+            SolidColor(MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaDescription)),
         decorationBox =
             @Composable { innerTextField ->
                 TextFieldDefaults.DecorationBox(
@@ -84,7 +91,12 @@ fun SearchTextField(
                                     height = Dimens.searchIconSize,
                                 ),
                             colorFilter =
-                                ColorFilter.tint(color = MaterialTheme.colorScheme.onSecondary),
+                                ColorFilter.tint(
+                                    color =
+                                        MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = AlphaDescription
+                                        )
+                                ),
                         )
                     },
                     placeholder = {
@@ -106,15 +118,20 @@ fun SearchTextField(
                     shape = MaterialTheme.shapes.medium,
                     colors =
                         TextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSecondary,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSecondary,
+                            focusedTextColor =
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaDescription),
+                            unfocusedTextColor =
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaDescription),
                             focusedContainerColor = backgroundColor,
                             unfocusedContainerColor = backgroundColor,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-                            cursorColor = MaterialTheme.colorScheme.onSecondary,
-                            focusedPlaceholderColor = MaterialTheme.colorScheme.onSecondary,
-                            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSecondary
+                            cursorColor =
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaDescription),
+                            focusedPlaceholderColor =
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaDescription),
+                            unfocusedPlaceholderColor =
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaDescription)
                         ),
                     contentPadding = PaddingValues(),
                 )

@@ -72,6 +72,7 @@ fun AutoResizeText(
     textSizeStep: TextUnit = DEFAULT_TEXT_STEP,
     style: TextStyle = LocalTextStyle.current,
     maxLines: Int = Int.MAX_VALUE,
+    color: Color = MaterialTheme.colorScheme.onSurface
 ) {
     var adjustedFontSize by remember { mutableFloatStateOf(maxTextSize.value) }
     var isReadyToDraw by remember { mutableStateOf(false) }
@@ -80,7 +81,7 @@ fun AutoResizeText(
         text = text,
         maxLines = maxLines,
         style = style,
-        color = MaterialTheme.colorScheme.onBackground,
+        color = color,
         fontSize = adjustedFontSize.sp,
         onTextLayout = {
             if (it.didOverflowHeight && isReadyToDraw.not()) {
@@ -95,6 +96,6 @@ fun AutoResizeText(
                 isReadyToDraw = true
             }
         },
-        modifier = modifier.drawWithContent { if (isReadyToDraw) drawContent() }
+        modifier = modifier.drawWithContent { if (isReadyToDraw) drawContent() },
     )
 }

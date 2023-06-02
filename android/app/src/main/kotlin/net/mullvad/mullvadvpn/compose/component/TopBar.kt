@@ -221,6 +221,7 @@ fun MullvadMediumTopBar(
     title: String,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     MediumTopAppBar(
@@ -229,7 +230,7 @@ fun MullvadMediumTopBar(
         scrollBehavior = scrollBehavior,
         colors =
             TopAppBarDefaults.mediumTopAppBarColors(
-                containerColor = MaterialTheme.colorScheme.background,
+                containerColor = containerColor,
                 actionIconContentColor = MaterialTheme.colorScheme.onPrimary.copy(AlphaTopBar),
             ),
         actions = actions
@@ -319,7 +320,7 @@ fun MullvadTopBarWithDeviceName(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = AlphaTopBar)
+                color = iconTintColor
             )
             if (daysLeftUntilExpiry != null) {
                 Text(
@@ -337,7 +338,7 @@ fun MullvadTopBarWithDeviceName(
                             }
                         ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = AlphaTopBar)
+                    color = iconTintColor
                 )
             } else {
                 Spacer(Modifier)

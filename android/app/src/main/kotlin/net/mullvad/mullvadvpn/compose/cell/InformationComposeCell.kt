@@ -18,8 +18,6 @@ import net.mullvad.mullvadvpn.R
 import net.mullvad.mullvadvpn.lib.theme.Dimens
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaInactive
 import net.mullvad.mullvadvpn.lib.theme.color.AlphaVisible
-import net.mullvad.mullvadvpn.lib.theme.color.MullvadBlue
-import net.mullvad.mullvadvpn.lib.theme.color.MullvadWhite
 
 @Preview
 @Composable
@@ -36,7 +34,7 @@ private fun PreviewInformationComposeCell() {
 fun InformationComposeCell(
     title: String,
     isEnabled: Boolean = true,
-    background: Color = MullvadBlue,
+    background: Color = MaterialTheme.colorScheme.primary,
     onCellClicked: () -> Unit = {},
     onInfoClicked: (() -> Unit)? = null
 ) {
@@ -75,7 +73,7 @@ private fun InformationComposeCellBody(modifier: Modifier, onInfoClicked: (() ->
                 Icon(
                     painter = painterResource(id = R.drawable.icon_info),
                     contentDescription = null,
-                    tint = MullvadWhite
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
         }

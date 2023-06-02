@@ -20,7 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -120,7 +120,7 @@ fun PrivacyDisclaimerScreen(
             modifier =
                 Modifier.padding(it)
                     .fillMaxSize()
-                    .background(color = MaterialTheme.colorScheme.background)
+                    .background(color = MaterialTheme.colorScheme.surface)
         ) {
             val (body, actionButtons) = createRefs()
             val sideMargin = Dimens.sideMargin
@@ -146,7 +146,7 @@ fun PrivacyDisclaimerScreen(
                 Text(
                     text = stringResource(id = R.string.privacy_disclaimer_title),
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -154,7 +154,7 @@ fun PrivacyDisclaimerScreen(
                 Text(
                     text = stringResource(id = R.string.privacy_disclaimer_body_first_paragraph),
                     fontSize = fontSize,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 10.dp)
                 )
 
@@ -173,7 +173,7 @@ fun PrivacyDisclaimerScreen(
                         style =
                             TextStyle(
                                 fontSize = 12.sp,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 textDecoration = TextDecoration.Underline
                             )
                     )
@@ -185,7 +185,8 @@ fun PrivacyDisclaimerScreen(
                             Modifier.align(Alignment.CenterVertically)
                                 .padding(start = 2.dp, top = 2.dp)
                                 .width(10.dp)
-                                .height(10.dp)
+                                .height(10.dp),
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface)
                     )
                 }
             }

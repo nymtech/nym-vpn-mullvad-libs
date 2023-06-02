@@ -259,4 +259,7 @@
     <string name="loading_connecting">Connecting...</string>
     <string name="loading_verifying">Verifying purchase...</string>
     <string name="copied_logs_to_clipboard">Copied logs to clipboard</string>
+    <string name="use_material_you">Use material you theme</string>
+    <string name="use_dark_theme">Use dark theme</string>
+    <string name="use_system_setting">Use system setting</string>
 </resources>

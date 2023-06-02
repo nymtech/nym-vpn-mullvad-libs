@@ -186,7 +186,7 @@ fun ConnectScreen(
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.Start,
             modifier =
-                Modifier.background(color = MaterialTheme.colorScheme.primary)
+                Modifier.background(color = MaterialTheme.colorScheme.surfaceVariant)
                     .padding(it)
                     .fillMaxHeight()
                     .drawVerticalScrollbar(
@@ -212,7 +212,7 @@ fun ConnectScreen(
                             ActionAfterDisconnect.Reconnect)
             ) {
                 MullvadCircularProgressIndicatorLarge(
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier =
                         Modifier.padding(
                                 start = Dimens.sideMargin,
@@ -231,13 +231,13 @@ fun ConnectScreen(
             Text(
                 text = uiState.location?.country ?: "",
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = Dimens.sideMargin)
             )
             Text(
                 text = uiState.location?.city ?: "",
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = Dimens.sideMargin)
             )
             var expanded by rememberSaveable { mutableStateOf(false) }
