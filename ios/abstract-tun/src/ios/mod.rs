@@ -7,6 +7,9 @@ use std::{
 
 use crate::{Config, PeerConfig, TunnelTransport, UdpTransport, WgInstance};
 
+mod data;
+mod udp_session;
+
 const INIT_LOGGING: Once = Once::new();
 
 pub struct IOSTun {
@@ -214,6 +217,9 @@ pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     packet: *const u8,
     packet_size: usize,
 ) {
+    log::error!("GOT A RESULT FROM SWIFT {}", unsafe {
+        run_swift_from_rust()
+    });
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
 
@@ -229,9 +235,12 @@ pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
 #[no_mangle]
 pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
     if tun.is_null() {
-        log::error!("CALLING DROP ON A NULL POINTER");
         return;
     }
     let tun: Box<IOSTun> = unsafe { Box::from_raw(tun) };
     std::mem::drop(tun);
+}
+
+extern "C" {
+    fn run_swift_from_rust() -> u64;
 }
