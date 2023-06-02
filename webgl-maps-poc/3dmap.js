@@ -61,6 +61,7 @@ const gothenburgCoordinate = new Coordinate(57.67, 11.98);
 const helsinkiCoordinate = new Coordinate(60.170833, 24.9375);
 const sydneyCoordinate = new Coordinate(-33.86, 151.21);
 const losAngelesCoordinate = new Coordinate(34.05, -118.25);
+const newYorkCoordinate = new Coordinate(40.73, -73.93);
 const romeCoordinate = new Coordinate(41.893, 12.482);
 const poleCoordinate1 = new Coordinate(88, -90);
 const poleCoordinate2 = new Coordinate(88, 90);
@@ -313,14 +314,9 @@ class LocationMarker {
 // starting at time `startTime` (usually now() at the time of creating an instance),
 // and animating for `duration` seconds
 class SmoothLerp {
-    constructor(startCoordinate, path, startZoom, endZoom, startTime, duration) {
+    constructor(startCoordinate, path, startTime, duration) {
         this.startCoordinate = startCoordinate;
         this.path = path;
-        if (duration > zoomAnimationStyleTimeBreakpoint) {
-            this.zoomAnimation = new SmoothZoomOutIn(startZoom, endZoom);
-        } else {
-            this.zoomAnimation = new SmoothZoomDirect(startZoom, endZoom);
-        }
         this.startTime = startTime;
         this.duration = duration;
     }
@@ -331,42 +327,47 @@ class SmoothLerp {
         const animationRatio = Math.min(Math.max((now - this.startTime) / this.duration, 0.0), 1.0);
         const smoothAnimationRatio = smoothTransition(animationRatio);
         const position = this.startCoordinate.add(this.path.scale(smoothAnimationRatio));
-        const zoom = this.zoomAnimation.compute(animationRatio);
-        return [position, zoom, smoothAnimationRatio];
+        return [position, smoothAnimationRatio];
     }
 }
 
 // Zooms from startZoom to endZoom via a midpoint that is `animationZoomoutFactor` times higer up
 // than max(startZoom, endZoom).
 class SmoothZoomOutIn {
-    constructor(startZoom, endZoom) {
+    constructor(startZoom, endZoom, startTime, duration) {
         this.startZoom = startZoom;
         this.endZoom = endZoom;
         this.middleZoom = Math.min(Math.max(startZoom, endZoom) * animationZoomoutFactor, maxZoomout);
+        this.startTime = startTime;
+        this.duration = duration;
     }
 
-    compute(animationRatio) {
+    compute(now) {
+        const animationRatio = Math.min(Math.max((now - this.startTime) / this.duration, 0.0), 1.0);
         // Linear animation ratio 0-1. 0.0-0.5 means zooming out and 0.5-1.0 means zooming in
         if (animationRatio <= 0.5) {
             const smoothAnimationRatio = smoothTransition(animationRatio * 2);
-            return this.startZoom + smoothAnimationRatio * (this.middleZoom - this.startZoom);
+            return [this.startZoom + smoothAnimationRatio * (this.middleZoom - this.startZoom), animationRatio];
         } else {
             const smoothAnimationRatio = smoothTransition((animationRatio - 0.5) * 2);
-            return this.middleZoom - smoothAnimationRatio * (this.middleZoom - this.endZoom);
+            return [this.middleZoom - smoothAnimationRatio * (this.middleZoom - this.endZoom), animationRatio];
         }
     }
 }
 
 // Zooms from startZoom to endZoom directly in a smooth manner.
 class SmoothZoomDirect {
-    constructor(startZoom, endZoom) {
+    constructor(startZoom, endZoom, startTime, duration) {
         this.startZoom = startZoom;
         this.endZoom = endZoom;
+        this.startTime = startTime;
+        this.duration = duration;
     }
 
-    compute(animationRatio) {
+    compute(now) {
+        const animationRatio = Math.min(Math.max((now - this.startTime) / this.duration, 0.0), 1.0);
         const smoothAnimationRatio = smoothTransition(animationRatio);
-        return this.startZoom + smoothAnimationRatio * (this.endZoom - this.startZoom);
+        return [this.startZoom + smoothAnimationRatio * (this.endZoom - this.startZoom), animationRatio];
     }
 }
 
@@ -382,20 +383,45 @@ class Map {
         // `targetCoordinate` is the same as `coordinate` when no animation is in progress.
         // This is where the location marker is drawn.
         this.targetCoordinate = startCoordinate;
-        // An array of smooth lerps. Empty when no animation is in progress.
+        // An array of smooth lerps between coordinates. Empty when no animation is in progress.
         this.animations = [];
+        // An array of zoom animations. Empty when no animation is in progress.
+        this.zoomAnimations = [];
     }
 
     // Move the location marker to `newCoordinate` (with state `connectionState`) and queue
     // animation to move to that coordinate.
     setLocation(newCoordinate, connectionState, now) {
-        const path = shortestPath(this.coordinate, newCoordinate);
-        // Compute animation time as a function of movement distance. Clamp the
-        // duration range between animationMinTime and animationMaxTime
-        const duration = Math.min(Math.max(path.length() / 20, animationMinTime), animationMaxTime);
-
         const endZoom = connectionState ? connectedZoom : disconnectedZoom;
-        this.animations.push(new SmoothLerp(this.coordinate, path, this.zoom, endZoom, now, duration));
+
+        // Only perform a coordinate animation if the new coordinate is
+        // different from the current position/latest ongoing animation.
+        // If the new coordinate is the same as the current target, we just
+        // queue a zoom animation.
+        if (newCoordinate !== this.targetCoordinate) {
+            const path = shortestPath(this.coordinate, newCoordinate);
+
+            // Compute animation time as a function of movement distance. Clamp the
+            // duration range between animationMinTime and animationMaxTime
+            const duration = Math.min(Math.max(path.length() / 20, animationMinTime), animationMaxTime);
+
+            this.animations.push(new SmoothLerp(this.coordinate, path, now, duration));
+            if (duration > zoomAnimationStyleTimeBreakpoint) {
+                this.zoomAnimations.push(new SmoothZoomOutIn(this.zoom, endZoom, now, duration));
+            } else {
+                this.zoomAnimations.push(new SmoothZoomDirect(this.zoom, endZoom, now, duration));
+            }
+        } else {
+            var duration = animationMinTime;
+            // If an animation is in progress, make sure our zoom animation ends at the same time.
+            // Just makes a smooth transition from one zoom end state to the other.
+            if (this.zoomAnimations.length > 0) {
+                const lastZoomAnimation = this.zoomAnimations[this.zoomAnimations.length - 1];
+                const lastZoomAnimationEndTime = lastZoomAnimation.startTime + lastZoomAnimation.duration;
+                duration = Math.max(lastZoomAnimationEndTime - now, animationMinTime);
+            }
+            this.zoomAnimations.push(new SmoothZoomDirect(this.zoom, endZoom, now, duration));
+        }
 
         this.connectionState = connectionState;
         this.targetCoordinate = newCoordinate;
@@ -404,6 +430,7 @@ class Map {
     // Render the map for the time `now`.
     draw(projectionMatrix, now) {
         this.updatePosition(now);
+        this.updateZoom(now);
 
         const viewMatrix = mat4.create();
 
@@ -426,7 +453,7 @@ class Map {
         locationMarker.draw(projectionMatrix, viewMatrix, this.targetCoordinate, 0.03 * this.zoom);
     }
 
-    // Private funciton that just updates internal animation state to match with time `now`.
+    // Private function that just updates internal animation state to match with time `now`.
     updatePosition(now) {
         if (this.animations.length === 0) {
             return;
@@ -434,7 +461,7 @@ class Map {
 
         // Compute lerp position and ratio of the newest animation
         const lastAnimation = this.animations[this.animations.length - 1];
-        var [coordinate, zoom, ratio] = lastAnimation.compute(now);
+        var [coordinate, ratio] = lastAnimation.compute(now);
         if (ratio >= 1.0) {
             // Animation is done. We can empty the animations array
             this.animations = [];
@@ -443,9 +470,8 @@ class Map {
         // Loop through all previous animations (that are still in progress) backwards and
         // lerp between them to compute our actual location.
         for (var i = this.animations.length - 2; i >= 0; i--) {
-            const [previousPoint, previousZoom, animationRatio] = this.animations[i].compute(now);
+            const [previousPoint, animationRatio] = this.animations[i].compute(now);
             coordinate = lerpCoordinate(previousPoint, coordinate, ratio);
-            zoom = lerp(previousZoom, zoom, ratio);
             // If this animation is finished, none of the animations [0, i) will have any effect,
             // so they can be pruned
             if (animationRatio >= 1.0 && i > 0) {
@@ -457,6 +483,37 @@ class Map {
 
         // Set our coordinate and zoom to the values interpolated from all ongoing animations.
         this.coordinate = coordinate;
+    }
+
+    // Private function that updates the current zoom level according to ongoing animations.
+    updateZoom(now) {
+        if (this.zoomAnimations.length === 0) {
+            return;
+        }
+
+        const lastZoomAnimation = this.zoomAnimations[this.zoomAnimations.length - 1];
+        var [zoom, ratio] = lastZoomAnimation.compute(now);
+
+        if (ratio >= 1.0) {
+            // Animation is done. We can empty the animations array
+            this.zoomAnimations = [];
+        }
+
+        // Loop through all previous animations (that are still in progress) backwards and
+        // lerp between them to compute our actual location.
+        for (var i = this.zoomAnimations.length - 2; i >= 0; i--) {
+            const [previousZoom, animationRatio] = this.zoomAnimations[i].compute(now);
+            zoom = lerp(previousZoom, zoom, ratio);
+            // If this animation is finished, none of the animations [0, i) will have any effect,
+            // so they can be pruned
+            if (animationRatio >= 1.0 && i > 0) {
+                this.zoomAnimations = this.zoomAnimations.slice(i, this.zoomAnimations.length);
+                break;
+            }
+            ratio = animationRatio;
+        }
+
+        // Set our coordinate and zoom to the values interpolated from all ongoing animations.
         this.zoom = zoom;
     }
 }
@@ -504,18 +561,18 @@ function main() {
     function render(now) {
         now *= 0.001; // convert to seconds
 
-        if (now > 1.5 && hasSetCoordinate == 0) {
-            map.setLocation(sydneyCoordinate, false, now);
+        if (now > 1.0 && hasSetCoordinate == 0) {
+            map.setLocation(newYorkCoordinate, false, now);
             hasSetCoordinate = 1;
-        } else if (now > 3 && hasSetCoordinate == 1) {
-            map.setLocation(romeCoordinate, true, now);
+        } else if (now > 2.8 && hasSetCoordinate == 1) {
+            map.setLocation(newYorkCoordinate, true, now);
             hasSetCoordinate = 2;
-        } else if (now > 4.5 && hasSetCoordinate == 2) {
-            map.setLocation(losAngelesCoordinate, false, now);
-            hasSetCoordinate = 3;
-        } else if (now > 8 && hasSetCoordinate == 3) {
-            map.setLocation(helsinkiCoordinate, true, now);
-            hasSetCoordinate = 4;
+        // } else if (now > 4.5 && hasSetCoordinate == 2) {
+        //     map.setLocation(losAngelesCoordinate, true, now);
+        //     hasSetCoordinate = 3;
+        // } else if (now > 8 && hasSetCoordinate == 3) {
+        //     map.setLocation(helsinkiCoordinate, true, now);
+        //     hasSetCoordinate = 4;
         }
 
         drawScene(gl, projectionMatrix, now, map);
