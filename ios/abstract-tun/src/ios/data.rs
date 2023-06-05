@@ -4,12 +4,16 @@ type DataAppendCall =
 type DataDropCall = extern "C" fn(swift_data_ptr: *mut SwiftData);
 
 #[repr(C)]
+pub struct BorrowedSwiftData {
+    borrowed_data_ptr: *mut u8,
+    size: usize,
+}
+
+#[repr(C)]
 pub struct SwiftData {
     swift_data_ptr: *mut libc::c_void,
     bytes_ptr: *mut u8,
     size: usize,
-    // drop_callback: DataDropCall,
-    // append_callback: DataAppendCall,
 }
 
 extern "C" {
@@ -22,8 +26,6 @@ impl SwiftData {
         swift_data_ptr: *mut libc::c_void,
         bytes_ptr: *mut u8,
         size: usize,
-        drop_callback: DataDropCall,
-        append_callback: DataAppendCall,
     ) -> Self {
         Self {
             swift_data_ptr,

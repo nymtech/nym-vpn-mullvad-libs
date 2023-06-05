@@ -1,6 +1,6 @@
 use std::{
     io,
-    net::{Ipv4Addr, UdpSocket},
+    net::{Ipv4Addr, UdpSocket, SocketAddr},
     os::fd::{IntoRawFd, RawFd},
     ptr,
     sync::Arc,
@@ -51,12 +51,10 @@ impl TunReadHandle {
 
 impl TunnelTransport for TunWriteHandle {
     fn send_v4_packet(&self, buffer: &[u8]) -> io::Result<()> {
-        println!("Sending v4 packet back to host");
         self.send_packet(buffer, libc::AF_INET.try_into().unwrap())
     }
 
     fn send_v6_packet(&self, buffer: &[u8]) -> io::Result<()> {
-        println!("Sending v6 packet back to host");
         self.send_packet(buffer, libc::AF_INET6.try_into().unwrap())
     }
 }
@@ -143,6 +141,13 @@ impl UdpTransport {
         Ok(Self {
             socket: Arc::new(UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?),
         })
+    }
+
+    pub fn with_listen_addr(addr: SocketAddr) -> io::Result<Self> {
+        Ok(Self{
+            socket: Arc::new(UdpSocket::bind(addr)?),
+        })
+
     }
 
     pub fn receive_packet(&self, buffer: &mut [u8]) -> io::Result<usize> {
