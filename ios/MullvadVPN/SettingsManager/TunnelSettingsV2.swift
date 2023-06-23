@@ -27,10 +27,35 @@ enum SchemaVersion: Int, Equatable {
 
 struct TunnelSettingsV2: Codable, Equatable {
     /// Relay constraints.
-    var relayConstraints = RelayConstraints()
+    var relayConstraints: RelayConstraints
 
     /// DNS settings.
-    var dnsSettings = DNSSettings()
+    var dnsSettings: DNSSettings
+
+    /// Obfuscation settings.
+    /// Added in 2023.4
+    var obfuscationSettings: ObfuscationSettings
+
+    init(
+        relayConstraints: RelayConstraints = RelayConstraints(),
+        dnsSettings: DNSSettings = DNSSettings(),
+        obfuscationSettings: ObfuscationSettings = ObfuscationSettings()
+    ) {
+        self.relayConstraints = relayConstraints
+        self.dnsSettings = dnsSettings
+        self.obfuscationSettings = obfuscationSettings
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        relayConstraints = try container.decode(RelayConstraints.self, forKey: .relayConstraints)
+        dnsSettings = try container.decode(DNSSettings.self, forKey: .dnsSettings)
+
+        // Added in 2023.4
+        obfuscationSettings = try container.decodeIfPresent(ObfuscationSettings.self, forKey: .obfuscationSettings)
+            ?? ObfuscationSettings()
+    }
 }
 
 struct StoredAccountData: Codable, Equatable {

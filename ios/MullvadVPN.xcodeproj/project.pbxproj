@@ -250,6 +250,7 @@
 		58B26E262943522400D5980C /* NotificationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B26E252943522400D5980C /* NotificationProvider.swift */; };
 		58B26E282943527300D5980C /* SystemNotificationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B26E272943527300D5980C /* SystemNotificationProvider.swift */; };
 		58B26E2A2943545A00D5980C /* NotificationManagerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B26E292943545A00D5980C /* NotificationManagerDelegate.swift */; };
+		58B398262A45961600D5CA9F /* ObfuscationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B398252A45961600D5CA9F /* ObfuscationSettings.swift */; };
 		58B43C1925F77DB60002C8C3 /* TunnelControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B43C1825F77DB60002C8C3 /* TunnelControlView.swift */; };
 		58B8644529C7971B005E107C /* InputTextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582AE30F2440A6CA00E6733A /* InputTextFormatter.swift */; };
 		58B8644629C7972F005E107C /* CustomDateComponentsFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5896AE83246D5889005B36CB /* CustomDateComponentsFormatting.swift */; };
@@ -1058,6 +1059,7 @@
 		58B26E252943522400D5980C /* NotificationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationProvider.swift; sourceTree = "<group>"; };
 		58B26E272943527300D5980C /* SystemNotificationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemNotificationProvider.swift; sourceTree = "<group>"; };
 		58B26E292943545A00D5980C /* NotificationManagerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManagerDelegate.swift; sourceTree = "<group>"; };
+		58B398252A45961600D5CA9F /* ObfuscationSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObfuscationSettings.swift; sourceTree = "<group>"; };
 		58B43C1825F77DB60002C8C3 /* TunnelControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelControlView.swift; sourceTree = "<group>"; };
 		58B93A1226C3F13600A55733 /* TunnelState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelState.swift; sourceTree = "<group>"; };
 		58B993B02608A34500BA7811 /* LoginContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginContentView.swift; sourceTree = "<group>"; };
@@ -1462,6 +1464,7 @@
 				581DA2722A1E227D0046ED47 /* RESTTypes.swift */,
 				58F1311427E0B2AB007AC5BC /* Result+Extensions.swift */,
 				58E511E028DDB7F100B0BCDE /* WrappingError.swift */,
+				58B398252A45961600D5CA9F /* ObfuscationSettings.swift */,
 			);
 			path = MullvadTypes;
 			sourceTree = "<group>";
@@ -3399,6 +3402,7 @@
 				586168692976F6BD00EF8598 /* DisplayError.swift in Sources */,
 				58D2240F294C90210029F5F8 /* KeychainError.swift in Sources */,
 				58D22410294C90210029F5F8 /* Location.swift in Sources */,
+				58B398262A45961600D5CA9F /* ObfuscationSettings.swift in Sources */,
 				58D22411294C90210029F5F8 /* MullvadEndpoint.swift in Sources */,
 				58D22412294C90210029F5F8 /* RelayConstraint.swift in Sources */,
 				58D22413294C90210029F5F8 /* RelayConstraints.swift in Sources */,
