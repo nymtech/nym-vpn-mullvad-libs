@@ -11,19 +11,6 @@ import MullvadTypes
 import struct Network.IPv4Address
 import struct Network.IPv6Address
 
-public protocol Relay: Codable, Equatable {
-    var hostname: String { get }
-    var active: Bool { get }
-    var owned: Bool { get }
-    var location: String { get }
-    var provider: String { get }
-    var ipv4AddrIn: IPv4Address { get }
-    var ipv6AddrIn: IPv6Address { get }
-    var weight: UInt64 { get }
-    var publicKey: Data { get }
-    var includeInCountry: Bool { get }
-}
-
 extension REST {
     public struct ServerLocation: Codable, Equatable {
         public let country: String
@@ -39,7 +26,7 @@ extension REST {
         }
     }
 
-    public struct BridgeRelay: Relay {
+    public struct BridgeRelay: Codable, Equatable {
         public let hostname: String
         public let active: Bool
         public let owned: Bool
@@ -48,17 +35,9 @@ extension REST {
         public let ipv4AddrIn: IPv4Address
         public let weight: UInt64
         public let includeInCountry: Bool
-        // Unused, therefore not included in `CodingKeys`
-        public let ipv6AddrIn: IPv6Address = .loopback
-        // Unused, therefore not included in `CodingKeys`
-        public let publicKey = Data()
-
-        private enum CodingKeys: String, CodingKey {
-            case hostname, active, owned, location, provider, ipv4AddrIn, weight, includeInCountry
-        }
     }
 
-    public struct ServerRelay: Relay {
+    public struct ServerRelay: Codable, Equatable {
         public let hostname: String
         public let active: Bool
         public let owned: Bool
