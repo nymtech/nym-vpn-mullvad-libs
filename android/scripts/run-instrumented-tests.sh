@@ -9,6 +9,7 @@ AUTO_FETCH_TEST_HELPER_APKS=${AUTO_FETCH_TEST_HELPER_APKS:-"false"}
 
 APK_BASE_DIR=${APK_BASE_DIR:-"$SCRIPT_DIR/.."}
 LOG_FAILURE_MESSAGE="FAILURES!!!"
+LOG_CRASH_MESSAGE="Process crashed"
 DEFAULT_ORCHESTRATOR_APK_PATH=/tmp/orchestrator.apk
 ORCHESTRATOR_URL=https://dl.google.com/android/maven2/androidx/test/orchestrator/1.4.2/orchestrator-1.4.2.apk
 DEFAULT_TEST_SERVICES_APK_PATH=/tmp/test-services.apk
@@ -20,7 +21,7 @@ while [[ "$#" -gt 0 ]]; do
             TEST_TYPE="app"
             USE_ORCHESTRATOR="false"
             TEST_PACKAGE="net.mullvad.mullvadvpn.test"
-            TEST_APK="$APK_BASE_DIR/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+            TEST_APK="/Users/jonatanrhodin/checkout/mullvadvpn-app/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
             ;;
         e2e)
             TEST_TYPE="e2e"
