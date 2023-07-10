@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 boringtun = { version = "0.5.2", default-features = false }
-# boringtun = { path = "/Users/emils/src/boringtun/boringtun" }
 
 log = "0.4"
 anyhow = "1"
