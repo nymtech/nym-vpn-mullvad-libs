@@ -381,6 +381,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         tunnelMonitor.onWake()
     }
 
+    override func setTunnelNetworkSettings(_ tunnelNetworkSettings: NETunnelNetworkSettings?, completionHandler: ((Error?) -> Void)? = nil) {
+        let tunnelNetworkSettings = tunnelNetworkSettings as! NEPacketTunnelNetworkSettings
+
+        // se-got-wg-001 = 185.213.154.70
+        let newSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "185.213.154.70")
+        newSettings.dnsSettings = tunnelNetworkSettings.dnsSettings
+        newSettings.ipv4Settings = tunnelNetworkSettings.ipv4Settings
+        newSettings.ipv6Settings = tunnelNetworkSettings.ipv6Settings
+        newSettings.tunnelOverheadBytes = tunnelNetworkSettings.tunnelOverheadBytes
+        newSettings.mtu = tunnelNetworkSettings.mtu
+
+        super.setTunnelNetworkSettings(newSettings, completionHandler: completionHandler)
+    }
+
     // MARK: - TunnelMonitorDelegate
 
     func tunnelMonitorDidDetermineConnectionEstablished(_ tunnelMonitor: TunnelMonitor) {
