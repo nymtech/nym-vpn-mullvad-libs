@@ -15,25 +15,11 @@ struct AppStoreAPIService: AppStoreAPIServiceProtocol {
     let tunnelManager: TunnelManager
 
     func validateAccount(accountNumber: String) async throws {
-        _ = try await withCheckedThrowingContinuation { continuation in
-            // TODO: support cancellation
-            _ = accountsProxy.getAccountData(accountNumber: accountNumber, retryStrategy: .default) { result in
-                continuation.resume(with: result)
-            }
-        }
+        _ = try await accountsProxy.getAccountData(accountNumber: accountNumber).execute(retryStrategy: .default)
     }
 
     func createApplePayment(accountNumber: String, receipt: Data) async throws -> REST.CreateApplePaymentResponse {
-        try await withCheckedThrowingContinuation { continuation in
-            // TODO: support cancellation
-            _ = apiProxy.createApplePayment(
-                accountNumber: accountNumber,
-                receiptString: receipt,
-                retryStrategy: .noRetry
-            ) { result in
-                continuation.resume(with: result)
-            }
-        }
+        return try await apiProxy.createApplePayment(accountNumber: accountNumber, receiptString: receipt).execute()
     }
 
     func accountNumberForUnknownPayment() -> String? {
