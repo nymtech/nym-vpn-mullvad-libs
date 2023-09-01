@@ -1,103 +1,111 @@
-type DataAppendCall =
-    extern "C" fn(swift_data_ptr: *mut SwiftData, bytes_ptr: *const u8, bytes_size: usize);
+use std::marker::PhantomData;
 
-type DataDropCall = extern "C" fn(swift_data_ptr: *mut SwiftData);
-
-#[repr(C)]
-pub struct BorrowedSwiftData {
-    borrowed_data_ptr: *mut u8,
-    size: usize,
-}
-
-#[repr(C)]
-pub struct SwiftData {
-    swift_data_ptr: *mut libc::c_void,
-    bytes_ptr: *mut u8,
-    size: usize,
-}
-
-extern "C" {
-    fn run_swift_from_rust() -> u64;
-    fn drop_swift_data(swift_data_ptr: *mut SwiftData);
-}
-
-impl SwiftData {
-    pub unsafe fn from_raw(
-        swift_data_ptr: *mut libc::c_void,
-        bytes_ptr: *mut u8,
-        size: usize,
-    ) -> Self {
-        Self {
-            swift_data_ptr,
-            bytes_ptr,
-            size,
-            // drop_callback,
-            // append_callback,
-        }
-    }
-
-    pub fn append(&mut self, bytes: &[u8]) {
-        // (self.append_callback)(self as *mut _, bytes.as_ptr(), bytes.len())
-    }
-
-    pub fn forget(self) {
-        std::mem::forget(self)
-    }
-}
-
-impl AsMut<[u8]> for SwiftData {
-    fn as_mut(&mut self) -> &mut [u8] {
-        // SAFETY: `self.bytes_ptr` must be valid for `self.size` bytes
-        unsafe { std::slice::from_raw_parts_mut(self.bytes_ptr, self.size) }
-    }
-}
-
-impl Drop for SwiftData {
-    fn drop(&mut self) {
-        // (self.drop_callback)(self as *mut _)
-    }
-}
-
-type CreateDataCallback = extern "C" fn(size: usize) -> SwiftData;
-
-#[repr(C)]
-pub struct SwiftDataFactory {
-    create_callback: CreateDataCallback,
-}
-
-impl SwiftDataFactory {
-    pub fn create(&self, size: usize) -> SwiftData {
-        (self.create_callback)(size)
-    }
-}
-
-type DataArrayAppend = extern "C" fn(arry_ptr: *mut SwiftDataArray, data: SwiftData);
-type DataArrayIterate = extern "C" fn(arry_ptr: *mut SwiftDataArray);
-
-type DataIteratorFunc = extern "C" fn(context: ArrayIteratorContext, data: SwiftData);
-type DataArrayDrop = extern "C" fn(array_ptr: *mut SwiftDataArray);
-
-/// Wrapper arround Swift's `[Data]`
 #[repr(C)]
 pub struct SwiftDataArray {
     array_ptr: *mut libc::c_void,
-    append_callback: DataArrayAppend,
-    iterate_callback: DataArrayIterate,
-    drop_callback: DataArrayDrop,
 }
 
 impl SwiftDataArray {
-    pub fn append(&mut self, data: SwiftData) {
-        (self.append_callback)(self as *mut _, data)
+    pub fn new() -> Self {
+        Self {
+            array_ptr: unsafe { swift_data_array_create() },
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        unsafe { swift_data_array_len(self.array_ptr) }
+    }
+
+    pub fn append(&mut self, data: &[u8]) {
+        let size = data.len();
+        let raw_ptr = data.as_ptr();
+
+        unsafe {
+            swift_data_array_append(self.array_ptr, raw_ptr, size);
+        }
+    }
+
+    pub fn get_mut<'a>(&mut self, idx: usize) -> Option<SwiftDataWrapper<'a>> {
+        if idx >= self.len() {
+            return None;
+        }
+        let data = unsafe { swift_data_array_get(self.array_ptr, idx) };
+        let wrapper = SwiftDataWrapper {
+            data,
+            _marker: PhantomData,
+        };
+        Some(wrapper)
+    }
+
+    pub fn iter<'a>(&'a mut self) -> SwiftDataArrayIterator<'a> {
+        SwiftDataArrayIterator {
+            array: self,
+            idx: 0,
+        }
+    }
+
+    pub fn into_raw(self) -> *mut libc::c_void {
+        let ptr = self.array_ptr;
+        std::mem::forget(self);
+        ptr
+    }
+
+    pub unsafe fn from_raw(array_ptr: *mut libc::c_void) -> Self {
+        Self { array_ptr }
     }
 }
 
-
 impl Drop for SwiftDataArray {
     fn drop(&mut self) {
-        (self.drop_callback)(self as *mut _)
+        unsafe { swift_data_array_drop(self.array_ptr) }
+    }
+}
+
+struct SwiftDataArrayIterator<'a> {
+    array: &'a mut SwiftDataArray,
+    idx: usize,
+}
+
+impl<'a> Iterator for SwiftDataArrayIterator<'a> {
+    type Item = SwiftDataWrapper<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.array.get_mut(self.idx)?;
+        self.idx += 1;
+        Some(next)
+    }
+}
+
+extern "C" {
+    fn swift_data_array_create() -> *mut libc::c_void;
+    fn swift_data_array_append(swift_data_ptr: *mut libc::c_void, data: *const u8, data_len: usize);
+    fn swift_data_array_drop(swift_data_ptr: *mut libc::c_void);
+    fn swift_data_array_get(swift_data_array_ptr: *mut libc::c_void, idx: usize) -> SwiftData;
+    fn swift_data_array_len(swift_data_array_ptr: *mut libc::c_void) -> usize;
+}
+
+pub struct SwiftDataWrapper<'a> {
+    data: SwiftData,
+    _marker: PhantomData<&'a ()>,
+}
+
+impl<'a> AsMut<[u8]> for SwiftDataWrapper<'a> {
+    fn as_mut(&mut self) -> &mut [u8] {
+        // SAFETY: `self.bytes_ptr` must be valid for `self.size` bytes
+        unsafe { std::slice::from_raw_parts_mut(self.data.ptr, self.data.len) }
     }
 }
 
 #[repr(C)]
-struct ArrayIteratorContext {}
+struct SwiftData {
+    ptr: *mut u8,
+    len: usize,
+}
+
+#[no_mangle]
+pub extern "C" fn swift_data_array_test() -> *mut libc::c_void {
+    let mut arr = SwiftDataArray::new();
+    arr.append(&[1, 2, 3]);
+    arr.append(&[1, 2, 3]);
+    arr.append(&[1, 2, 3]);
+    return arr.into_raw()
+}

@@ -125,6 +125,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
 
     override init() {
         var loggerBuilder = LoggerBuilder()
+        
+        
 
         let pid = ProcessInfo.processInfo.processIdentifier
         loggerBuilder.metadata["pid"] = .string("\(pid)")
@@ -149,6 +151,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         providerLogger = Logger(label: "PacketTunnelProvider")
 
 
+        let (wrappedArray, sum) = DataArray.runTest()
+        self.tunnelLogger.log(level: .debug, "wrapped array \(wrappedArray.arr), sum is \(sum)")
         let addressCache = REST.AddressCache(
             canWriteToCache: false, cacheFolder: containerURL
         )
