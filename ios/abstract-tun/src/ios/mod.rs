@@ -24,7 +24,6 @@ pub struct IOSTunParams {
     peer_addr_version: u8,
     peer_addr_bytes: [u8; 16],
     peer_port: u16,
-    ctx: IOSContext,
 }
 
 impl IOSTunParams {
@@ -45,32 +44,6 @@ impl IOSTunParams {
     }
 }
 
-#[derive(Clone)]
-#[repr(C)]
-pub struct IOSContext {
-    ctx: *const libc::c_void,
-    send_udp_ipv4: UdpV4Callback,
-    send_udp_ipv6: UdpV6Callback,
-
-    tun_v4_callback: TunCallbackV4,
-    tun_v6_callback: TunCallbackV6,
-}
-
-type UdpV4Callback = extern "C" fn(
-    ctx: *const libc::c_void,
-    addr: u32,
-    port: u16,
-    buffer: *const u8,
-    buf_size: usize,
-);
-
-type UdpV6Callback = extern "C" fn(
-    ctx: *const libc::c_void,
-    addr: *const [u8; 16],
-    port: u16,
-    buffer: *const u8,
-    buf_size: usize,
-);
 
 pub struct IOSUdpSender {
     // current assumption is that we only send data to a single endpoint.
@@ -105,47 +78,34 @@ impl UdpTransport for IOSUdpSender {
     }
 }
 
-type TunCallbackV4 =
-    Option<extern "C" fn(ctx: *const libc::c_void, buffer: *const u8, buf_size: usize)>;
-type TunCallbackV6 =
-    Option<extern "C" fn(ctx: *const libc::c_void, buffer: *const u8, buf_size: usize)>;
-
 pub struct IOSTunWriter {
-    /// The context pointer needs to be valid for the lifetime of this struct
-    ctx: *const libc::c_void,
-    tun_v4_callback: TunCallbackV4,
-    tun_v6_callback: TunCallbackV6,
+    v4_buffer: Option<SwiftDataArray>,
+    v6_buffer: Option<SwiftDataArray>,
 }
 
-impl From<&IOSContext> for IOSTunWriter {
-    fn from(params: &IOSContext) -> Self {
+impl IOSTunWriter {
+    fn new() -> Self {
         Self {
-            ctx: params.ctx,
-            tun_v4_callback: params.tun_v4_callback,
-            tun_v6_callback: params.tun_v6_callback,
+            v4_buffer: None,
+            v6_buffer: None,
         }
     }
 }
 
 impl TunnelTransport for IOSTunWriter {
-    fn send_v4_packet(&self, buffer: &[u8]) -> io::Result<()> {
-        let size = buffer.len();
-        let ptr = buffer.as_ptr();
-        match self.tun_v4_callback.as_ref() {
-            Some(cb) => (cb)(self.ctx, ptr, size),
-            None => return Err(io::Error::new(io::ErrorKind::InvalidData, "no v4 callback").into()),
+    fn send_v4_packet(&mut self, packet: &[u8]) -> io::Result<()> {
+        if let Some(buf) = &mut self.v4_buffer {
+            buf.append(packet);
         }
 
         Ok(())
     }
 
-    fn send_v6_packet(&self, buffer: &[u8]) -> io::Result<()> {
-        let size = buffer.len();
-        let ptr = buffer.as_ptr();
-        match self.tun_v6_callback.as_ref() {
-            Some(cb) => (cb)(self.ctx, ptr, size),
-            None => return Err(io::Error::new(io::ErrorKind::InvalidData, "no v6 callback").into()),
+    fn send_v6_packet(&mut self, packet: &[u8]) -> io::Result<()> {
+        if let Some(buf) = &mut self.v6_buffer {
+            buf.append(packet);
         }
+
         Ok(())
     }
 }
@@ -183,7 +143,7 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
     };
 
     let udp_transport = IOSUdpSender::new();
-    let tunnel_writer = IOSTunWriter::from(&params.ctx);
+    let tunnel_writer = IOSTunWriter::new();
 
     // SAFETY:
     let ptr = Box::into_raw(Box::new(IOSTun {

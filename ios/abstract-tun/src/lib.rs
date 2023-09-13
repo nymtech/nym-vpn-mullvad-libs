@@ -196,8 +196,8 @@ pub trait UdpTransport {
 }
 
 pub trait TunnelTransport {
-    fn send_v4_packet(&self, buffer: &[u8]) -> io::Result<()>;
-    fn send_v6_packet(&self, buffer: &[u8]) -> io::Result<()>;
+    fn send_v4_packet(&mut self, buffer: &[u8]) -> io::Result<()>;
+    fn send_v6_packet(&mut self, buffer: &[u8]) -> io::Result<()>;
 }
 
 #[async_trait::async_trait]
