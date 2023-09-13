@@ -206,26 +206,7 @@ class AbstractTun: NSObject {
         };
 
 
-        var iosContext = IOSContext();
-        iosContext.ctx = UnsafeRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        iosContext.send_udp_ipv4 = {
-            (ctx, addr, port, buffer, bufSize) in
-            AbstractTun.handleUdpSendV4(ctx: ctx, addr: addr, port: port, buffer: buffer, size: bufSize)
-        }
-        iosContext.send_udp_ipv6 = {
-            (ctx, addr, port, buffer, bufSize) in
-        }
-
-        iosContext.tun_v4_callback = {
-            (ctx, buffer, bufSize) in
-            AbstractTun.handleTunSendV4(ctx: ctx, data: buffer, size: bufSize)
-        }
-
-        iosContext.tun_v6_callback = {
-            (ctx, buffer, bufSize) in
-        }
         var params = IOSTunParams()
-        params.ctx = iosContext
         params.peer_addr_version = addressKind
         params.peer_port = singlePeer.endpoint?.port.rawValue ?? UInt16(0)
 
@@ -295,32 +276,44 @@ class AbstractTun: NSObject {
         guard let tunPtr = self.tunRef else {
             return
         }
-        let totalDataReceived = traffic.reduce(into: UInt64(0)) {result, current in
+
+        
+        var input_ptr = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        input_ptr.initialize(to: DataArray(data: traffic).toRaw())
+        let output_v4 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        let output_v6 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        
+        abstract_tun_handle_tunnel_traffic(tunPtr, input_ptr, output_v4, output_v6)
+        
+         let totalDataReceived = traffic.reduce(into: UInt64(0)) {result, current in
             result += UInt64(current.count)
         }
-        self.bytesReceived += totalDataReceived
-        
+        self.bytesReceived += totalDataReceived       
         traffic.forEach { data in
             let rawData = (data as NSData).bytes
-            abstract_tun_handle_tunnel_traffic(tunPtr, rawData, UInt(data.count))
         }
-//        try data.withUnsafeBytes<Void> {
-//            ptr: UnsafeBufferPointer in
-//            abstract_tun_handle_tunnel_traffic(tunPtr, ptr, UInt(data.count))
-//        }
+        
+        // TODO: handle UDP writes from output
     }
 
     func receiveHostTraffic(tunPtr: OpaquePointer, _ data: Data) {
+        guard let tunPtr = self.tunRef else {
+            return
+        }
+        
         let rawData = (data as NSData).bytes
-        abstract_tun_handle_host_traffic(tunPtr, rawData, UInt(data.count))
+        // abstract_tun_handle_host_traffic(tunPtr, rawData, UInt(data.count))
     }
 
     func handleTimerEvent() {
         guard let tunPtr = self.tunRef else {
             return
         }
-
-        abstract_tun_handle_timer_event(tunPtr)
+        
+        let output_v4 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        let output_v6 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        
+        abstract_tun_handle_timer_event(tunPtr, output_v4, output_v6)
     }
 
     private static func handleUdpSendV4(

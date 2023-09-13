@@ -20,6 +20,10 @@ class DataArray {
         arr = []
     }
     
+    init(data arr: [Data]) {
+        self.arr = arr
+    }
+    
     func append(_ data: Data) {
         arr.append(data)
     }
@@ -32,6 +36,12 @@ class DataArray {
         let arr = Unmanaged<DataArray>.fromOpaque(ptr).takeUnretainedValue()
         return arr
     }
+    
+    func toRaw() -> SwiftDataArray {
+        let ptr = Unmanaged<DataArray>.passRetained(self).toOpaque()
+        return SwiftDataArray(array_ptr: ptr)
+    }
+    
     
     static func runTest() -> (DataArray, UInt8){
         guard let wrappedArrayPtr = swift_data_array_test() else { return (DataArray(arr: []), 0)}
