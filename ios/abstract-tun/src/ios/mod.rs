@@ -1,7 +1,6 @@
 use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-    slice,
     sync::Once,
 };
 
@@ -44,34 +43,40 @@ impl IOSTunParams {
     }
 }
 
-
 pub struct IOSUdpSender {
     // current assumption is that we only send data to a single endpoint.
-    v4_buffer: Option<SwiftDataArray>,
-    v6_buffer: Option<SwiftDataArray>,
+    v4_buffer: SwiftDataArray,
+    v6_buffer: SwiftDataArray,
 }
 
 impl IOSUdpSender {
     fn new() -> Self {
         Self {
-            v4_buffer: None,
-            v6_buffer: None,
+            v4_buffer: SwiftDataArray::new(),
+            v6_buffer: SwiftDataArray::new(),
         }
+    }
+
+    pub fn drain_v4_buffer(&mut self) -> SwiftDataArray {
+        let new_buf = SwiftDataArray::new();
+        std::mem::replace(&mut self.v4_buffer, new_buf)
+    }
+
+    pub fn drain_v6_buffer(&mut self) -> SwiftDataArray {
+        let new_buf = SwiftDataArray::new();
+        std::mem::replace(&mut self.v6_buffer, new_buf)
     }
 }
 
 impl UdpTransport for IOSUdpSender {
     fn send_packet(&mut self, addr: SocketAddr, packet: &[u8]) -> io::Result<()> {
-        match (addr, &mut self.v4_buffer, &mut self.v6_buffer) {
-            (SocketAddr::V4(_addr), Some(buffer), _) => {
-                buffer.append(packet);
+        match addr {
+            SocketAddr::V4(_addr) => {
+                self.v4_buffer.append(packet);
             }
 
-            (SocketAddr::V6(_addr), _, Some(buffer)) => {
-                buffer.append(packet);
-            }
-            _ => {
-                log::trace!("No buffer assigned");
+            SocketAddr::V6(_addr) => {
+                self.v6_buffer.append(packet);
             }
         };
         Ok(())
@@ -79,33 +84,37 @@ impl UdpTransport for IOSUdpSender {
 }
 
 pub struct IOSTunWriter {
-    v4_buffer: Option<SwiftDataArray>,
-    v6_buffer: Option<SwiftDataArray>,
+    v4_buffer: SwiftDataArray,
+    v6_buffer: SwiftDataArray,
 }
 
 impl IOSTunWriter {
     fn new() -> Self {
         Self {
-            v4_buffer: None,
-            v6_buffer: None,
+            v4_buffer: SwiftDataArray::new(),
+            v6_buffer: SwiftDataArray::new(),
         }
+    }
+
+    pub fn drain_v4_buffer(&mut self) -> SwiftDataArray {
+        let new_buf = SwiftDataArray::new();
+        std::mem::replace(&mut self.v4_buffer, new_buf)
+    }
+
+    pub fn drain_v6_buffer(&mut self) -> SwiftDataArray {
+        let new_buf = SwiftDataArray::new();
+        std::mem::replace(&mut self.v6_buffer, new_buf)
     }
 }
 
 impl TunnelTransport for IOSTunWriter {
     fn send_v4_packet(&mut self, packet: &[u8]) -> io::Result<()> {
-        if let Some(buf) = &mut self.v4_buffer {
-            buf.append(packet);
-        }
-
+        self.v4_buffer.append(packet);
         Ok(())
     }
 
     fn send_v6_packet(&mut self, packet: &[u8]) -> io::Result<()> {
-        if let Some(buf) = &mut self.v6_buffer {
-            buf.append(packet);
-        }
-
+        self.v6_buffer.append(packet);
         Ok(())
     }
 }
@@ -145,7 +154,7 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
     let udp_transport = IOSUdpSender::new();
     let tunnel_writer = IOSTunWriter::new();
 
-    // SAFETY:
+    // SAFETY: TODO
     let ptr = Box::into_raw(Box::new(IOSTun {
         wg: WgInstance::new(config, udp_transport, tunnel_writer),
     }));
@@ -161,39 +170,59 @@ pub extern "C" fn abstract_tun_handle_host_traffic(
     v6_output_buffer: *mut SwiftDataArray,
 ) {
     let tun: &mut IOSTun = unsafe { &mut *(tun) };
-    let (mut packets, v4_output_buffer, v6_output_buffer) = unsafe {
-        (
-            SwiftDataArray::from_ptr(packets),
-            SwiftDataArray::from_ptr(v4_output_buffer),
-            SwiftDataArray::from_ptr(v6_output_buffer),
-        )
-    };
-    tun.wg.udp_transport().v4_buffer = Some(v4_output_buffer);
-    tun.wg.udp_transport().v6_buffer = Some(v6_output_buffer);
+    let mut packets = unsafe { SwiftDataArray::from_ptr(packets) };
+
     for mut packet in packets.iter() {
         tun.wg.handle_host_traffic(packet.as_mut());
     }
 
-    let _output_buffer = tun.wg.udp_transport().v4_buffer.take();
-    let _output_buffer = tun.wg.udp_transport().v6_buffer.take();
+    let udp_transport = tun.wg.udp_transport();
+    unsafe {
+        std::ptr::write(v4_output_buffer, udp_transport.drain_v4_buffer());
+        std::ptr::write(v6_output_buffer, udp_transport.drain_v6_buffer());
+    };
 }
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     tun: *mut IOSTun,
-    packet: *const u8,
-    packet_size: usize,
+    packets: *mut SwiftDataArray,
+    v4_output_buffer: *mut SwiftDataArray,
+    v6_output_buffer: *mut SwiftDataArray,
 ) {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
-    let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
+    let mut packets = unsafe { SwiftDataArray::from_ptr(packets) };
 
-    tun.wg.handle_tunnel_traffic(packet);
+    for mut packet in packets.iter() {
+        tun.wg.handle_tunnel_traffic(packet.as_mut());
+    }
+
+    unsafe {
+        std::ptr::write(
+            v4_output_buffer,
+            tun.wg.tunnel_transport().drain_v4_buffer(),
+        );
+        std::ptr::write(
+            v6_output_buffer,
+            tun.wg.tunnel_transport().drain_v6_buffer(),
+        );
+    };
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) {
+pub extern "C" fn abstract_tun_handle_timer_event(
+    tun: *mut IOSTun,
+    v4_udp_output: *mut SwiftDataArray,
+    v6_udp_output: *mut SwiftDataArray,
+) {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     tun.wg.handle_timer_tick();
+
+    let udp_transport = tun.wg.udp_transport();
+    unsafe {
+        std::ptr::write(v4_udp_output, udp_transport.drain_v4_buffer());
+        std::ptr::write(v6_udp_output, udp_transport.drain_v6_buffer());
+    };
 }
 
 #[no_mangle]
