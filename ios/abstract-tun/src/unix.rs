@@ -1,6 +1,6 @@
 use std::{
     io,
-    net::{Ipv4Addr, UdpSocket, SocketAddr},
+    net::{Ipv4Addr, SocketAddr, UdpSocket},
     os::fd::{IntoRawFd, RawFd},
     ptr,
     sync::Arc,
@@ -144,10 +144,9 @@ impl UdpTransport {
     }
 
     pub fn with_listen_addr(addr: SocketAddr) -> io::Result<Self> {
-        Ok(Self{
+        Ok(Self {
             socket: Arc::new(UdpSocket::bind(addr)?),
         })
-
     }
 
     pub fn receive_packet(&self, buffer: &mut [u8]) -> io::Result<usize> {

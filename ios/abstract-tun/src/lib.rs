@@ -30,9 +30,15 @@ impl<S, T> WgInstance<S, T> {
             send_buf: new_send_buf(),
         }
     }
+
+    pub fn tunnel_transport(&mut self) -> &mut T {
+        &mut self.tunnel_transport
+    }
+
+    pub fn udp_transport(&mut self) -> &mut S {
+        &mut self.udp_transport
+    }
 }
-
-
 
 impl<S: UdpTransport, T> WgInstance<S, T> {
     pub fn handle_host_traffic(&mut self, packet: &[u8]) {
@@ -184,7 +190,7 @@ pub struct PeerConfig {
 
 pub trait UdpTransport {
     /// This method should return immediately
-    fn send_packet(&self, addr: SocketAddr, buffer: &[u8]) -> io::Result<()>;
+    fn send_packet(&mut self, addr: SocketAddr, buffer: &[u8]) -> io::Result<()>;
     // /// Should return immediately
     // fn receive_packet(&self, addr: IpAddr, buffer: &[u8]) -> io::Result<()>;
 }

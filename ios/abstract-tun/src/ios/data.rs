@@ -6,6 +6,10 @@ pub struct SwiftDataArray {
 }
 
 impl SwiftDataArray {
+    pub unsafe fn from_ptr(ptr: *mut SwiftDataArray) -> SwiftDataArray {
+        unsafe { std::ptr::read(ptr) }
+    }
+
     pub fn new() -> Self {
         Self {
             array_ptr: unsafe { swift_data_array_create() },
@@ -61,7 +65,7 @@ impl Drop for SwiftDataArray {
     }
 }
 
-struct SwiftDataArrayIterator<'a> {
+pub struct SwiftDataArrayIterator<'a> {
     array: &'a mut SwiftDataArray,
     idx: usize,
 }
@@ -107,5 +111,5 @@ pub extern "C" fn swift_data_array_test() -> *mut libc::c_void {
     arr.append(&[1, 2, 3]);
     arr.append(&[1, 2, 3]);
     arr.append(&[1, 2, 3]);
-    return arr.into_raw()
+    return arr.into_raw();
 }

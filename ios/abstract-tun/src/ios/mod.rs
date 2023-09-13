@@ -8,6 +8,7 @@ use std::{
 use crate::{Config, PeerConfig, TunnelTransport, UdpTransport, WgInstance};
 
 mod data;
+use data::SwiftDataArray;
 mod udp_session;
 
 const INIT_LOGGING: Once = Once::new();
@@ -72,43 +73,35 @@ type UdpV6Callback = extern "C" fn(
 );
 
 pub struct IOSUdpSender {
-    ctx: *const libc::c_void,
-    send_udp_ipv4: UdpV4Callback,
-    send_udp_ipv6: UdpV6Callback,
+    // current assumption is that we only send data to a single endpoint.
+    v4_buffer: Option<SwiftDataArray>,
+    v6_buffer: Option<SwiftDataArray>,
 }
 
-impl UdpTransport for IOSUdpSender {
-    fn send_packet(&self, addr: SocketAddr, buffer: &[u8]) -> io::Result<()> {
-        match addr {
-            SocketAddr::V4(addr) => (self.send_udp_ipv4)(
-                self.ctx,
-                u32::from(*addr.ip()),
-                addr.port(),
-                buffer.as_ptr(),
-                buffer.len(),
-            ),
-            SocketAddr::V6(addr) => {
-                let octets = addr.ip().octets();
-                (self.send_udp_ipv6)(
-                    self.ctx,
-                    &octets as *const _,
-                    addr.port(),
-                    buffer.as_ptr(),
-                    buffer.len(),
-                )
-            }
-        };
-        Ok(())
+impl IOSUdpSender {
+    fn new() -> Self {
+        Self {
+            v4_buffer: None,
+            v6_buffer: None,
+        }
     }
 }
 
-impl From<&IOSContext> for IOSUdpSender {
-    fn from(params: &IOSContext) -> Self {
-        Self {
-            ctx: params.ctx,
-            send_udp_ipv4: params.send_udp_ipv4,
-            send_udp_ipv6: params.send_udp_ipv6,
-        }
+impl UdpTransport for IOSUdpSender {
+    fn send_packet(&mut self, addr: SocketAddr, packet: &[u8]) -> io::Result<()> {
+        match (addr, &mut self.v4_buffer, &mut self.v6_buffer) {
+            (SocketAddr::V4(_addr), Some(buffer), _) => {
+                buffer.append(packet);
+            }
+
+            (SocketAddr::V6(_addr), _, Some(buffer)) => {
+                buffer.append(packet);
+            }
+            _ => {
+                log::trace!("No buffer assigned");
+            }
+        };
+        Ok(())
     }
 }
 
@@ -189,7 +182,7 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
         }],
     };
 
-    let udp_transport = IOSUdpSender::from(&params.ctx);
+    let udp_transport = IOSUdpSender::new();
     let tunnel_writer = IOSTunWriter::from(&params.ctx);
 
     // SAFETY:
@@ -203,12 +196,26 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
 #[no_mangle]
 pub extern "C" fn abstract_tun_handle_host_traffic(
     tun: *mut IOSTun,
-    packet: *const u8,
-    packet_size: usize,
+    packets: *mut SwiftDataArray,
+    v4_output_buffer: *mut SwiftDataArray,
+    v6_output_buffer: *mut SwiftDataArray,
 ) {
     let tun: &mut IOSTun = unsafe { &mut *(tun) };
-    let packet = unsafe { slice::from_raw_parts(packet, packet_size) };
-    tun.wg.handle_host_traffic(packet);
+    let (mut packets, v4_output_buffer, v6_output_buffer) = unsafe {
+        (
+            SwiftDataArray::from_ptr(packets),
+            SwiftDataArray::from_ptr(v4_output_buffer),
+            SwiftDataArray::from_ptr(v6_output_buffer),
+        )
+    };
+    tun.wg.udp_transport().v4_buffer = Some(v4_output_buffer);
+    tun.wg.udp_transport().v6_buffer = Some(v6_output_buffer);
+    for mut packet in packets.iter() {
+        tun.wg.handle_host_traffic(packet.as_mut());
+    }
+
+    let _output_buffer = tun.wg.udp_transport().v4_buffer.take();
+    let _output_buffer = tun.wg.udp_transport().v6_buffer.take();
 }
 
 #[no_mangle]
