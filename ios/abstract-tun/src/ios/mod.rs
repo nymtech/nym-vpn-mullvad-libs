@@ -177,6 +177,7 @@ pub extern "C" fn abstract_tun_handle_host_traffic(
     }
 
     let udp_transport = tun.wg.udp_transport();
+
     unsafe {
         std::ptr::write(v4_output_buffer, udp_transport.drain_v4_buffer());
         std::ptr::write(v6_output_buffer, udp_transport.drain_v6_buffer());
@@ -189,6 +190,7 @@ pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     packets: *mut SwiftDataArray,
     v4_output_buffer: *mut SwiftDataArray,
     v6_output_buffer: *mut SwiftDataArray,
+    host_output_buffer: *mut SwiftDataArray,
 ) {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     let mut packets = unsafe { SwiftDataArray::from_ptr(packets) };
@@ -197,15 +199,23 @@ pub extern "C" fn abstract_tun_handle_tunnel_traffic(
         tun.wg.handle_tunnel_traffic(packet.as_mut());
     }
 
+
+    let v4_buffer = tun.wg.udp_transport().drain_v4_buffer();
+    log::error!(
+        "abstract_tun_handle_timer_event v4_buffer size is {}",
+        v4_buffer.len()
+    );
+    let v6_buffer = tun.wg.udp_transport().drain_v6_buffer();
+    log::error!(
+        "abstract_tun_handle_timer_event v6_buffer size is {}",
+        v4_buffer.len()
+    );
+
+    let host_buffer = tun.wg.tunnel_transport().drain_v4_buffer();
     unsafe {
-        std::ptr::write(
-            v4_output_buffer,
-            tun.wg.tunnel_transport().drain_v4_buffer(),
-        );
-        std::ptr::write(
-            v6_output_buffer,
-            tun.wg.tunnel_transport().drain_v6_buffer(),
-        );
+        std::ptr::write(v4_output_buffer, v4_buffer);
+        std::ptr::write(v6_output_buffer, v6_buffer);
+        std::ptr::write(host_output_buffer, host_buffer);
     };
 }
 
@@ -219,9 +229,19 @@ pub extern "C" fn abstract_tun_handle_timer_event(
     tun.wg.handle_timer_tick();
 
     let udp_transport = tun.wg.udp_transport();
+    let v4_buffer = udp_transport.drain_v4_buffer();
+    log::error!(
+        "abstract_tun_handle_timer_event v4_buffer size is {}",
+        v4_buffer.len()
+    );
+    let v6_buffer = udp_transport.drain_v6_buffer();
+    log::error!(
+        "abstract_tun_handle_timer_event v6_buffer size is {}",
+        v6_buffer.len()
+    );
     unsafe {
-        std::ptr::write(v4_udp_output, udp_transport.drain_v4_buffer());
-        std::ptr::write(v6_udp_output, udp_transport.drain_v6_buffer());
+        std::ptr::write(v4_udp_output, v4_buffer);
+        std::ptr::write(v6_udp_output, v6_buffer);
     };
 }
 

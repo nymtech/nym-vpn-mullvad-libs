@@ -12,7 +12,7 @@ import Foundation
 class DataArray {
     public var arr: [Data]
     
-    init(arr: [Data]) {
+    init(_ arr: [Data]) {
         self.arr = arr
     }
     
@@ -37,6 +37,11 @@ class DataArray {
         return arr
     }
     
+    static func fromSwiftData(_ swiftData: SwiftDataArray) -> DataArray {
+        let arr = Unmanaged<DataArray>.fromOpaque(swiftData.array_ptr).takeUnretainedValue()
+        return arr
+    }
+    
     func toRaw() -> SwiftDataArray {
         let ptr = Unmanaged<DataArray>.passRetained(self).toOpaque()
         return SwiftDataArray(array_ptr: ptr)
@@ -44,7 +49,7 @@ class DataArray {
     
     
     static func runTest() -> (DataArray, UInt8){
-        guard let wrappedArrayPtr = swift_data_array_test() else { return (DataArray(arr: []), 0)}
+        guard let wrappedArrayPtr = swift_data_array_test() else { return (DataArray([]), 0)}
         let array = Unmanaged<DataArray>.fromOpaque(wrappedArrayPtr).takeRetainedValue()
         var sum = UInt8(0)
         for arr in array.arr {
@@ -58,7 +63,7 @@ class DataArray {
 
 @_cdecl("swift_data_array_create")
 func dataArrayCreate() -> UnsafeMutableRawPointer {
-    let arr = DataArray(arr:[])
+    let arr = DataArray([])
     return Unmanaged<DataArray>.passRetained(arr).toOpaque()
 }
 

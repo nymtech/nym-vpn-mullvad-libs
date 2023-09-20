@@ -1,5 +1,13 @@
 use std::marker::PhantomData;
 
+// Eventually, we'll need a IPPacketMap
+#[repr(C)]
+struct IPPacketArray {
+    addr_version: u8,
+    addr_bytes: [u8; 8],
+    data: SwiftDataArray,
+}
+
 #[repr(C)]
 pub struct SwiftDataArray {
     array_ptr: *mut libc::c_void,

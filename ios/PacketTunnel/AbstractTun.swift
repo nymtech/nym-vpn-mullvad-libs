@@ -38,7 +38,8 @@ class AbstractTunAdapter {
     }
 
     public func stop(completionHandler: @escaping (WireGuardAdapterError?) -> Void)  {
-        abstractTun.stopOnQueue()
+//        abstractTun.stopOnQueue()
+        abstractTun.stop()
         completionHandler(nil)
     }
 
@@ -118,6 +119,9 @@ class AbstractTun: NSObject {
 
     private var v4SessionMap: [UInt32: NWUDPSession] = [UInt32: NWUDPSession]()
     private var v6SessionMap: [[UInt16]: NWUDPSession] = [[UInt16]: NWUDPSession]()
+    
+    private var v4UdpSession: NWUDPSession?
+    private var v6UdpSession: NWUDPSession?
 
     private let tunQueue = DispatchQueue(label: "AbstractTun", qos: .userInitiated)
 
@@ -266,9 +270,16 @@ class AbstractTun: NSObject {
         guard let tunPtr = self.tunRef else {
             return
         }
-        traffic.forEach { packet in
-            receiveHostTraffic(tunPtr: tunPtr, packet)
-        }
+        var output_v4 = SwiftDataArray(array_ptr: nil)
+        var output_v6 = SwiftDataArray(array_ptr: nil)
+        
+        let receivedDataArr = DataArray(traffic)
+        var dataArrPtr = receivedDataArr.toRaw()
+        
+        abstract_tun_handle_host_traffic(tunPtr, &dataArrPtr, &output_v4, &output_v6)
+        // TODOV6: handle v6 traffic
+        handleUdpSendV4(ffiPackets: output_v4)
+        
         packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
     }
 
@@ -278,73 +289,69 @@ class AbstractTun: NSObject {
         }
 
         
-        var input_ptr = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
-        input_ptr.initialize(to: DataArray(data: traffic).toRaw())
-        let output_v4 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
-        let output_v6 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        var input_ptr = DataArray(traffic).toRaw()
+        var output_v4 = SwiftDataArray(array_ptr: nil)
+        var output_v6 = SwiftDataArray(array_ptr: nil)
+        var host_output = SwiftDataArray(array_ptr: nil)
         
-        abstract_tun_handle_tunnel_traffic(tunPtr, input_ptr, output_v4, output_v6)
+        abstract_tun_handle_tunnel_traffic(tunPtr, &input_ptr, &output_v4, &output_v6, &host_output)
         
          let totalDataReceived = traffic.reduce(into: UInt64(0)) {result, current in
             result += UInt64(current.count)
         }
         self.bytesReceived += totalDataReceived       
-        traffic.forEach { data in
-            let rawData = (data as NSData).bytes
-        }
         
-        // TODO: handle UDP writes from output
+        handleTunSendV4(data: host_output)
+        
+        // TODOV6: handle v6 traffic
+        handleUdpSendV4(ffiPackets: output_v4)
     }
 
-    func receiveHostTraffic(tunPtr: OpaquePointer, _ data: Data) {
-        guard let tunPtr = self.tunRef else {
-            return
-        }
-        
-        let rawData = (data as NSData).bytes
-        // abstract_tun_handle_host_traffic(tunPtr, rawData, UInt(data.count))
-    }
 
     func handleTimerEvent() {
         guard let tunPtr = self.tunRef else {
             return
         }
         
-        let output_v4 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
-        let output_v6 = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        let outputV4Ptr = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
+        let outputV6Ptr = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
         
-        abstract_tun_handle_timer_event(tunPtr, output_v4, output_v6)
+        abstract_tun_handle_timer_event(tunPtr, outputV4Ptr, outputV6Ptr)
+        
+        // TODOV6
+        // Call to handleUdpSendV4 invalidates SwiftDataArray instance
+        handleUdpSendV4(ffiPackets: outputV4Ptr.pointee)
+        outputV4Ptr.deallocate()
     }
 
-    private static func handleUdpSendV4(
-        ctx: UnsafeRawPointer?,
-        addr: UInt32,
-        port: UInt16,
-        buffer: UnsafePointer<UInt8>?,
-        size: UInt
+    // ffiPackets will be invalidated - the inner pointer will be consumed and released.
+    private func handleUdpSendV4(
+        ffiPackets: SwiftDataArray
     ) {
-        guard let ctx = ctx else { return }
-        guard let buffer = buffer else { return }
-
-        let unmanagedInstance = Unmanaged<AbstractTun>.fromOpaque(ctx)
-        let abstractTun = unmanagedInstance.takeUnretainedValue()
-        let packetBytes = Data(bytes: buffer, count: Int(size))
-
         var socket: NWUDPSession;
         let dispatchGroup = DispatchGroup()
-        if let existingSocket = abstractTun.v4SessionMap[addr] {
+        let packets = DataArray.fromRawPtr(ffiPackets.array_ptr).arr
+        if packets.isEmpty {
+            return
+        }
+        
+        
+        if let existingSocket = v4UdpSession {
             socket = existingSocket
             
             if socket.state == .ready {
                 dispatchGroup.enter()
-                socket.writeDatagram(packetBytes) { error in
+                socket.writeMultipleDatagrams(packets) { error in
                     if let error = error {
                         print(error)
                     }
                     dispatchGroup.leave()
                 }
                 dispatchGroup.wait()
-                abstractTun.bytesSent += UInt64(size)
+                
+                
+                let size = packets.reduce(into: 0, { total, packet in total += packet.count })
+                bytesSent += UInt64(size)
             }
         }
     }
@@ -380,6 +387,7 @@ class AbstractTun: NSObject {
                 }
 
                 map[addrBytes] = session
+                v4UdpSession = session
             }
         }
 
@@ -403,42 +411,25 @@ class AbstractTun: NSObject {
                 }
             }
         for (_, socket) in self.v4SessionMap {
-            socket.setReadHandler(readHandler, maxDatagrams: 100)
+            socket.setReadHandler(readHandler, maxDatagrams: 1024)
         }
 
         for (_, socket) in self.v6SessionMap {
-            socket.setReadHandler(readHandler, maxDatagrams: 100)
+            socket.setReadHandler(readHandler, maxDatagrams: 1024)
         }
     }
 
-    private static func handleUdpSendV6(
-        ctx: UnsafeMutableRawPointer?,
-        addr: UInt32,
-        port: UInt16,
-        buffer: UnsafePointer<UInt8>?,
-        size: UInt
+
+    private func handleTunSendV4(
+        data: SwiftDataArray
     ) {
+        let packets = DataArray.fromSwiftData(data).arr
+        packetTunnelProvider.packetFlow.writePackets(packets, withProtocols: [NSNumber(value:AF_INET)])
 
+        let totalPacketSize = packets.reduce(into: 0, { total, packet in total += packet.count})
+        bytesReceived += UInt64(totalPacketSize)
     }
-
-
-    private static func handleTunSendV4(
-        ctx: UnsafeRawPointer?,
-        data: UnsafePointer<UInt8>?,
-        size: UInt
-    ) {
-        guard let ctx = ctx else { return }
-        guard let data = data else { return }
-
-        let unmanagedInstance = Unmanaged<AbstractTun>.fromOpaque(ctx)
-        let abstractTun = unmanagedInstance.takeUnretainedValue()
-
-        let packetBytes = Data(bytes: data, count: Int(size))
-
-        abstractTun.packetTunnelProvider.packetFlow.writePackets([packetBytes], withProtocols: [NSNumber(value:AF_INET)])
-
-        abstractTun.bytesReceived += UInt64(size)
-    }
+    
 
     func block(tunnelConfiguration: TunnelConfiguration) -> Result<(), AbstractTunError> {
         return setConfiguration(tunnelConfiguration)
