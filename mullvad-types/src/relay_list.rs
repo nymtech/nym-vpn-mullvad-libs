@@ -80,8 +80,6 @@ pub struct Relay {
     pub ipv6_addr_in: Option<Ipv6Addr>,
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub include_in_country: bool,
-    #[cfg_attr(target_os = "android", jnix(skip))]
-    pub same_ip: bool,
     pub active: bool,
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub owned: bool,

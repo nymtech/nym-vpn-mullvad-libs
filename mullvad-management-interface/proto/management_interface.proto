@@ -530,7 +530,6 @@ message Relay {
   RelayType endpoint_type = 9;
   google.protobuf.Any endpoint_data = 10;
   Location location = 11;
-  bool same_ip = 12;
 }
 
 message WireguardRelayEndpointData { bytes public_key = 1; }

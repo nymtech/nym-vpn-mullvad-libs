@@ -211,17 +211,9 @@ impl InnerParametersGenerator {
                 unreachable!("OpenVPN is not supported on Android");
             }
             MullvadEndpoint::Wireguard(endpoint) => {
-                let addresses = if relay.same_ip {
-                    vec![*SAME_IP_V4, *SAME_IP_V6]
-                } else {
-                    vec![
-                        data.device.wg_data.addresses.ipv4_address.ip().into(),
-                        data.device.wg_data.addresses.ipv6_address.ip().into(),
-                    ]
-                };
                 let tunnel = wireguard::TunnelConfig {
                     private_key: data.device.wg_data.private_key,
-                    addresses,
+                    addresses: vec![*SAME_IP_V4, *SAME_IP_V6],
                 };
 
                 let (obfuscator_relay, obfuscator_config) = match obfuscator {
