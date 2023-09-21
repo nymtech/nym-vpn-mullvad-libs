@@ -239,10 +239,10 @@ pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
 
 #[no_mangle]
 pub extern "C" fn test_vec(_idx: i64) {
-    let mut vec = SwiftDataArray::new();
-    for i in 0..1024 {
-        let buf = vec![0u8; 2048];
-        vec.append(&buf);
-    }
-    std::mem::drop(vec);
+    // let mut vec = SwiftDataArray::new();
+    // for i in 0..1024 {
+    //     let buf = vec![0u8; 2048];
+    //     vec.append(&buf);
+    // }
+    // std::mem::drop(vec);
 }

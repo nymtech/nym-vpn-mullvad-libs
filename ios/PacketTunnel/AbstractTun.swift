@@ -398,11 +398,11 @@ class AbstractTun: NSObject {
                 }
             }
         for (_, socket) in self.v4SessionMap {
-            socket.setReadHandler(readHandler, maxDatagrams: 100)
+            socket.setReadHandler(readHandler, maxDatagrams: 2000)
         }
 
         for (_, socket) in self.v6SessionMap {
-            socket.setReadHandler(readHandler, maxDatagrams: 100)
+            socket.setReadHandler(readHandler, maxDatagrams: 2000)
         }
     }
 
