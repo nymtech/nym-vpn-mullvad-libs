@@ -270,41 +270,34 @@ class AbstractTun: NSObject {
         guard let tunPtr = self.tunRef else {
             return
         }
-        var output_v4 = SwiftDataArray(array_ptr: nil)
-        var output_v6 = SwiftDataArray(array_ptr: nil)
-        
         let receivedDataArr = DataArray(traffic)
         var dataArrPtr = receivedDataArr.toRaw()
         
-        abstract_tun_handle_host_traffic(tunPtr, &dataArrPtr, &output_v4, &output_v6)
-        // TODOV6: handle v6 traffic
-        handleUdpSendV4(ffiPackets: output_v4)
+        var ioOutput = abstract_tun_handle_host_traffic(tunPtr, dataArrPtr)
+        
+        handleUdpSendV4(packets: ioOutput.udpV4Traffic())
+        ioOutput.discard()
         
         packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
     }
-
+    
     func receiveTunnelTraffic(_ traffic: [Data]) {
         guard let tunPtr = self.tunRef else {
             return
         }
 
         
-        var input_ptr = DataArray(traffic).toRaw()
-        var output_v4 = SwiftDataArray(array_ptr: nil)
-        var output_v6 = SwiftDataArray(array_ptr: nil)
-        var host_output = SwiftDataArray(array_ptr: nil)
-        
-        abstract_tun_handle_tunnel_traffic(tunPtr, &input_ptr, &output_v4, &output_v6, &host_output)
+        let arr = DataArray(traffic)
+        var ioOutput = abstract_tun_handle_tunnel_traffic(tunPtr, arr.toRaw())
         
          let totalDataReceived = traffic.reduce(into: UInt64(0)) {result, current in
             result += UInt64(current.count)
         }
         self.bytesReceived += totalDataReceived       
         
-        handleTunSendV4(data: host_output)
-        
-        // TODOV6: handle v6 traffic
-        handleUdpSendV4(ffiPackets: output_v4)
+        handleUdpSendV4(packets: ioOutput.udpV4Traffic())
+        handleTunSendV4(packets: ioOutput.hostV4Traffic())
+        ioOutput.discard()
     }
 
 
@@ -313,27 +306,21 @@ class AbstractTun: NSObject {
             return
         }
         
-        let outputV4Ptr = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
-        let outputV6Ptr = UnsafeMutablePointer<SwiftDataArray>.allocate(capacity: 1)
-        
-        abstract_tun_handle_timer_event(tunPtr, outputV4Ptr, outputV6Ptr)
-        
-        // TODOV6
-        // Call to handleUdpSendV4 invalidates SwiftDataArray instance
-        handleUdpSendV4(ffiPackets: outputV4Ptr.pointee)
-        outputV4Ptr.deallocate()
+        var ioOutput = abstract_tun_handle_timer_event(tunPtr)
+        handleUdpSendV4(packets: ioOutput.udpV4Traffic())
+        handleTunSendV4(packets: ioOutput.hostV4Traffic())
+        ioOutput.discard()
     }
 
     // ffiPackets will be invalidated - the inner pointer will be consumed and released.
     private func handleUdpSendV4(
-        ffiPackets: SwiftDataArray
+        packets: [Data]
     ) {
-        var socket: NWUDPSession;
-        let dispatchGroup = DispatchGroup()
-        let packets = DataArray.fromRawPtr(ffiPackets.array_ptr).arr
-        if packets.isEmpty {
+        guard !packets.isEmpty else {
             return
         }
+        var socket: NWUDPSession;
+        let dispatchGroup = DispatchGroup()
         
         
         if let existingSocket = v4UdpSession {
@@ -411,20 +398,23 @@ class AbstractTun: NSObject {
                 }
             }
         for (_, socket) in self.v4SessionMap {
-            socket.setReadHandler(readHandler, maxDatagrams: 1024)
+            socket.setReadHandler(readHandler, maxDatagrams: 100)
         }
 
         for (_, socket) in self.v6SessionMap {
-            socket.setReadHandler(readHandler, maxDatagrams: 1024)
+            socket.setReadHandler(readHandler, maxDatagrams: 100)
         }
     }
 
 
     private func handleTunSendV4(
-        data: SwiftDataArray
+        packets: [Data]
     ) {
-        let packets = DataArray.fromSwiftData(data).arr
-        packetTunnelProvider.packetFlow.writePackets(packets, withProtocols: [NSNumber(value:AF_INET)])
+        if packets.isEmpty {
+            return
+        }
+        let protocols = Array.init(repeating: NSNumber(value: AF_INET), count: packets.count)
+        packetTunnelProvider.packetFlow.writePackets(packets, withProtocols: protocols)
 
         let totalPacketSize = packets.reduce(into: 0, { total, packet in total += packet.count})
         bytesReceived += UInt64(totalPacketSize)

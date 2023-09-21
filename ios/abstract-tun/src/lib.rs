@@ -43,7 +43,7 @@ impl<S, T> WgInstance<S, T> {
 impl<S: UdpTransport, T> WgInstance<S, T> {
     pub fn handle_host_traffic(&mut self, packet: &[u8]) {
         // best not to store u16::MAX bytes on the stack if we want to run on iOS
-        let mut send_buf = vec![0u8; u16::MAX.into()];
+        let mut send_buf = vec![0u8; 2400];
 
         match self.peers[0].tun.encapsulate(packet, &mut send_buf) {
             TunnResult::WriteToNetwork(buf) => {
@@ -59,6 +59,7 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
                 log::error!("Unexpected WireGuard state during encapsulation: {other:?}");
             }
         }
+        std::mem::drop(send_buf);
     }
 
     pub fn handle_timer_tick(&mut self) {

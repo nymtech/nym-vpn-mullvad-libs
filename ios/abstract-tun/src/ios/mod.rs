@@ -6,14 +6,35 @@ use std::{
 
 use crate::{Config, PeerConfig, TunnelTransport, UdpTransport, WgInstance};
 
-mod data;
+pub mod data;
 use data::SwiftDataArray;
 mod udp_session;
+
+use std::alloc::System;
+
+#[global_allocator]
+static A: System = System;
 
 const INIT_LOGGING: Once = Once::new();
 
 pub struct IOSTun {
     wg: super::WgInstance<IOSUdpSender, IOSTunWriter>,
+}
+
+impl IOSTun {
+    fn drain_output(&mut self) -> IOOutput {
+        let v4_buffer = self.wg.udp_transport().drain_v4_buffer();
+        let v6_buffer = self.wg.udp_transport().drain_v6_buffer();
+        let host_v4_buffer = self.wg.tunnel_transport().drain_v4_buffer();
+
+        IOOutput {
+            udp_v4_output: v4_buffer.into_raw(),
+            udp_v6_output: v6_buffer.into_raw(),
+            tun_v4_output: host_v4_buffer.into_raw(),
+            // TODO: drain v6
+            tun_v6_output: std::ptr::null_mut(),
+        }
+    }
 }
 
 #[repr(C)]
@@ -126,11 +147,11 @@ pub extern "C" fn abstract_tun_size() -> usize {
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mut IOSTun {
-    INIT_LOGGING.call_once(|| {
-        let _ = oslog::OsLogger::new("net.mullvad.MullvadVPN.ShadowSocks")
-            .level_filter(log::LevelFilter::Error)
-            .init();
-    });
+    // INIT_LOGGING.call_once(|| {
+    //     let _ = oslog::OsLogger::new("net.mullvad.MullvadVPN.ShadowSocks")
+    //         .level_filter(log::LevelFilter::Error)
+    //         .init();
+    // });
 
     let params = unsafe { &*params };
     let peer_addr = match params.peer_addr() {
@@ -162,87 +183,49 @@ pub extern "C" fn abstract_tun_init_instance(params: *const IOSTunParams) -> *mu
     ptr
 }
 
+#[repr(C)]
+pub struct IOOutput {
+    udp_v4_output: *mut libc::c_void,
+    udp_v6_output: *mut libc::c_void,
+    tun_v4_output: *mut libc::c_void,
+    tun_v6_output: *mut libc::c_void,
+}
+
 #[no_mangle]
 pub extern "C" fn abstract_tun_handle_host_traffic(
     tun: *mut IOSTun,
-    packets: *mut SwiftDataArray,
-    v4_output_buffer: *mut SwiftDataArray,
-    v6_output_buffer: *mut SwiftDataArray,
-) {
+    packets: *mut libc::c_void,
+) -> IOOutput {
     let tun: &mut IOSTun = unsafe { &mut *(tun) };
-    let mut packets = unsafe { SwiftDataArray::from_ptr(packets) };
+    let mut packets = unsafe { SwiftDataArray::from_ptr(packets as *mut _) };
 
     for mut packet in packets.iter() {
         tun.wg.handle_host_traffic(packet.as_mut());
     }
 
-    let udp_transport = tun.wg.udp_transport();
-
-    unsafe {
-        std::ptr::write(v4_output_buffer, udp_transport.drain_v4_buffer());
-        std::ptr::write(v6_output_buffer, udp_transport.drain_v6_buffer());
-    };
+    tun.drain_output()
 }
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_handle_tunnel_traffic(
     tun: *mut IOSTun,
-    packets: *mut SwiftDataArray,
-    v4_output_buffer: *mut SwiftDataArray,
-    v6_output_buffer: *mut SwiftDataArray,
-    host_output_buffer: *mut SwiftDataArray,
-) {
+    packets: *mut libc::c_void,
+) -> IOOutput {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
-    let mut packets = unsafe { SwiftDataArray::from_ptr(packets) };
+    let mut packets = unsafe { SwiftDataArray::from_ptr(packets as *mut _) };
 
     for mut packet in packets.iter() {
         tun.wg.handle_tunnel_traffic(packet.as_mut());
     }
 
-
-    let v4_buffer = tun.wg.udp_transport().drain_v4_buffer();
-    log::error!(
-        "abstract_tun_handle_timer_event v4_buffer size is {}",
-        v4_buffer.len()
-    );
-    let v6_buffer = tun.wg.udp_transport().drain_v6_buffer();
-    log::error!(
-        "abstract_tun_handle_timer_event v6_buffer size is {}",
-        v4_buffer.len()
-    );
-
-    let host_buffer = tun.wg.tunnel_transport().drain_v4_buffer();
-    unsafe {
-        std::ptr::write(v4_output_buffer, v4_buffer);
-        std::ptr::write(v6_output_buffer, v6_buffer);
-        std::ptr::write(host_output_buffer, host_buffer);
-    };
+    tun.drain_output()
 }
 
 #[no_mangle]
-pub extern "C" fn abstract_tun_handle_timer_event(
-    tun: *mut IOSTun,
-    v4_udp_output: *mut SwiftDataArray,
-    v6_udp_output: *mut SwiftDataArray,
-) {
+pub extern "C" fn abstract_tun_handle_timer_event(tun: *mut IOSTun) -> IOOutput {
     let tun: &mut IOSTun = unsafe { &mut *(tun as *mut _) };
     tun.wg.handle_timer_tick();
-
-    let udp_transport = tun.wg.udp_transport();
-    let v4_buffer = udp_transport.drain_v4_buffer();
-    log::error!(
-        "abstract_tun_handle_timer_event v4_buffer size is {}",
-        v4_buffer.len()
-    );
-    let v6_buffer = udp_transport.drain_v6_buffer();
-    log::error!(
-        "abstract_tun_handle_timer_event v6_buffer size is {}",
-        v6_buffer.len()
-    );
-    unsafe {
-        std::ptr::write(v4_udp_output, v4_buffer);
-        std::ptr::write(v6_udp_output, v6_buffer);
-    };
+    tun.drain_output()
 }
 
 #[no_mangle]
@@ -252,4 +235,14 @@ pub extern "C" fn abstract_tun_drop(tun: *mut IOSTun) {
     }
     let tun: Box<IOSTun> = unsafe { Box::from_raw(tun) };
     std::mem::drop(tun);
+}
+
+#[no_mangle]
+pub extern "C" fn test_vec(_idx: i64) {
+    let mut vec = SwiftDataArray::new();
+    for i in 0..1024 {
+        let buf = vec![0u8; 2048];
+        vec.append(&buf);
+    }
+    std::mem::drop(vec);
 }

@@ -1,21 +1,13 @@
 use std::marker::PhantomData;
 
-// Eventually, we'll need a IPPacketMap
-#[repr(C)]
-struct IPPacketArray {
-    addr_version: u8,
-    addr_bytes: [u8; 8],
-    data: SwiftDataArray,
-}
-
 #[repr(C)]
 pub struct SwiftDataArray {
     array_ptr: *mut libc::c_void,
 }
 
 impl SwiftDataArray {
-    pub unsafe fn from_ptr(ptr: *mut SwiftDataArray) -> SwiftDataArray {
-        unsafe { std::ptr::read(ptr) }
+    pub unsafe fn from_ptr(array_ptr: *mut libc::c_void) -> SwiftDataArray {
+        unsafe { Self { array_ptr } }
     }
 
     pub fn new() -> Self {
@@ -93,6 +85,7 @@ extern "C" {
     fn swift_data_array_drop(swift_data_ptr: *mut libc::c_void);
     fn swift_data_array_get(swift_data_array_ptr: *mut libc::c_void, idx: usize) -> SwiftData;
     fn swift_data_array_len(swift_data_array_ptr: *mut libc::c_void) -> usize;
+    fn owned_swift_data_create(size: usize) -> *mut libc::c_void;
 }
 
 pub struct SwiftDataWrapper<'a> {
@@ -112,6 +105,13 @@ struct SwiftData {
     ptr: *mut u8,
     len: usize,
 }
+
+#[repr(C)]
+struct OwnedSwiftData {
+    ptr: *mut libc::c_void,
+}
+
+pub struct StandaloneSwiftData {}
 
 #[no_mangle]
 pub extern "C" fn swift_data_array_test() -> *mut libc::c_void {

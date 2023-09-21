@@ -132,6 +132,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
         loggerBuilder.metadata["pid"] = .string("\(pid)")
 
         let bundleIdentifier = Bundle.main.bundleIdentifier!
+        
 
         try? loggerBuilder.addFileOutput(
             securityGroupIdentifier: ApplicationConfiguration.securityGroupIdentifier,
@@ -146,13 +147,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
 
         tunnelLogger = Logger(label: "WireGuard")
 
+
         let containerURL = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: ApplicationConfiguration.securityGroupIdentifier)!
         providerLogger = Logger(label: "PacketTunnelProvider")
 
 
-        let (wrappedArray, sum) = DataArray.runTest()
-        self.tunnelLogger.log(level: .debug, "wrapped array \(wrappedArray.arr), sum is \(sum)")
         let addressCache = REST.AddressCache(
             canWriteToCache: false, cacheFolder: containerURL
         )
@@ -185,6 +185,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
             adapter: adapter
         )
         tunnelMonitor.delegate = self
+                
     }
 
     override func startTunnel(

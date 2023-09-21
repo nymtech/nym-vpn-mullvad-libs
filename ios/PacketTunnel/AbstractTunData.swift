@@ -11,19 +11,12 @@ import Foundation
 
 class DataArray {
     public var arr: [Data]
-    
+    private (set) var outstandingRefs: Int64 = 0
+
     init(_ arr: [Data]) {
         self.arr = arr
     }
-    
-    init() {
-        arr = []
-    }
-    
-    init(data arr: [Data]) {
-        self.arr = arr
-    }
-    
+
     func append(_ data: Data) {
         arr.append(data)
     }
@@ -32,44 +25,31 @@ class DataArray {
         UInt64(arr.count)
     }
     
-    static func fromRawPtr(_ ptr: UnsafeMutableRawPointer) -> DataArray {
+    static func fromRawPtrUnretained(_ ptr: UnsafeMutableRawPointer) -> DataArray {
         let arr = Unmanaged<DataArray>.fromOpaque(ptr).takeUnretainedValue()
         return arr
     }
     
-    static func fromSwiftData(_ swiftData: SwiftDataArray) -> DataArray {
-        let arr = Unmanaged<DataArray>.fromOpaque(swiftData.array_ptr).takeUnretainedValue()
+    static func fromRawPtr(_ ptr: UnsafeMutableRawPointer) -> DataArray {
+        let arr = Unmanaged<DataArray>.fromOpaque(ptr).takeRetainedValue()
         return arr
     }
     
-    func toRaw() -> SwiftDataArray {
-        let ptr = Unmanaged<DataArray>.passRetained(self).toOpaque()
-        return SwiftDataArray(array_ptr: ptr)
-    }
-    
-    
-    static func runTest() -> (DataArray, UInt8){
-        guard let wrappedArrayPtr = swift_data_array_test() else { return (DataArray([]), 0)}
-        let array = Unmanaged<DataArray>.fromOpaque(wrappedArrayPtr).takeRetainedValue()
-        var sum = UInt8(0)
-        for arr in array.arr {
-            for byte in arr {
-                sum += byte
-            }
-        }
-        return (array, sum)
+    func toRaw() -> UnsafeMutableRawPointer {
+        let unmanaged = Unmanaged<DataArray>.passRetained(self)
+        let ptr = unmanaged.toOpaque()
+        return  ptr
     }
 }
 
 @_cdecl("swift_data_array_create")
 func dataArrayCreate() -> UnsafeMutableRawPointer {
-    let arr = DataArray([])
-    return Unmanaged<DataArray>.passRetained(arr).toOpaque()
+    return DataArray([]).toRaw()
 }
 
 @_cdecl("swift_data_array_append")
 func dataArrayAppend(ptr: UnsafeMutableRawPointer, dataPtr: UnsafeRawPointer, dataLen: UInt ) {
-    let arr = DataArray.fromRawPtr(ptr)
+    let arr = DataArray.fromRawPtrUnretained(ptr)
     let data = Data(bytes: dataPtr, count: Int(dataLen))
     arr.append(data)
 }
@@ -82,16 +62,63 @@ func dataArrayDrop(ptr: UnsafeRawPointer) {
 
 @_cdecl("swift_data_array_len")
 func dataArrayLen(ptr: UnsafeMutableRawPointer) -> UInt64 {
-    let arr = DataArray.fromRawPtr(ptr)
+    let arr = DataArray.fromRawPtrUnretained(ptr)
     return arr.len()
 }
 
 @_cdecl("swift_data_array_get")
 func dataArrayGet(ptr: UnsafeMutableRawPointer, idx: UInt64) -> SwiftData {
-    let dataArray = DataArray.fromRawPtr(ptr)
+    let dataArray = DataArray.fromRawPtrUnretained(ptr)
     let data = dataArray.arr[Int(idx)]
     let dataPtr = (data as NSData).bytes.assumingMemoryBound(to: UInt8.self)
     let mutatingDataPtr = UnsafeMutablePointer(mutating: dataPtr)
     return SwiftData(ptr: mutatingDataPtr, len: UInt(data.count))
 }
+
+extension IOOutput {
+    mutating func udpV4Traffic() -> [Data] {
+        guard self.udp_v4_output != nil else { return [] }
+        let data = self.extractData(ptr: self.udp_v4_output)
+        self.udp_v4_output = nil
+        return data
+    }
+    
+    mutating func udpV6Traffic() -> [Data] {
+        guard self.udp_v6_output != nil else { return [] }
+        let data = self.extractData(ptr: self.udp_v6_output)
+        self.udp_v6_output = nil
+        return data
+    }   
+    
+    mutating func hostV4Traffic() -> [Data] {
+        guard self.tun_v4_output != nil else { return [] }
+        let data = self.extractData(ptr: self.tun_v4_output)
+        self.tun_v4_output = nil
+        return data
+    }
+    
+    mutating func hostV6Traffic() -> [Data] {
+        guard self.tun_v6_output != nil else { return [] }
+        let data = self.extractData(ptr: self.tun_v6_output)
+        self.tun_v6_output = nil
+        return data
+    }
+    
+    mutating func discard() {
+        let _ = self.hostV4Traffic()
+        let _ = self.hostV6Traffic()
+        let _ = self.udpV4Traffic()
+        let _ = self.udpV6Traffic()
+    }
+    
+    private func extractData(ptr: UnsafeMutableRawPointer) -> [Data] {
+        return DataArray.fromRawPtr(ptr).arr
+    }
+    
+}
+
+//@_cdecl("swift_data_create")
+//func dataArray(size: UInt64) ->  {
+//    
+//}
 
