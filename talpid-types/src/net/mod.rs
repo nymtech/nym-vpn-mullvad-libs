@@ -276,10 +276,31 @@ impl fmt::Display for Endpoint {
 /// Host that should be reachable in any tunnel state.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AllowedEndpoint {
-    /// Paths that should be allowed to communicate with `endpoint`.
-    #[cfg(windows)]
-    pub clients: Vec<PathBuf>,
+    /// Clients that should be allowed to communicate with `endpoint`.
+    pub clients: AllowedClients,
     pub endpoint: Endpoint,
+}
+
+#[cfg(unix)]
+impl AllowedEndpoint {
+    /// Create a new [`AllowedEndpoint`].
+    pub fn new(endpoint: Endpoint) -> Self {
+        Self {
+            endpoint,
+            clients: AllowedClients::default(),
+        }
+    }
+}
+
+#[cfg(windows)]
+impl AllowedEndpoint {
+    /// Create a new [`AllowedEndpoint`].
+    pub fn new(endpoint: Endpoint, clients: impl Into<AllowedClients>) -> Self {
+        Self {
+            endpoint,
+            clients: clients.into(),
+        }
+    }
 }
 
 impl fmt::Display for AllowedEndpoint {
@@ -302,6 +323,55 @@ impl fmt::Display for AllowedEndpoint {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(windows)]
+impl From<Vec<PathBuf>> for AllowedClients {
+    fn from(value: Vec<PathBuf>) -> Self {
+        Self(value)
+    }
+}
+
+/// Clients which should be able to reach an allowed host in any tunnel state.
+#[cfg(windows)]
+pub struct AllowedClients(Vec<PathBuf>);
+
+/// Clients which should be able to reach an allowed host in any tunnel state.
+#[cfg(unix)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum AllowedClients {
+    /// Allow only clients running as `root` to leak traffic to an allowed [`Endpoint`].
+    Root,
+    /// Allow *all* clients to leak traffic to an allowed [`Endpoint`].
+    ///
+    /// This is necessary on platforms which does not have proper support for
+    /// split-tunneling, but which wants to support running local SOCKS5-proxies.
+    /// See TODO(REFER TO LOCAL SOCKS5 PROXY SUPPORT DOCS) for further information.
+    All,
+}
+
+#[cfg(windows)]
+impl AllowedClients {
+    pub fn allow_all(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+#[cfg(unix)]
+impl AllowedClients {
+    pub fn allow_all(&self) -> bool {
+        matches!(self, AllowedClients::All)
+    }
+}
+
+#[cfg(unix)]
+impl Default for AllowedClients {
+    /// Returns [`AllowedClients::Root`].
+    ///
+    /// The most secure client(s) is our own, which runs as root.
+    fn default() -> Self {
+        AllowedClients::Root
     }
 }
 

@@ -264,6 +264,7 @@ impl ApiEndpointUpdaterHandle {
     }
 }
 
+//TODO(markus): If a local socks5 proxy is used, the `clients` vec should be empty.
 pub(super) fn get_allowed_endpoint(endpoint: Endpoint) -> AllowedEndpoint {
     #[cfg(windows)]
     let daemon_exe = std::env::current_exe().expect("failed to obtain executable path");
@@ -276,11 +277,11 @@ pub(super) fn get_allowed_endpoint(endpoint: Endpoint) -> AllowedEndpoint {
         daemon_exe,
     ];
 
-    AllowedEndpoint {
+    AllowedEndpoint::new(
         #[cfg(windows)]
         clients,
         endpoint,
-    }
+    )
 }
 
 pub(crate) fn forward_offline_state(
