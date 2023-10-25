@@ -327,10 +327,10 @@ impl DaemonInterface {
             .map_err(Error::from)
     }
 
-    pub fn update_relay_settings(&self, update: RelaySettingsUpdate) -> Result<()> {
+    pub fn set_relay_settings(&self, update: RelaySettingsUpdate) -> Result<()> {
         let (tx, rx) = oneshot::channel();
 
-        self.send_command(DaemonCommand::UpdateRelaySettings(tx, update))?;
+        self.send_command(DaemonCommand::SetRelaySettings(tx, update))?;
 
         block_on(rx)
             .map_err(|_| Error::NoResponse)?
