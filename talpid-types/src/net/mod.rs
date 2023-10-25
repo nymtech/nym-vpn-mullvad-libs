@@ -311,7 +311,7 @@ impl fmt::Display for AllowedEndpoint {
         {
             write!(f, "{} for", self.endpoint)?;
             #[cfg(windows)]
-            for client in &self.clients {
+            for client in self.clients.iter() {
                 write!(
                     f,
                     " {}",
@@ -326,16 +326,27 @@ impl fmt::Display for AllowedEndpoint {
     }
 }
 
+/// Clients which should be able to reach an allowed host in any tunnel state.
 #[cfg(windows)]
-impl From<Vec<PathBuf>> for AllowedClients {
-    fn from(value: Vec<PathBuf>) -> Self {
-        Self(value)
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct AllowedClients(std::sync::Arc<[PathBuf]>);
+
+
+#[cfg(windows)]
+impl std::ops::Deref for AllowedClients {
+    type Target = [PathBuf];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-/// Clients which should be able to reach an allowed host in any tunnel state.
 #[cfg(windows)]
-pub struct AllowedClients(Vec<PathBuf>);
+impl From<Vec<PathBuf>> for AllowedClients {
+    fn from(value: Vec<PathBuf>) -> Self {
+        Self(value.into())
+    }
+}
 
 /// Clients which should be able to reach an allowed host in any tunnel state.
 #[cfg(unix)]
@@ -354,7 +365,7 @@ pub enum AllowedClients {
 #[cfg(windows)]
 impl AllowedClients {
     pub fn allow_all(&self) -> bool {
-        self.0.is_empty()
+        self.is_empty()
     }
 }
 

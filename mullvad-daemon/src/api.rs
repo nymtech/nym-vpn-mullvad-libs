@@ -278,9 +278,9 @@ pub(super) fn get_allowed_endpoint(endpoint: Endpoint) -> AllowedEndpoint {
     ];
 
     AllowedEndpoint::new(
+        endpoint,
         #[cfg(windows)]
         clients,
-        endpoint,
     )
 }
 
