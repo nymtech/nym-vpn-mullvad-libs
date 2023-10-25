@@ -267,19 +267,6 @@ export type RelaySettings =
       customTunnelEndpoint: IRelaySettingsCustom;
     };
 
-// types describing the partial update of RelaySettings
-export type RelaySettingsNormalUpdate = Partial<
-  IRelaySettingsNormal<Partial<IOpenVpnConstraints>, Partial<IWireguardConstraints>>
->;
-
-export type RelaySettingsUpdate =
-  | {
-      normal: RelaySettingsNormalUpdate;
-    }
-  | {
-      customTunnelEndpoint: IRelaySettingsCustom;
-    };
-
 export interface IRelayListWithEndpointData {
   relayList: IRelayList;
   wireguardEndpointData: IWireguardEndpointData;

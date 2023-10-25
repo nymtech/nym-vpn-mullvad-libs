@@ -6,9 +6,9 @@ import { strings } from '../../config.json';
 import { BridgeState, RelayProtocol, TunnelProtocol } from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
-import RelaySettingsBuilder from '../../shared/relay-settings-builder';
 import { removeNonNumericCharacters } from '../../shared/string-helpers';
 import { useAppContext } from '../context';
+import { toRawNormalRelaySettings } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { formatHtml } from '../lib/html-formatter';
 import { useBoolean } from '../lib/utilityHooks';
@@ -178,33 +178,21 @@ function TransportProtocolSelector() {
 
 function useProtocolAndPortUpdater() {
   const { updateRelaySettings } = useAppContext();
+  const relaySettings = useSelector((state) => state.settings.relaySettings);
 
   const updater = useCallback(
     async (protocol: RelayProtocol | null, port?: number | null) => {
-      const relayUpdate = RelaySettingsBuilder.normal()
-        .tunnel.openvpn((openvpn) => {
-          if (protocol) {
-            openvpn.protocol.exact(protocol);
-          } else {
-            openvpn.protocol.any();
-          }
-
-          if (port) {
-            openvpn.port.exact(port);
-          } else {
-            openvpn.port.any();
-          }
-        })
-        .build();
-
+      const settings = toRawNormalRelaySettings(relaySettings);
+      settings.openvpnConstraints.protocol = protocol ? { only: protocol } : 'any';
+      settings.openvpnConstraints.port = port ? { only: port } : 'any';
       try {
-        await updateRelaySettings(relayUpdate);
+        await updateRelaySettings({ normal: settings });
       } catch (e) {
         const error = e as Error;
         log.error('Failed to update relay settings', error.message);
       }
     },
-    [updateRelaySettings],
+    [updateRelaySettings, relaySettings],
   );
 
   return updater;

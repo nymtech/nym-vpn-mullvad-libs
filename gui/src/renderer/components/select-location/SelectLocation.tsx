@@ -5,6 +5,7 @@ import { colors } from '../../../config.json';
 import { Ownership } from '../../../shared/daemon-rpc-types';
 import { messages } from '../../../shared/gettext';
 import { useAppContext } from '../../context';
+import { toRawNormalRelaySettings } from '../../lib/constraint-updater';
 import { filterSpecialLocations } from '../../lib/filter-locations';
 import { useHistory } from '../../lib/history';
 import { formatHtml } from '../../lib/html-formatter';
@@ -85,13 +86,21 @@ export default function SelectLocation() {
 
   const onClearProviders = useCallback(async () => {
     resetScrollPositions();
-    await updateRelaySettings({ normal: { providers: [] } });
-  }, [resetScrollPositions]);
+    if (relaySettings) {
+      const newSettings = toRawNormalRelaySettings({ normal: relaySettings });
+      newSettings.providers = [];
+      await updateRelaySettings({ normal: newSettings });
+    }
+  }, [updateRelaySettings, resetScrollPositions, relaySettings]);
 
   const onClearOwnership = useCallback(async () => {
     resetScrollPositions();
-    await updateRelaySettings({ normal: { ownership: Ownership.any } });
-  }, [resetScrollPositions]);
+    if (relaySettings) {
+      const newSettings = toRawNormalRelaySettings({ normal: relaySettings });
+      newSettings.ownership = Ownership.any;
+      await updateRelaySettings({ normal: newSettings });
+    }
+  }, [updateRelaySettings, resetScrollPositions, relaySettings]);
 
   const changeLocationType = useCallback(
     (locationType: LocationType) => {

@@ -1,36 +1,54 @@
-import RelaySettingsBuilder from '../../shared/relay-settings-builder';
+import { Constraint, IOpenVpnConstraints, IRelaySettingsNormal, IWireguardConstraints, Ownership } from '../../shared/daemon-rpc-types';
 import { RelaySettingsRedux } from '../redux/settings/reducers';
 
-export function createWireguardRelayUpdater(
-  relaySettings: RelaySettingsRedux,
-): ReturnType<typeof RelaySettingsBuilder['normal']> {
+export function toRawNormalRelaySettings(relaySettings: RelaySettingsRedux): IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints> {
+  // This is terrible
+
   if ('normal' in relaySettings) {
-    const constraints = relaySettings.normal.wireguard;
+    const openvpnPort = wrapConstraint(relaySettings.normal.openvpn.port);
+    const openvpnProtocol = wrapConstraint(relaySettings.normal.openvpn.protocol);
+    const wgPort = wrapConstraint(relaySettings.normal.wireguard.port);
+    const wgIpVersion = wrapConstraint(relaySettings.normal.wireguard.ipVersion);
+    const wgEntryLocation = wrapConstraint(relaySettings.normal.wireguard.entryLocation);
+    const location = wrapConstraint(relaySettings.normal.location);
+    const tunnelProtocol = wrapConstraint(relaySettings.normal.tunnelProtocol);
 
-    const relayUpdate = RelaySettingsBuilder.normal().tunnel.wireguard((wireguard) => {
-      if (constraints.port === 'any') {
-        wireguard.port.any();
-      } else {
-        wireguard.port.exact(constraints.port);
-      }
-
-      if (constraints.ipVersion === 'any') {
-        wireguard.ipVersion.any();
-      } else {
-        wireguard.ipVersion.exact(constraints.ipVersion);
-      }
-
-      wireguard.useMultihop(constraints.useMultihop);
-
-      if (constraints.entryLocation === 'any') {
-        wireguard.entryLocation.any();
-      } else if (constraints.entryLocation !== undefined) {
-        wireguard.entryLocation.exact(constraints.entryLocation);
-      }
-    });
-
-    return relayUpdate;
-  } else {
-    return RelaySettingsBuilder.normal();
+    return {
+      providers: relaySettings.normal.providers,
+      ownership: relaySettings.normal.ownership,
+      tunnelProtocol,
+      openvpnConstraints: {
+        port: openvpnPort,
+        protocol: openvpnProtocol,
+      },
+      wireguardConstraints: {
+        port: wgPort,
+        ipVersion: wgIpVersion,
+        useMultihop: relaySettings.normal.wireguard.useMultihop,
+        entryLocation: wgEntryLocation,
+      },
+      location,
+    };
   }
+
+  return {
+    location: 'any',
+    tunnelProtocol: 'any',
+    providers: [],
+    ownership: Ownership.any,
+    openvpnConstraints: {
+      port: 'any',
+      protocol: 'any',
+    },
+    wireguardConstraints: {
+      port: 'any',
+      ipVersion: 'any',
+      useMultihop: false,
+      entryLocation: 'any',
+    },
+  };
+}
+
+function wrapConstraint<T>(constraint: T | 'any'): Constraint<T> {
+  return (constraint == 'any') ? 'any' : { only: constraint };
 }

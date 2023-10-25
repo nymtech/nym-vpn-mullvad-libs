@@ -6,8 +6,8 @@ import { colors, strings } from '../../config.json';
 import { IDnsOptions, TunnelProtocol } from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
-import RelaySettingsBuilder from '../../shared/relay-settings-builder';
 import { useAppContext } from '../context';
+import { toRawNormalRelaySettings } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { formatHtml } from '../lib/html-formatter';
 import { RoutePath } from '../lib/routes';
@@ -663,25 +663,19 @@ function TunnelProtocolSetting() {
   const tunnelProtocol = useSelector((state) =>
     mapRelaySettingsToProtocol(state.settings.relaySettings),
   );
+  const relaySettings = useSelector((state) => state.settings.relaySettings);
   const { updateRelaySettings } = useAppContext();
 
   const setTunnelProtocol = useCallback(async (tunnelProtocol: TunnelProtocol | null) => {
-    const relayUpdate = RelaySettingsBuilder.normal()
-      .tunnel.tunnelProtocol((config) => {
-        if (tunnelProtocol !== null) {
-          config.tunnelProtocol.exact(tunnelProtocol);
-        } else {
-          config.tunnelProtocol.any();
-        }
-      })
-      .build();
+    const settings = toRawNormalRelaySettings(relaySettings);
+    settings.tunnelProtocol = tunnelProtocol ? { only: tunnelProtocol } : 'any';
     try {
-      await updateRelaySettings(relayUpdate);
+      await updateRelaySettings({ normal: settings });
     } catch (e) {
       const error = e as Error;
       log.error('Failed to update tunnel protocol constraints', error.message);
     }
-  }, []);
+  }, [relaySettings]);
 
   const tunnelProtocolItems: Array<SelectorItem<TunnelProtocol>> = useMemo(
     () => [

@@ -4,12 +4,11 @@ import BridgeSettingsBuilder from '../../../shared/bridge-settings-builder';
 import {
   BridgeSettings,
   RelayLocation,
-  RelaySettingsUpdate,
+  RelaySettings,
 } from '../../../shared/daemon-rpc-types';
 import log from '../../../shared/logging';
-import RelaySettingsBuilder from '../../../shared/relay-settings-builder';
 import { useAppContext } from '../../context';
-import { createWireguardRelayUpdater } from '../../lib/constraint-updater';
+import { toRawNormalRelaySettings } from '../../lib/constraint-updater';
 import { useHistory } from '../../lib/history';
 import { useSelector } from '../../redux/store';
 import { LocationType, SpecialBridgeLocationType } from './select-location-types';
@@ -18,16 +17,18 @@ import { useSelectLocationContext } from './SelectLocationContainer';
 export function useOnSelectExitLocation() {
   const onSelectLocation = useOnSelectLocation();
   const history = useHistory();
+  const relaySettings = useSelector((state) => state.settings.relaySettings);
   const { connectTunnel } = useAppContext();
 
   const onSelectRelay = useCallback(
     async (relayLocation: RelayLocation) => {
       history.pop();
-      const relayUpdate = RelaySettingsBuilder.normal().location.fromRaw(relayLocation).build();
-      await onSelectLocation(relayUpdate);
+      const settings = toRawNormalRelaySettings(relaySettings);
+      settings.location = { only: relayLocation };
+      await onSelectLocation({ normal: settings });
       await connectTunnel();
     },
-    [history],
+    [history, relaySettings],
   );
 
   const onSelectSpecial = useCallback((_location: undefined) => {
@@ -44,18 +45,16 @@ export function useOnSelectEntryLocation() {
 
   const onSelectRelay = useCallback(async (entryLocation: RelayLocation) => {
     setLocationType(LocationType.exit);
-    const relayUpdate = createWireguardRelayUpdater(baseRelaySettings)
-      .tunnel.wireguard((wireguard) => wireguard.entryLocation.exact(entryLocation))
-      .build();
-    await onSelectLocation(relayUpdate);
+    const settings = toRawNormalRelaySettings(baseRelaySettings);
+    settings.wireguardConstraints.entryLocation = { only: entryLocation };
+    await onSelectLocation({ normal: settings });
   }, []);
 
   const onSelectSpecial = useCallback(async (_location: 'any') => {
     setLocationType(LocationType.exit);
-    const relayUpdate = createWireguardRelayUpdater(baseRelaySettings)
-      .tunnel.wireguard((wireguard) => wireguard.entryLocation.any())
-      .build();
-    await onSelectLocation(relayUpdate);
+    const settings = toRawNormalRelaySettings(baseRelaySettings);
+    settings.wireguardConstraints.entryLocation = 'any';
+    await onSelectLocation({ normal: settings });
   }, []);
 
   return [onSelectRelay, onSelectSpecial] as const;
@@ -64,9 +63,9 @@ export function useOnSelectEntryLocation() {
 function useOnSelectLocation() {
   const { updateRelaySettings } = useAppContext();
 
-  return useCallback(async (relayUpdate: RelaySettingsUpdate) => {
+  return useCallback(async (relaySettings: RelaySettings) => {
     try {
-      await updateRelaySettings(relayUpdate);
+      await updateRelaySettings(relaySettings);
     } catch (e) {
       const error = e as Error;
       log.error(`Failed to select the exit location: ${error.message}`);

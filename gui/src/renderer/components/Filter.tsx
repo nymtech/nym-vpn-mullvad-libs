@@ -5,6 +5,7 @@ import { colors } from '../../config.json';
 import { Ownership } from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import { useAppContext } from '../context';
+import { toRawNormalRelaySettings } from '../lib/constraint-updater';
 import {
   EndpointType,
   filterLocations,
@@ -39,6 +40,7 @@ const StyledNavigationScrollbars = styled(NavigationScrollbars)({
 export default function Filter() {
   const history = useHistory();
   const { updateRelaySettings } = useAppContext();
+  const relaySettings = useSelector((state) => state.settings.relaySettings);
 
   const initialProviders = useSelector(providersSelector);
   const [providers, setProviders] = useState<Record<string, boolean>>(initialProviders);
@@ -69,9 +71,12 @@ export default function Filter() {
 
   // Applies the changes by sending them to the daemon.
   const onApply = useCallback(async () => {
-    await updateRelaySettings({ normal: { providers: formattedProviderList, ownership } });
+    const settings = toRawNormalRelaySettings(relaySettings);
+    settings.providers = formattedProviderList;
+    settings.ownership = ownership;
+    await updateRelaySettings({ normal: settings });
     history.pop();
-  }, [formattedProviderList, ownership, history, updateRelaySettings]);
+  }, [formattedProviderList, ownership, history, updateRelaySettings, relaySettings]);
 
   return (
     <BackAction action={history.pop}>
