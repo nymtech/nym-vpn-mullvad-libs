@@ -10,8 +10,8 @@ import Foundation
 import MullvadREST
 
 struct AppStoreAPIService: AppStoreAPIServiceProtocol {
-    let apiProxy: REST.APIProxy
-    let accountsProxy: REST.AccountsProxy
+    let apiProxy: APIQuerying
+    let accountsProxy: RESTAccountHandling
     let tunnelManager: TunnelManager
 
     func validateAccount(accountNumber: String) async throws {

@@ -9,6 +9,7 @@
 import MullvadLogging
 import StoreKit
 import UIKit
+import MullvadREST
 
 actor AppStore {
     private let logger = Logger(label: "AppStore")
@@ -18,8 +19,8 @@ actor AppStore {
     private let apiService: AppStoreAPIServiceProtocol
 
     private var paymentObserverTask: Task<Void, Never>?
-    private var productFetchTask: Awaitable?
-    private var sendReceiptTask: Awaitable?
+    private var productFetchTask: Task<[SKProduct], Error>?
+    private var sendReceiptTask: Task<REST.CreateApplePaymentResponse, Error>?
 
     private var pendingPayments: [PendingPayment] = []
 
@@ -62,7 +63,7 @@ actor AppStore {
 
         let newFetchTask = Task {
             // Wait for previous task to complete.
-            await currentFetchTask?.waitForCompletion()
+            try? await currentFetchTask?.value
 
             return try await application.withBackgroundTask {
                 let fetcher = ProductFetcher(productIdentifiers: products.productIdentifiersSet)

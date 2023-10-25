@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import MullvadTypes
 
 extension UIApplication {
     func withBackgroundTask<T>(
@@ -27,34 +28,39 @@ extension UIApplication {
                 task.cancel()
             }
 
-            Task { await backgroundTaskHandler.end() }
+            backgroundTaskHandler.end()
         }
     }
 }
 
 private final class BackgroundTaskHandler {
-    let application: UIApplication
+    let application: BackgroundTaskProvider
     let name: String?
+    private let stateLock = NSLock()
 
     private var taskId: UIBackgroundTaskIdentifier = .invalid
 
-    init(application: UIApplication, name: String? = nil) {
+    init(application: BackgroundTaskProvider, name: String? = nil) {
         self.application = application
         self.name = name
     }
 
-    @MainActor func begin(name: String? = nil) {
-        guard taskId == .invalid else { return }
+    func begin() {
+        stateLock.withLock {
+            guard taskId == .invalid else { return }
 
-        taskId = application.beginBackgroundTask(withName: name, expirationHandler: { [weak self] in
-            self?.end()
-        })
+            taskId = application.beginBackgroundTask(withName: name, expirationHandler: { [weak self] in
+                self?.end()
+            })
+        }
     }
 
-    @MainActor func end() {
-        guard taskId != .invalid else { return }
+    func end() {
+        stateLock.withLock {
+            guard taskId != .invalid else { return }
 
-        application.endBackgroundTask(taskId)
-        taskId = .invalid
+            application.endBackgroundTask(taskId)
+            taskId = .invalid
+        }
     }
 }

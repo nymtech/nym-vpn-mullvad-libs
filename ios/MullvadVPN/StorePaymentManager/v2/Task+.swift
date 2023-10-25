@@ -14,13 +14,3 @@ extension Task where Success == Never, Failure == Never {
         try await Task.sleep(nanoseconds: duration)
     }
 }
-
-protocol Awaitable {
-    func waitForCompletion() async
-}
-
-extension Task: Awaitable {
-    func waitForCompletion() async {
-        _ = try? await value
-    }
-}
