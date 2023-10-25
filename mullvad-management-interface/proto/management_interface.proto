@@ -412,18 +412,12 @@ message NormalRelaySettings {
   Ownership ownership = 6;
 }
 
-message ProviderUpdate { repeated string providers = 1; }
-
-message TunnelTypeUpdate { optional TunnelType tunnel_type = 2; }
-
 message TransportPort {
   TransportProtocol protocol = 1;
   optional uint32 port = 2;
 }
 
 message OpenvpnConstraints { TransportPort port = 1; }
-
-message OwnershipUpdate { Ownership ownership = 1; }
 
 enum IpVersion {
   V4 = 0;
