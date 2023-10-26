@@ -665,17 +665,20 @@ function TunnelProtocolSetting() {
   );
   const relaySettingsUpdater = useRelaySettingsUpdater();
 
-  const setTunnelProtocol = useCallback(async (tunnelProtocol: TunnelProtocol | null) => {
-    try {
-      await relaySettingsUpdater((settings) => ({
-        ...settings,
-        tunnelProtocol: wrapConstraint(tunnelProtocol),
-      }));
-    } catch (e) {
-      const error = e as Error;
-      log.error('Failed to update tunnel protocol constraints', error.message);
-    }
-  }, []);
+  const setTunnelProtocol = useCallback(
+    async (tunnelProtocol: TunnelProtocol | null) => {
+      try {
+        await relaySettingsUpdater((settings) => ({
+          ...settings,
+          tunnelProtocol: wrapConstraint(tunnelProtocol),
+        }));
+      } catch (e) {
+        const error = e as Error;
+        log.error('Failed to update tunnel protocol constraints', error.message);
+      }
+    },
+    [relaySettingsUpdater],
+  );
 
   const tunnelProtocolItems: Array<SelectorItem<TunnelProtocol>> = useMemo(
     () => [

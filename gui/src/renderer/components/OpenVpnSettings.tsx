@@ -182,7 +182,6 @@ function TransportProtocolSelector() {
 }
 
 function useProtocolAndPortUpdater() {
-  const { updateRelaySettings } = useAppContext();
   const relaySettingsUpdater = useRelaySettingsUpdater();
 
   const updater = useCallback(
@@ -200,7 +199,7 @@ function useProtocolAndPortUpdater() {
         log.error('Failed to update relay settings', error.message);
       }
     },
-    [updateRelaySettings],
+    [relaySettingsUpdater],
   );
 
   return updater;

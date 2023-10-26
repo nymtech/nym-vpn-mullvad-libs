@@ -320,7 +320,6 @@ function Udp2tcpPortSetting() {
 function MultihopSetting() {
   const relaySettings = useSelector((state) => state.settings.relaySettings);
   const relaySettingsUpdater = useRelaySettingsUpdater();
-  const { updateRelaySettings } = useAppContext();
 
   const multihop = 'normal' in relaySettings ? relaySettings.normal.wireguard.useMultihop : false;
 
@@ -338,7 +337,7 @@ function MultihopSetting() {
         log.error('Failed to update WireGuard multihop settings', error.message);
       }
     },
-    [updateRelaySettings],
+    [relaySettingsUpdater],
   );
 
   const setMultihop = useCallback(

@@ -59,15 +59,15 @@ export function wrapRelaySettingsOrDefault(
   };
 }
 
+type UpdateFunction = (
+  settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
+) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>;
+
 export function useRelaySettingsModifier() {
   const relaySettings = useNormalRelaySettings();
 
   return useCallback(
-    (
-      fn: (
-        settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
-      ) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
-    ) => {
+    (fn: UpdateFunction) => {
       const settings = wrapRelaySettingsOrDefault(relaySettings);
       return fn(settings);
     },
@@ -80,11 +80,7 @@ export function useRelaySettingsUpdater() {
   const modifyRelaySettings = useRelaySettingsModifier();
 
   return useCallback(
-    async (
-      fn: (
-        settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
-      ) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
-    ) => {
+    async (fn: UpdateFunction) => {
       const modifiedSettings = modifyRelaySettings(fn);
       await updateRelaySettings({ normal: modifiedSettings });
     },

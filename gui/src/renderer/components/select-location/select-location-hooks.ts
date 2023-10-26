@@ -22,7 +22,7 @@ export function useOnSelectExitLocation() {
 
   const onSelectRelay = useCallback(
     async (relayLocation: RelayLocation) => {
-      const settings = await relaySettingsModifier((settings) => ({
+      const settings = relaySettingsModifier((settings) => ({
         ...settings,
         location: wrapConstraint(relayLocation),
       }));
@@ -48,7 +48,7 @@ export function useOnSelectEntryLocation() {
   const onSelectRelay = useCallback(
     async (entryLocation: RelayLocation) => {
       setLocationType(LocationType.exit);
-      const settings = await relaySettingsModifier((settings) => {
+      const settings = relaySettingsModifier((settings) => {
         settings.wireguardConstraints.entryLocation = wrapConstraint(entryLocation);
         return settings;
       });
@@ -60,7 +60,7 @@ export function useOnSelectEntryLocation() {
   const onSelectSpecial = useCallback(
     async (_location: 'any') => {
       setLocationType(LocationType.exit);
-      const settings = await relaySettingsModifier((settings) => {
+      const settings = relaySettingsModifier((settings) => {
         settings.wireguardConstraints.entryLocation = 'any';
         return settings;
       });
