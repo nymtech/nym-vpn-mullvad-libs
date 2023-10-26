@@ -7,6 +7,7 @@ import { IDnsOptions, TunnelProtocol, wrapConstraint } from '../../shared/daemon
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { useAppContext } from '../context';
+import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { formatHtml } from '../lib/html-formatter';
 import { RoutePath } from '../lib/routes';
@@ -30,7 +31,6 @@ import {
   TitleBarItem,
 } from './NavigationBar';
 import SettingsHeader, { HeaderTitle } from './SettingsHeader';
-import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 
 const StyledContent = styled.div({
   display: 'flex',
@@ -667,7 +667,10 @@ function TunnelProtocolSetting() {
 
   const setTunnelProtocol = useCallback(async (tunnelProtocol: TunnelProtocol | null) => {
     try {
-      await relaySettingsUpdater((settings) => ({ ...settings, tunnelProtocol: wrapConstraint(tunnelProtocol) }));
+      await relaySettingsUpdater((settings) => ({
+        ...settings,
+        tunnelProtocol: wrapConstraint(tunnelProtocol),
+      }));
     } catch (e) {
       const error = e as Error;
       log.error('Failed to update tunnel protocol constraints', error.message);

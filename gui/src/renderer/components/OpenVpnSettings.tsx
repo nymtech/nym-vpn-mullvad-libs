@@ -3,11 +3,17 @@ import { sprintf } from 'sprintf-js';
 import styled from 'styled-components';
 
 import { strings } from '../../config.json';
-import { BridgeState, RelayProtocol, TunnelProtocol, wrapConstraint } from '../../shared/daemon-rpc-types';
+import {
+  BridgeState,
+  RelayProtocol,
+  TunnelProtocol,
+  wrapConstraint,
+} from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { removeNonNumericCharacters } from '../../shared/string-helpers';
 import { useAppContext } from '../context';
+import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { formatHtml } from '../lib/html-formatter';
 import { useBoolean } from '../lib/utilityHooks';
@@ -27,7 +33,6 @@ import {
   TitleBarItem,
 } from './NavigationBar';
 import SettingsHeader, { HeaderTitle } from './SettingsHeader';
-import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 
 const MIN_MSSFIX_VALUE = 1000;
 const MAX_MSSFIX_VALUE = 1450;

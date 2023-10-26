@@ -4,6 +4,7 @@ import { sprintf } from 'sprintf-js';
 import { colors } from '../../../config.json';
 import { Ownership } from '../../../shared/daemon-rpc-types';
 import { messages } from '../../../shared/gettext';
+import { useRelaySettingsUpdater } from '../../lib/constraint-updater';
 import { filterSpecialLocations } from '../../lib/filter-locations';
 import { useHistory } from '../../lib/history';
 import { formatHtml } from '../../lib/html-formatter';
@@ -53,7 +54,6 @@ import {
   StyledSearchBar,
 } from './SelectLocationStyles';
 import { SpacePreAllocationView } from './SpacePreAllocationView';
-import { useRelaySettingsUpdater } from '../../lib/constraint-updater';
 
 export default function SelectLocation() {
   const history = useHistory();

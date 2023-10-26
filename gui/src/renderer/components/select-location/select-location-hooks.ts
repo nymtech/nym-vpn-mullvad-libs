@@ -9,10 +9,10 @@ import {
 } from '../../../shared/daemon-rpc-types';
 import log from '../../../shared/logging';
 import { useAppContext } from '../../context';
+import { useRelaySettingsModifier } from '../../lib/constraint-updater';
 import { useHistory } from '../../lib/history';
 import { LocationType, SpecialBridgeLocationType } from './select-location-types';
 import { useSelectLocationContext } from './SelectLocationContainer';
-import { useRelaySettingsModifier } from '../../lib/constraint-updater';
 
 export function useOnSelectExitLocation() {
   const onSelectLocation = useOnSelectLocation();
@@ -22,7 +22,10 @@ export function useOnSelectExitLocation() {
 
   const onSelectRelay = useCallback(
     async (relayLocation: RelayLocation) => {
-      const settings = await relaySettingsModifier((settings) => ({ ...settings, location: wrapConstraint(relayLocation) }));
+      const settings = await relaySettingsModifier((settings) => ({
+        ...settings,
+        location: wrapConstraint(relayLocation),
+      }));
       history.pop();
       await onSelectLocation({ normal: settings });
       await connectTunnel();
@@ -42,23 +45,29 @@ export function useOnSelectEntryLocation() {
   const { setLocationType } = useSelectLocationContext();
   const relaySettingsModifier = useRelaySettingsModifier();
 
-  const onSelectRelay = useCallback(async (entryLocation: RelayLocation) => {
-    setLocationType(LocationType.exit);
-    const settings = await relaySettingsModifier((settings) => {
-      settings.wireguardConstraints.entryLocation = wrapConstraint(entryLocation);
-      return settings;
-    });
-    await onSelectLocation({ normal: settings });
-  }, [relaySettingsModifier]);
+  const onSelectRelay = useCallback(
+    async (entryLocation: RelayLocation) => {
+      setLocationType(LocationType.exit);
+      const settings = await relaySettingsModifier((settings) => {
+        settings.wireguardConstraints.entryLocation = wrapConstraint(entryLocation);
+        return settings;
+      });
+      await onSelectLocation({ normal: settings });
+    },
+    [relaySettingsModifier],
+  );
 
-  const onSelectSpecial = useCallback(async (_location: 'any') => {
-    setLocationType(LocationType.exit);
-    const settings = await relaySettingsModifier((settings) => {
-      settings.wireguardConstraints.entryLocation = 'any';
-      return settings;
-    });
-    await onSelectLocation({ normal: settings });
-  }, [relaySettingsModifier]);
+  const onSelectSpecial = useCallback(
+    async (_location: 'any') => {
+      setLocationType(LocationType.exit);
+      const settings = await relaySettingsModifier((settings) => {
+        settings.wireguardConstraints.entryLocation = 'any';
+        return settings;
+      });
+      await onSelectLocation({ normal: settings });
+    },
+    [relaySettingsModifier],
+  );
 
   return [onSelectRelay, onSelectSpecial] as const;
 }

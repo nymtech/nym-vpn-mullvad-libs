@@ -14,6 +14,7 @@ import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { removeNonNumericCharacters } from '../../shared/string-helpers';
 import { useAppContext } from '../context';
+import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { useBoolean } from '../lib/utilityHooks';
 import { useSelector } from '../redux/store';
@@ -33,7 +34,6 @@ import {
   TitleBarItem,
 } from './NavigationBar';
 import SettingsHeader, { HeaderTitle } from './SettingsHeader';
-import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 
 const MIN_WIREGUARD_MTU_VALUE = 1280;
 const MAX_WIREGUARD_MTU_VALUE = 1420;

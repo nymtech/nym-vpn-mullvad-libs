@@ -1,10 +1,19 @@
 import { useCallback } from 'react';
-import { IOpenVpnConstraints, IRelaySettingsNormal, IWireguardConstraints, Ownership, wrapConstraint } from '../../shared/daemon-rpc-types';
+
+import {
+  IOpenVpnConstraints,
+  IRelaySettingsNormal,
+  IWireguardConstraints,
+  Ownership,
+  wrapConstraint,
+} from '../../shared/daemon-rpc-types';
+import { useAppContext } from '../context';
 import { NormalRelaySettingsRedux } from '../redux/settings/reducers';
 import { useNormalRelaySettings } from './utilityHooks';
-import { useAppContext } from '../context';
 
-export function wrapRelaySettingsOrDefault(relaySettings?: NormalRelaySettingsRedux): IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints> {
+export function wrapRelaySettingsOrDefault(
+  relaySettings?: NormalRelaySettingsRedux,
+): IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints> {
   if (relaySettings) {
     const openvpnPort = wrapConstraint(relaySettings.openvpn.port);
     const openvpnProtocol = wrapConstraint(relaySettings.openvpn.protocol);
@@ -53,18 +62,32 @@ export function wrapRelaySettingsOrDefault(relaySettings?: NormalRelaySettingsRe
 export function useRelaySettingsModifier() {
   const relaySettings = useNormalRelaySettings();
 
-  return useCallback((fn: (settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => {
-    const settings = wrapRelaySettingsOrDefault(relaySettings);
-    return fn(settings);
-  }, [relaySettings]);
+  return useCallback(
+    (
+      fn: (
+        settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
+      ) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
+    ) => {
+      const settings = wrapRelaySettingsOrDefault(relaySettings);
+      return fn(settings);
+    },
+    [relaySettings],
+  );
 }
 
 export function useRelaySettingsUpdater() {
   const { updateRelaySettings } = useAppContext();
   const modifyRelaySettings = useRelaySettingsModifier();
 
-  return useCallback((fn: (settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => {
-    const modifiedSettings = modifyRelaySettings(fn);
-    updateRelaySettings({ normal: modifiedSettings });
-  }, [updateRelaySettings, modifyRelaySettings]);
+  return useCallback(
+    async (
+      fn: (
+        settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
+      ) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>,
+    ) => {
+      const modifiedSettings = modifyRelaySettings(fn);
+      await updateRelaySettings({ normal: modifiedSettings });
+    },
+    [updateRelaySettings, modifyRelaySettings],
+  );
 }
