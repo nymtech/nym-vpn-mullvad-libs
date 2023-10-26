@@ -8,7 +8,6 @@ import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { removeNonNumericCharacters } from '../../shared/string-helpers';
 import { useAppContext } from '../context';
-import { toRawNormalRelaySettings } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { formatHtml } from '../lib/html-formatter';
 import { useBoolean } from '../lib/utilityHooks';
@@ -28,6 +27,7 @@ import {
   TitleBarItem,
 } from './NavigationBar';
 import SettingsHeader, { HeaderTitle } from './SettingsHeader';
+import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 
 const MIN_MSSFIX_VALUE = 1000;
 const MAX_MSSFIX_VALUE = 1450;
@@ -178,23 +178,24 @@ function TransportProtocolSelector() {
 
 function useProtocolAndPortUpdater() {
   const { updateRelaySettings } = useAppContext();
-  const relaySettings = useSelector((state) => state.settings.relaySettings);
+  const relaySettingsUpdater = useRelaySettingsUpdater();
 
   const updater = useCallback(
     async (protocol: RelayProtocol | null, port?: number | null) => {
-      const settings = toRawNormalRelaySettings(relaySettings);
-      settings.openvpnConstraints.protocol = wrapConstraint(protocol);
-      if (port) {
-        settings.openvpnConstraints.port = wrapConstraint(port);
-      }
       try {
-        await updateRelaySettings({ normal: settings });
+        await relaySettingsUpdater((settings) => {
+          settings.openvpnConstraints.protocol = wrapConstraint(protocol);
+          if (port) {
+            settings.openvpnConstraints.port = wrapConstraint(port);
+          }
+          return settings;
+        });
       } catch (e) {
         const error = e as Error;
         log.error('Failed to update relay settings', error.message);
       }
     },
-    [updateRelaySettings, relaySettings],
+    [updateRelaySettings],
   );
 
   return updater;

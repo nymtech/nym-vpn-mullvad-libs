@@ -1,19 +1,22 @@
+import { useCallback } from 'react';
 import { IOpenVpnConstraints, IRelaySettingsNormal, IWireguardConstraints, Ownership, wrapConstraint } from '../../shared/daemon-rpc-types';
-import { RelaySettingsRedux } from '../redux/settings/reducers';
+import { NormalRelaySettingsRedux } from '../redux/settings/reducers';
+import { useNormalRelaySettings } from './utilityHooks';
+import { useAppContext } from '../context';
 
-export function toRawNormalRelaySettings(relaySettings: RelaySettingsRedux): IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints> {
-  if ('normal' in relaySettings) {
-    const openvpnPort = wrapConstraint(relaySettings.normal.openvpn.port);
-    const openvpnProtocol = wrapConstraint(relaySettings.normal.openvpn.protocol);
-    const wgPort = wrapConstraint(relaySettings.normal.wireguard.port);
-    const wgIpVersion = wrapConstraint(relaySettings.normal.wireguard.ipVersion);
-    const wgEntryLocation = wrapConstraint(relaySettings.normal.wireguard.entryLocation);
-    const location = wrapConstraint(relaySettings.normal.location);
-    const tunnelProtocol = wrapConstraint(relaySettings.normal.tunnelProtocol);
+export function wrapRelaySettingsOrDefault(relaySettings?: NormalRelaySettingsRedux): IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints> {
+  if (relaySettings) {
+    const openvpnPort = wrapConstraint(relaySettings.openvpn.port);
+    const openvpnProtocol = wrapConstraint(relaySettings.openvpn.protocol);
+    const wgPort = wrapConstraint(relaySettings.wireguard.port);
+    const wgIpVersion = wrapConstraint(relaySettings.wireguard.ipVersion);
+    const wgEntryLocation = wrapConstraint(relaySettings.wireguard.entryLocation);
+    const location = wrapConstraint(relaySettings.location);
+    const tunnelProtocol = wrapConstraint(relaySettings.tunnelProtocol);
 
     return {
-      providers: [...relaySettings.normal.providers],
-      ownership: relaySettings.normal.ownership,
+      providers: [...relaySettings.providers],
+      ownership: relaySettings.ownership,
       tunnelProtocol,
       openvpnConstraints: {
         port: openvpnPort,
@@ -22,7 +25,7 @@ export function toRawNormalRelaySettings(relaySettings: RelaySettingsRedux): IRe
       wireguardConstraints: {
         port: wgPort,
         ipVersion: wgIpVersion,
-        useMultihop: relaySettings.normal.wireguard.useMultihop,
+        useMultihop: relaySettings.wireguard.useMultihop,
         entryLocation: wgEntryLocation,
       },
       location,
@@ -45,4 +48,23 @@ export function toRawNormalRelaySettings(relaySettings: RelaySettingsRedux): IRe
       entryLocation: 'any',
     },
   };
+}
+
+export function useRelaySettingsModifier() {
+  const relaySettings = useNormalRelaySettings();
+
+  return useCallback((fn: (settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => {
+    const settings = wrapRelaySettingsOrDefault(relaySettings);
+    return fn(settings);
+  }, [relaySettings]);
+}
+
+export function useRelaySettingsUpdater() {
+  const { updateRelaySettings } = useAppContext();
+  const modifyRelaySettings = useRelaySettingsModifier();
+
+  return useCallback((fn: (settings: IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints>) => {
+    const modifiedSettings = modifyRelaySettings(fn);
+    updateRelaySettings({ normal: modifiedSettings });
+  }, [updateRelaySettings, modifyRelaySettings]);
 }

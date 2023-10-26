@@ -14,7 +14,6 @@ import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { removeNonNumericCharacters } from '../../shared/string-helpers';
 import { useAppContext } from '../context';
-import { toRawNormalRelaySettings } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { useBoolean } from '../lib/utilityHooks';
 import { useSelector } from '../redux/store';
@@ -34,6 +33,7 @@ import {
   TitleBarItem,
 } from './NavigationBar';
 import SettingsHeader, { HeaderTitle } from './SettingsHeader';
+import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 
 const MIN_WIREGUARD_MTU_VALUE = 1280;
 const MAX_WIREGUARD_MTU_VALUE = 1420;
@@ -133,7 +133,7 @@ export default function WireguardSettings() {
 
 function PortSelector() {
   const relaySettings = useSelector((state) => state.settings.relaySettings);
-  const { updateRelaySettings } = useAppContext();
+  const relaySettingsUpdater = useRelaySettingsUpdater();
   const allowedPortRanges = useSelector((state) => state.settings.wireguardEndpointData.portRanges);
 
   const wireguardPortItems = useMemo<Array<SelectorItem<number>>>(
@@ -148,16 +148,17 @@ function PortSelector() {
 
   const setWireguardPort = useCallback(
     async (port: number | null) => {
-      const settings = toRawNormalRelaySettings(relaySettings);
-      settings.wireguardConstraints.port = wrapConstraint(port);
       try {
-        await updateRelaySettings({ normal: settings });
+        await relaySettingsUpdater((settings) => {
+          settings.wireguardConstraints.port = wrapConstraint(port);
+          return settings;
+        });
       } catch (e) {
         const error = e as Error;
         log.error('Failed to update relay settings', error.message);
       }
     },
-    [relaySettings],
+    [relaySettingsUpdater],
   );
 
   const parseValue = useCallback((port: string) => parseInt(port), []);
@@ -318,6 +319,7 @@ function Udp2tcpPortSetting() {
 
 function MultihopSetting() {
   const relaySettings = useSelector((state) => state.settings.relaySettings);
+  const relaySettingsUpdater = useRelaySettingsUpdater();
   const { updateRelaySettings } = useAppContext();
 
   const multihop = 'normal' in relaySettings ? relaySettings.normal.wireguard.useMultihop : false;
@@ -326,16 +328,17 @@ function MultihopSetting() {
 
   const setMultihopImpl = useCallback(
     async (enabled: boolean) => {
-      const settings = toRawNormalRelaySettings(relaySettings);
-      settings.wireguardConstraints.useMultihop = enabled;
       try {
-        await updateRelaySettings({ normal: settings });
+        await relaySettingsUpdater((settings) => {
+          settings.wireguardConstraints.useMultihop = enabled;
+          return settings;
+        });
       } catch (e) {
         const error = e as Error;
         log.error('Failed to update WireGuard multihop settings', error.message);
       }
     },
-    [relaySettings, updateRelaySettings],
+    [updateRelaySettings],
   );
 
   const setMultihop = useCallback(
@@ -409,7 +412,7 @@ function MultihopSetting() {
 }
 
 function IpVersionSetting() {
-  const { updateRelaySettings } = useAppContext();
+  const relaySettingsUpdater = useRelaySettingsUpdater();
   const relaySettings = useSelector((state) => state.settings.relaySettings);
   const ipVersion = useMemo(() => {
     const ipVersion = 'normal' in relaySettings ? relaySettings.normal.wireguard.ipVersion : 'any';
@@ -432,16 +435,17 @@ function IpVersionSetting() {
 
   const setIpVersion = useCallback(
     async (ipVersion: IpVersion | null) => {
-      const settings = toRawNormalRelaySettings(relaySettings);
-      settings.wireguardConstraints.ipVersion = wrapConstraint(ipVersion);
       try {
-        await updateRelaySettings({ normal: settings });
+        await relaySettingsUpdater((settings) => {
+          settings.wireguardConstraints.ipVersion = wrapConstraint(ipVersion);
+          return settings;
+        });
       } catch (e) {
         const error = e as Error;
         log.error('Failed to update relay settings', error.message);
       }
     },
-    [relaySettings, updateRelaySettings],
+    [relaySettingsUpdater],
   );
 
   return (

@@ -4,8 +4,6 @@ import { sprintf } from 'sprintf-js';
 import { colors } from '../../../config.json';
 import { Ownership } from '../../../shared/daemon-rpc-types';
 import { messages } from '../../../shared/gettext';
-import { useAppContext } from '../../context';
-import { toRawNormalRelaySettings } from '../../lib/constraint-updater';
 import { filterSpecialLocations } from '../../lib/filter-locations';
 import { useHistory } from '../../lib/history';
 import { formatHtml } from '../../lib/html-formatter';
@@ -55,10 +53,11 @@ import {
   StyledSearchBar,
 } from './SelectLocationStyles';
 import { SpacePreAllocationView } from './SpacePreAllocationView';
+import { useRelaySettingsUpdater } from '../../lib/constraint-updater';
 
 export default function SelectLocation() {
   const history = useHistory();
-  const { updateRelaySettings } = useAppContext();
+  const relaySettingsUpdater = useRelaySettingsUpdater();
   const {
     saveScrollPosition,
     resetScrollPositions,
@@ -87,20 +86,16 @@ export default function SelectLocation() {
   const onClearProviders = useCallback(async () => {
     resetScrollPositions();
     if (relaySettings) {
-      const newSettings = toRawNormalRelaySettings({ normal: relaySettings });
-      newSettings.providers = [];
-      await updateRelaySettings({ normal: newSettings });
+      await relaySettingsUpdater((settings) => ({ ...settings, providers: [] }));
     }
-  }, [updateRelaySettings, resetScrollPositions, relaySettings]);
+  }, [relaySettingsUpdater, resetScrollPositions, relaySettings]);
 
   const onClearOwnership = useCallback(async () => {
     resetScrollPositions();
     if (relaySettings) {
-      const newSettings = toRawNormalRelaySettings({ normal: relaySettings });
-      newSettings.ownership = Ownership.any;
-      await updateRelaySettings({ normal: newSettings });
+      await relaySettingsUpdater((settings) => ({ ...settings, ownership: Ownership.any }));
     }
-  }, [updateRelaySettings, resetScrollPositions, relaySettings]);
+  }, [relaySettingsUpdater, resetScrollPositions, relaySettings]);
 
   const changeLocationType = useCallback(
     (locationType: LocationType) => {

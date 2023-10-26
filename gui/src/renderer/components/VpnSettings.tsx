@@ -7,7 +7,6 @@ import { IDnsOptions, TunnelProtocol, wrapConstraint } from '../../shared/daemon
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { useAppContext } from '../context';
-import { toRawNormalRelaySettings } from '../lib/constraint-updater';
 import { useHistory } from '../lib/history';
 import { formatHtml } from '../lib/html-formatter';
 import { RoutePath } from '../lib/routes';
@@ -31,6 +30,7 @@ import {
   TitleBarItem,
 } from './NavigationBar';
 import SettingsHeader, { HeaderTitle } from './SettingsHeader';
+import { useRelaySettingsUpdater } from '../lib/constraint-updater';
 
 const StyledContent = styled.div({
   display: 'flex',
@@ -663,19 +663,16 @@ function TunnelProtocolSetting() {
   const tunnelProtocol = useSelector((state) =>
     mapRelaySettingsToProtocol(state.settings.relaySettings),
   );
-  const relaySettings = useSelector((state) => state.settings.relaySettings);
-  const { updateRelaySettings } = useAppContext();
+  const relaySettingsUpdater = useRelaySettingsUpdater();
 
   const setTunnelProtocol = useCallback(async (tunnelProtocol: TunnelProtocol | null) => {
-    const settings = toRawNormalRelaySettings(relaySettings);
-    settings.tunnelProtocol = wrapConstraint(tunnelProtocol);
     try {
-      await updateRelaySettings({ normal: settings });
+      await relaySettingsUpdater((settings) => ({ ...settings, tunnelProtocol: wrapConstraint(tunnelProtocol) }));
     } catch (e) {
       const error = e as Error;
       log.error('Failed to update tunnel protocol constraints', error.message);
     }
-  }, [relaySettings]);
+  }, []);
 
   const tunnelProtocolItems: Array<SelectorItem<TunnelProtocol>> = useMemo(
     () => [
