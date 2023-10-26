@@ -3,7 +3,7 @@ import { sprintf } from 'sprintf-js';
 import styled from 'styled-components';
 
 import { strings } from '../../config.json';
-import { BridgeState, RelayProtocol, TunnelProtocol } from '../../shared/daemon-rpc-types';
+import { BridgeState, RelayProtocol, TunnelProtocol, wrapConstraint } from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { removeNonNumericCharacters } from '../../shared/string-helpers';
@@ -183,8 +183,10 @@ function useProtocolAndPortUpdater() {
   const updater = useCallback(
     async (protocol: RelayProtocol | null, port?: number | null) => {
       const settings = toRawNormalRelaySettings(relaySettings);
-      settings.openvpnConstraints.protocol = protocol ? { only: protocol } : 'any';
-      settings.openvpnConstraints.port = port ? { only: port } : 'any';
+      settings.openvpnConstraints.protocol = wrapConstraint(protocol);
+      if (port) {
+        settings.openvpnConstraints.port = wrapConstraint(port);
+      }
       try {
         await updateRelaySettings({ normal: settings });
       } catch (e) {

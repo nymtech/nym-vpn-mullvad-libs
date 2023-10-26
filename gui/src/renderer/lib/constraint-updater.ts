@@ -1,9 +1,7 @@
-import { Constraint, IOpenVpnConstraints, IRelaySettingsNormal, IWireguardConstraints, Ownership } from '../../shared/daemon-rpc-types';
+import { IOpenVpnConstraints, IRelaySettingsNormal, IWireguardConstraints, Ownership, wrapConstraint } from '../../shared/daemon-rpc-types';
 import { RelaySettingsRedux } from '../redux/settings/reducers';
 
 export function toRawNormalRelaySettings(relaySettings: RelaySettingsRedux): IRelaySettingsNormal<IOpenVpnConstraints, IWireguardConstraints> {
-  // This is terrible
-
   if ('normal' in relaySettings) {
     const openvpnPort = wrapConstraint(relaySettings.normal.openvpn.port);
     const openvpnProtocol = wrapConstraint(relaySettings.normal.openvpn.protocol);
@@ -14,7 +12,7 @@ export function toRawNormalRelaySettings(relaySettings: RelaySettingsRedux): IRe
     const tunnelProtocol = wrapConstraint(relaySettings.normal.tunnelProtocol);
 
     return {
-      providers: relaySettings.normal.providers,
+      providers: [...relaySettings.normal.providers],
       ownership: relaySettings.normal.ownership,
       tunnelProtocol,
       openvpnConstraints: {
@@ -47,8 +45,4 @@ export function toRawNormalRelaySettings(relaySettings: RelaySettingsRedux): IRe
       entryLocation: 'any',
     },
   };
-}
-
-function wrapConstraint<T>(constraint: T | 'any'): Constraint<T> {
-  return (constraint == 'any') ? 'any' : { only: constraint };
 }

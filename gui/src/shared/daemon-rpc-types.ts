@@ -112,6 +112,12 @@ export type LiftedConstraint<T> = 'any' | T;
 export function liftConstraint<T>(constraint: Constraint<T>): LiftedConstraint<T> {
   return constraint === 'any' ? constraint : constraint.only;
 }
+export function wrapConstraint<T extends {}>(constraint: LiftedConstraint<T> | undefined | null): Constraint<T> {
+  if (constraint) {
+    return constraint === 'any' ? 'any' : { only: constraint };
+  }
+  return 'any';
+}
 
 export type ProxyType = 'shadowsocks' | 'custom';
 export function proxyTypeToString(proxy: ProxyType): string {

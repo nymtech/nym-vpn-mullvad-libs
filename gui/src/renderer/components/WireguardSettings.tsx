@@ -8,6 +8,7 @@ import {
   liftConstraint,
   LiftedConstraint,
   ObfuscationType,
+  wrapConstraint,
 } from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
@@ -148,7 +149,7 @@ function PortSelector() {
   const setWireguardPort = useCallback(
     async (port: number | null) => {
       const settings = toRawNormalRelaySettings(relaySettings);
-      settings.wireguardConstraints.port = port ? { only: port } : 'any';
+      settings.wireguardConstraints.port = wrapConstraint(port);
       try {
         await updateRelaySettings({ normal: settings });
       } catch (e) {
@@ -281,7 +282,7 @@ function Udp2tcpPortSetting() {
         ...obfuscationSettings,
         udp2tcpSettings: {
           ...obfuscationSettings.udp2tcpSettings,
-          port: port === 'any' ? 'any' : { only: port },
+          port: wrapConstraint(port),
         },
       });
     },
@@ -432,7 +433,7 @@ function IpVersionSetting() {
   const setIpVersion = useCallback(
     async (ipVersion: IpVersion | null) => {
       const settings = toRawNormalRelaySettings(relaySettings);
-      settings.wireguardConstraints.ipVersion = ipVersion ? { only: ipVersion } : 'any';
+      settings.wireguardConstraints.ipVersion = wrapConstraint(ipVersion);
       try {
         await updateRelaySettings({ normal: settings });
       } catch (e) {

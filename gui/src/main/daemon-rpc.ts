@@ -64,6 +64,7 @@ import {
   TunnelState,
   TunnelType,
   VoucherResponse,
+  wrapConstraint,
 } from '../shared/daemon-rpc-types';
 import log from '../shared/logging';
 import { ManagementServiceClient } from './management_interface/management_interface_grpc_pb';
@@ -1110,7 +1111,7 @@ function convertFromRelaySettings(
       case grpcTypes.RelaySettings.EndpointCase.NORMAL: {
         const normal = relaySettings.getNormal()!;
         const locationConstraint = convertFromLocationConstraint(normal.getLocation());
-        const location = locationConstraint ? { only: locationConstraint } : 'any';
+        const location = wrapConstraint(locationConstraint);
         // `getTunnelType()` is not falsy if type is 'any'
         const tunnelProtocol = convertFromTunnelTypeConstraint(
           normal.hasTunnelType() ? normal.getTunnelType() : undefined,
@@ -1146,7 +1147,7 @@ function convertFromBridgeSettings(bridgeSettings: grpcTypes.BridgeSettings): Br
     const locationConstraint = convertFromLocationConstraint(
       bridgeSettings.getNormal()?.getLocation(),
     );
-    const location = locationConstraint ? { only: locationConstraint } : 'any';
+    const location = wrapConstraint(locationConstraint);
     const providers = normalSettings.providersList;
     const ownership = convertFromOwnership(normalSettings.ownership);
     return {
@@ -1437,7 +1438,7 @@ function convertFromWireguardConstraints(
   const entryLocation = constraints.getEntryLocation();
   if (entryLocation) {
     const location = convertFromLocationConstraint(entryLocation);
-    result.entryLocation = location ? { only: location } : 'any';
+    result.entryLocation = wrapConstraint(location);
   }
 
   return result;

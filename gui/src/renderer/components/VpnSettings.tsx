@@ -3,7 +3,7 @@ import { sprintf } from 'sprintf-js';
 import styled from 'styled-components';
 
 import { colors, strings } from '../../config.json';
-import { IDnsOptions, TunnelProtocol } from '../../shared/daemon-rpc-types';
+import { IDnsOptions, TunnelProtocol, wrapConstraint } from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import log from '../../shared/logging';
 import { useAppContext } from '../context';
@@ -668,7 +668,7 @@ function TunnelProtocolSetting() {
 
   const setTunnelProtocol = useCallback(async (tunnelProtocol: TunnelProtocol | null) => {
     const settings = toRawNormalRelaySettings(relaySettings);
-    settings.tunnelProtocol = tunnelProtocol ? { only: tunnelProtocol } : 'any';
+    settings.tunnelProtocol = wrapConstraint(tunnelProtocol);
     try {
       await updateRelaySettings({ normal: settings });
     } catch (e) {
