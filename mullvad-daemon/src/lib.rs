@@ -64,7 +64,7 @@ use std::{
     mem,
     path::PathBuf,
     pin::Pin,
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, Weak},
     time::Duration,
 };
 #[cfg(any(target_os = "linux", windows))]
@@ -594,7 +594,7 @@ pub struct Daemon<L: EventListener> {
     account_history: account_history::AccountHistory,
     device_checker: device::TunnelStateChangeHandler,
     account_manager: device::AccountManagerHandle,
-    connection_modes: Arc<Mutex<api::ConnectionModesIterator>>,
+    access_method_handler: mullvad_api::ConnectionModeActorHandle,
     api_runtime: mullvad_api::Runtime,
     api_handle: mullvad_api::rest::MullvadRestHandle,
     version_updater_handle: version_check::VersionUpdaterHandle,
@@ -640,8 +640,6 @@ where
         let api_availability = api_runtime.availability_handle();
         api_availability.suspend();
 
-        let endpoint_updater = api::ApiEndpointUpdaterHandle::new();
-
         let migration_data = migrations::migrate_all(&cache_dir, &settings_dir)
             .await
             .unwrap_or_else(|error| {
@@ -657,24 +655,29 @@ where
         let initial_selector_config = new_selector_config(&settings);
         let relay_selector = RelaySelector::new(initial_selector_config, &resource_dir, &cache_dir);
 
-        let proxy_provider = api::ApiConnectionModeProvider::new(
-            cache_dir.clone(),
-            relay_selector.clone(),
-            settings
+        // TODO(markus): Actually supply arguments to this actor
+        let access_methods = settings
                 .api_access_methods
                 .access_method_settings
                 .iter()
                 // We only care about the access methods which are set to 'enabled' by the user.
                 .filter(|api_access_method| api_access_method.enabled())
                 .cloned()
-                .collect(),
+                .collect();
+        let connection_mode_provider = Box::new(api::ConnectionModesIterator::new(access_methods));
+        let access_method_handler = mullvad_api::ConnectionModeActor::new(
+            connection_mode_provider, // cache_dir.clone(),
         );
 
-        let connection_modes = proxy_provider.handle();
-
         let api_handle = api_runtime
-            .mullvad_rest_handle(proxy_provider, endpoint_updater.callback())
+            .mullvad_rest_handle(access_method_handler.handle())
             .await;
+
+        let mut endpoint_updater = api::ApiEndpointUpdateListener::new(
+            access_method_handler.handle(),
+            relay_selector.clone(),
+        );
+        log::info!("successfully created a new api runtime handle!");
 
         let migration_complete = if let Some(migration_data) = migration_data {
             migrations::migrate_device(
@@ -766,8 +769,10 @@ where
         .await
         .map_err(Error::TunnelError)?;
 
-        endpoint_updater
-            .set_tunnel_command_tx(Arc::downgrade(tunnel_state_machine_handle.command_tx()));
+        // TODO(markus): Can this be a sync function?
+        let _ = endpoint_updater
+            .set_tunnel_command_tx(tunnel_state_machine_handle.command_tx().as_ref().clone())
+            .await;
 
         api::forward_offline_state(api_availability.clone(), offline_state_rx);
 
@@ -811,7 +816,7 @@ where
             account_history,
             device_checker: device::TunnelStateChangeHandler::new(account_manager.clone()),
             account_manager,
-            connection_modes,
+            access_method_handler,
             api_runtime,
             api_handle,
             version_updater_handle,
@@ -1095,7 +1100,7 @@ where
             }
             RemoveApiAccessMethod(tx, method) => self.on_remove_api_access_method(tx, method).await,
             UpdateApiAccessMethod(tx, method) => self.on_update_api_access_method(tx, method).await,
-            GetCurrentAccessMethod(tx) => self.on_get_current_api_access_method(tx),
+            GetCurrentAccessMethod(tx) => self.on_get_current_api_access_method(tx).await,
             SetApiAccessMethod(tx, method) => self.on_set_api_access_method(tx, method).await,
             TestApiAccessMethod(tx, method) => self.on_test_api_access_method(tx, method).await,
             IsPerformingPostUpgrade(tx) => self.on_is_performing_post_upgrade(tx),
@@ -2333,9 +2338,14 @@ where
         Self::oneshot_send(tx, result, "update_api_access_method response");
     }
 
-    fn on_get_current_api_access_method(&mut self, tx: ResponseTx<AccessMethodSetting, Error>) {
+    async fn on_get_current_api_access_method(
+        &mut self,
+        tx: ResponseTx<AccessMethodSetting, Error>,
+    ) {
+        println!("[`on_get_current_api_access_method_method`] Calling daemon fn `get_current_access_method`");
         let result = self
             .get_current_access_method()
+            .await
             .map_err(Error::AccessMethodError);
         Self::oneshot_send(tx, result, "get_current_api_access_method response");
     }
@@ -2352,31 +2362,37 @@ where
         tx: ResponseTx<(), Error>,
         access_method: mullvad_types::access_method::Id,
     ) {
+        let access_method: AccessMethodSetting = self.get_api_access_method(access_method).unwrap();
+        let mut access_method_manager_handle = self.access_method_handler.clone();
+        let api_handle = self.api_handle.clone();
         // NOTE: Preferably we would block all new API calls until the test is
         // done and the previous access method is reset. Otherwise we run the
         // risk of errounously triggering a rotation of the currently in-use
         // access method.
-        let result = async {
+        tokio::spawn(async move {
             // Setup test
-            let previous_access_method = self
-                .get_current_access_method()
-                .map_err(Error::AccessMethodError)?;
-
-            self.set_api_access_method(access_method)
+            let previous_access_method = access_method_manager_handle
+                .get_access_method()
                 .await
-                .map_err(Error::AccessMethodError)?;
+                .unwrap();
+
+            access_method_manager_handle
+                .set_access_method(access_method)
+                .await
+                .unwrap();
             // Perform test
             //
             // Send a HEAD request to some Mullvad API endpoint. We issue a HEAD
             // request because we are *only* concerned with if we get a reply from
             // the API, and not with the actual data that the endpoint returns.
-            let result = mullvad_api::ApiProxy::new(self.api_handle.clone())
+            let result = mullvad_api::ApiProxy::new(api_handle)
                 .api_addrs_available()
                 .await
                 .map_err(Error::RestError);
 
             // Reset test
-            self.set_api_access_method(previous_access_method.get_id())
+            access_method_manager_handle
+                .set_access_method(previous_access_method)
                 .await
                 .map_err(|err| {
                     log::error!(
@@ -2384,13 +2400,14 @@ where
             method after API reachability test was carried out. This should only
             happen if the previous access method was removed in the meantime."
                     );
-                    Error::AccessMethodError(err)
-                })?;
+                    // TODO(markus): Should there be an appropriate error here, or is it okay to just unwrap?
+                    // Error::AccessMethodError(err)
+                    err
+                })
+                .unwrap();
 
-            result
-        };
-
-        Self::oneshot_send(tx, result.await, "on_test_api_access_method response");
+            Self::oneshot_send(tx, result, "on_test_api_access_method response");
+        });
     }
 
     fn on_get_settings(&self, tx: oneshot::Sender<Settings>) {

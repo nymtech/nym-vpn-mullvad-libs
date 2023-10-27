@@ -1,3 +1,5 @@
+// TODO(markus): Remove this
+#![allow(dead_code, unreachable_code, unused)]
 use clap::Parser;
 use mullvad_api::{self, proxy::ApiConnectionMode, DEVICE_NOT_FOUND};
 use mullvad_management_interface::MullvadProxyClient;
@@ -159,13 +161,15 @@ async fn remove_device() -> Result<(), Error> {
             .await
             .map_err(Error::RpcInitializationError)?;
 
+        let connection_mode_handle: mullvad_api::ConnectionModeActorHandle =
+            todo!("Try from cache");
         let proxy = mullvad_api::DevicesProxy::new(
             api_runtime
                 .mullvad_rest_handle(
-                    ApiConnectionMode::try_from_cache(&cache_path)
-                        .await
-                        .into_repeat(),
-                    |_| async { true },
+                    connection_mode_handle, // ApiConnectionMode::try_from_cache(&cache_path),
+                                            //     .await
+                                            //     .into_repeat(),
+                                            // |_| async { true },
                 )
                 .await,
         );

@@ -1,3 +1,5 @@
+// TODO(markus): Remove this
+#![allow(dead_code, unreachable_code, unused)]
 #![deny(rust_2018_idioms)]
 
 use mullvad_api::proxy::ApiConnectionMode;
@@ -301,13 +303,15 @@ async fn send_problem_report_inner(
     .await
     .map_err(Error::CreateRpcClientError)?;
 
+    let connection_mode_handle: mullvad_api::ConnectionModeActorHandle = todo!();
     let api_client = mullvad_api::ProblemReportProxy::new(
         api_runtime
             .mullvad_rest_handle(
-                ApiConnectionMode::try_from_cache(cache_dir)
-                    .await
-                    .into_repeat(),
-                |_| async { true },
+                connection_mode_handle,
+                // ApiConnectionMode::try_from_cache(cache_dir)
+                //     .await
+                //     .into_repeat(),
+                // |_| async { true },
             )
             .await,
     );

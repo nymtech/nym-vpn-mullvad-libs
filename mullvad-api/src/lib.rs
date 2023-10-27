@@ -1,17 +1,11 @@
 #![deny(rust_2018_idioms)]
-
 use chrono::{offset::Utc, DateTime};
-#[cfg(target_os = "android")]
-use futures::channel::mpsc;
-use futures::Stream;
-use hyper::Method;
 #[cfg(target_os = "android")]
 use mullvad_types::account::{PlayPurchase, PlayPurchasePaymentToken};
 use mullvad_types::{
     account::{AccountToken, VoucherSubmission},
     version::AppVersion,
 };
-use proxy::ApiConnectionMode;
 use std::sync::OnceLock;
 use std::{
     cell::Cell,
@@ -25,12 +19,15 @@ use talpid_types::{net::AllowedEndpoint, ErrorExt};
 
 pub mod availability;
 use availability::{ApiAvailability, ApiAvailabilityHandle};
+pub mod connection_mode;
+pub use connection_mode::{ConnectionModeActor, ConnectionModeActorHandle};
 pub mod rest;
 
 mod abortable_stream;
 mod https_client_with_sni;
 pub mod proxy;
 mod tls_stream;
+use crate::connection_mode::DirectConnectionModeRepeater;
 #[cfg(target_os = "android")]
 pub use crate::https_client_with_sni::SocketBypassRequest;
 
@@ -217,6 +214,9 @@ pub enum Error {
 
     #[error(display = "API availability check failed")]
     ApiCheckError(#[error(source)] availability::Error),
+
+    #[error(display = "Connection mode interaction failed")]
+    ConnectionModeError(#[error(source)] connection_mode::Error),
 }
 
 /// Closure that receives the next API (real or proxy) endpoint to use for `api.mullvad.net`.
@@ -304,19 +304,17 @@ impl Runtime {
     }
 
     /// Creates a new request service and returns a handle to it.
-    async fn new_request_service<T: Stream<Item = ApiConnectionMode> + Unpin + Send + 'static>(
+    async fn new_request_service(
         &self,
         sni_hostname: Option<String>,
-        proxy_provider: T,
-        new_address_callback: impl ApiEndpointUpdateCallback + Send + Sync + 'static,
+        connection_mode_handle: ConnectionModeActorHandle,
         #[cfg(target_os = "android")] socket_bypass_tx: Option<mpsc::Sender<SocketBypassRequest>>,
     ) -> rest::RequestServiceHandle {
         rest::RequestService::spawn(
             sni_hostname,
             self.api_availability.handle(),
             self.address_cache.clone(),
-            proxy_provider,
-            new_address_callback,
+            connection_mode_handle,
             #[cfg(target_os = "android")]
             socket_bypass_tx,
         )
@@ -324,18 +322,14 @@ impl Runtime {
     }
 
     /// Returns a request factory initialized to create requests for the master API
-    pub async fn mullvad_rest_handle<
-        T: Stream<Item = ApiConnectionMode> + Unpin + Send + 'static,
-    >(
+    pub async fn mullvad_rest_handle(
         &self,
-        proxy_provider: T,
-        new_address_callback: impl ApiEndpointUpdateCallback + Send + Sync + 'static,
+        connection_mode_handle: ConnectionModeActorHandle,
     ) -> rest::MullvadRestHandle {
         let service = self
             .new_request_service(
                 Some(API.host.clone()),
-                proxy_provider,
-                new_address_callback,
+                connection_mode_handle,
                 #[cfg(target_os = "android")]
                 self.socket_bypass_tx.clone(),
             )
@@ -353,10 +347,12 @@ impl Runtime {
 
     /// Returns a new request service handle
     pub async fn rest_handle(&mut self) -> rest::RequestServiceHandle {
+        let direct_repeater = Box::new(DirectConnectionModeRepeater::new());
+        let connection_mode_handle: ConnectionModeActorHandle =
+            ConnectionModeActor::new(direct_repeater);
         self.new_request_service(
             None,
-            ApiConnectionMode::Direct.into_repeat(),
-            |_| async { true },
+            connection_mode_handle,
             #[cfg(target_os = "android")]
             None,
         )
@@ -586,11 +582,10 @@ impl AppVersionProxy {
         platform: &str,
         platform_version: String,
     ) -> impl Future<Output = Result<AppVersionResponse, rest::Error>> {
-        let service = self.handle.service.clone();
-
         let path = format!("{APP_URL_PREFIX}/releases/{platform}/{app_version}");
-        let request = self.handle.factory.request(&path, Method::GET);
+        let request = self.handle.factory.get(&path);
 
+        let service = self.handle.service.clone();
         async move {
             let request = request?
                 .expected_status(&[StatusCode::OK])
@@ -623,21 +618,11 @@ impl ApiProxy {
 
     /// Check the availablility of `{APP_URL_PREFIX}/api-addrs`.
     pub async fn api_addrs_available(&self) -> Result<(), rest::Error> {
-        let service = self.handle.service.clone();
-
-        rest::send_request(
-            &self.handle.factory,
-            service,
-            &format!("{APP_URL_PREFIX}/api-addrs"),
-            Method::HEAD,
-            None,
-            &[StatusCode::OK],
-        )
-        .await?;
-
-        // NOTE: A HEAD request should *not* have a body:
-        // https://developer.mozilla.org/en-US/docs/web/http/methods/head
-        // I.e., no need to deserialize the result.
-        Ok(())
+        let request = self
+            .handle
+            .factory
+            .head(&format!("{APP_URL_PREFIX}/api-addrs"))?
+            .expected_status(&[StatusCode::OK]);
+        self.handle.service.request(request).await.map(|_| ())
     }
 }

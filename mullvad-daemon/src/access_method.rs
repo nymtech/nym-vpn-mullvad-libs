@@ -7,39 +7,33 @@ use mullvad_types::{
     settings::Settings,
 };
 
-#[derive(err_derive::Error, Debug)]
-pub enum Error {
-    /// Can not add access method
-    #[error(display = "Cannot add custom access method")]
-    Add,
-    /// Can not remove built-in access method
-    #[error(display = "Cannot remove built-in access method")]
-    RemoveBuiltIn,
-    /// Can not find access method
-    #[error(display = "Cannot find custom access method {}", _0)]
-    NoSuchMethod(access_method::Id),
-    /// Can not find *any* access method. This should never happen. If it does,
-    /// the user should do a factory reset.
-    #[error(display = "No access methods are configured")]
-    NoMethodsExist,
-    /// Access method could not be rotate
-    #[error(display = "Access method could not be rotated")]
-    RotationError,
-    /// Access methods settings error
-    #[error(display = "Settings error")]
-    Settings(#[error(source)] settings::Error),
-}
-
 /// A tiny datastructure used for signaling whether the daemon should force a
 /// rotation of the currently used [`AccessMethodSetting`] or not, and if so:
 /// how it should do it.
-pub enum Command {
+enum InternalCommand {
     /// There is no need to force a rotation of [`AccessMethodSetting`]
     Nothing,
     /// Select the next available [`AccessMethodSetting`], whichever that is
     Rotate,
     /// Select the [`AccessMethodSetting`] with a certain [`access_method::Id`]
     Set(access_method::Id),
+}
+
+#[derive(err_derive::Error, Debug)]
+pub enum Error {
+    /// Can not remove built-in access method
+    #[error(display = "Cannot remove built-in access method")]
+    RemoveBuiltIn,
+    /// Can not find access method
+    #[error(display = "Cannot find custom access method {}", _0)]
+    NoSuchMethod(access_method::Id),
+    /// TODO(markus): Check spelling/error message
+    /// [`ConnectionModeActor`] error
+    #[error(display = "ConnectionModeActor error")]
+    ConnectionMode(#[error(source)] mullvad_api::connection_mode::Error),
+    /// Access methods settings error
+    #[error(display = "Settings error")]
+    Settings(#[error(source)] settings::Error),
 }
 
 impl<L> Daemon<L>
@@ -81,13 +75,15 @@ where
             Some(api_access_method) => {
                 if api_access_method.is_builtin() {
                     Err(Error::RemoveBuiltIn)
-                } else if api_access_method.get_id() == self.get_current_access_method()?.get_id() {
-                    Ok(Command::Rotate)
+                } else if api_access_method.get_id()
+                    == self.get_current_access_method().await?.get_id()
+                {
+                    Ok(InternalCommand::Rotate)
                 } else {
-                    Ok(Command::Nothing)
+                    Ok(InternalCommand::Nothing)
                 }
             }
-            None => Ok(Command::Nothing),
+            None => Ok(InternalCommand::Nothing),
         }?;
 
         self.settings
@@ -108,20 +104,26 @@ where
         &mut self,
         access_method: access_method::Id,
     ) -> Result<(), Error> {
-        let access_method = self
-            .settings
+        // Get the desired [`AccessMethodSetting`] from the daemon's settings state
+        let access_method = self.get_api_access_method(access_method)?;
+        // Tell the [`AccessMethodHandler`] actor to update the currently active [`ApiAccessMethod`].
+        // This will cause a rotation.
+        self.access_method_handler
+            .clone()
+            .set_access_method(access_method)
+            .await?;
+        Ok(())
+    }
+
+    pub fn get_api_access_method(
+        &mut self,
+        access_method: access_method::Id,
+    ) -> Result<AccessMethodSetting, Error> {
+        self.settings
             .api_access_methods
             .find(&access_method)
-            .ok_or(Error::NoSuchMethod(access_method))?;
-        {
-            let mut connection_modes = self.connection_modes.lock().unwrap();
-            connection_modes.set_access_method(access_method.clone());
-        }
-        // Force a rotation of Access Methods.
-        //
-        // This is not a call to `process_command` due to the restrictions on
-        // recursively calling async functions.
-        self.force_api_endpoint_rotation().await
+            .cloned()
+            .ok_or(Error::NoSuchMethod(access_method))
     }
 
     /// "Updates" an [`AccessMethodSetting`] by replacing the existing entry
@@ -135,8 +137,8 @@ where
         &mut self,
         access_method_update: AccessMethodSetting,
     ) -> Result<(), Error> {
-        let current = self.get_current_access_method()?;
-        let mut command = Command::Nothing;
+        let current = self.get_current_access_method().await?;
+        let mut command = InternalCommand::Nothing;
         let settings_update = |settings: &mut Settings| {
             if let Some(access_method) = settings
                 .api_access_methods
@@ -144,7 +146,7 @@ where
             {
                 *access_method = access_method_update;
                 if access_method.get_id() == current.get_id() {
-                    command = Command::Set(access_method.get_id())
+                    command = InternalCommand::Set(access_method.get_id())
                 }
             }
         };
@@ -160,22 +162,21 @@ where
 
     /// Return the [`AccessMethodSetting`] which is currently used to access the
     /// Mullvad API.
-    pub fn get_current_access_method(&self) -> Result<AccessMethodSetting, Error> {
-        let connections_modes = self.connection_modes.lock().unwrap();
-        Ok(connections_modes.peek())
+    pub async fn get_current_access_method(&self) -> Result<AccessMethodSetting, Error> {
+        println!("[`get_current_access_method`] Sending `Message::GetCurrent`");
+        let current_access_method = self
+            .access_method_handler
+            .clone()
+            .get_access_method()
+            .await?;
+        Ok(current_access_method)
     }
 
     /// Change which [`AccessMethodSetting`] which will be used to figure out
     /// the Mullvad API endpoint.
     async fn force_api_endpoint_rotation(&self) -> Result<(), Error> {
-        self.api_handle
-            .service()
-            .next_api_endpoint()
-            .await
-            .map_err(|error| {
-                log::error!("Failed to rotate API endpoint: {}", error);
-                Error::RotationError
-            })
+        self.access_method_handler.rotate_access_method().await?;
+        Ok(())
     }
 
     /// If settings were changed due to an update, notify all listeners.
@@ -184,26 +185,29 @@ where
             self.event_listener
                 .notify_settings(self.settings.to_settings());
 
-            let mut connection_modes = self.connection_modes.lock().unwrap();
-            connection_modes.update_access_methods(
-                self.settings
-                    .api_access_methods
-                    .access_method_settings
-                    .iter()
-                    .filter(|api_access_method| api_access_method.enabled())
-                    .cloned()
-                    .collect(),
-            )
+            let new_methods: Vec<_> = self
+                .settings
+                .api_access_methods
+                .access_method_settings
+                .iter()
+                .filter(|api_access_method| api_access_method.enabled())
+                .cloned()
+                .collect();
+
+            // TODO(markus): Actually update the actor with new state!
+            // let _ = self
+            //     .access_method_handler
+            //     .update_access_methods(new_methods);
         };
         self
     }
 
     /// The semantics of the [`Command`] datastructure.
-    async fn process_command(&mut self, command: Command) -> Result<(), Error> {
+    async fn process_command(&mut self, command: InternalCommand) -> Result<(), Error> {
         match command {
-            Command::Nothing => Ok(()),
-            Command::Rotate => self.force_api_endpoint_rotation().await,
-            Command::Set(id) => self.set_api_access_method(id).await,
+            InternalCommand::Nothing => Ok(()),
+            InternalCommand::Rotate => self.force_api_endpoint_rotation().await,
+            InternalCommand::Set(id) => self.set_api_access_method(id).await,
         }
     }
 }

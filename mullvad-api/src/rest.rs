@@ -4,13 +4,12 @@ use crate::{
     access::AccessTokenStore,
     address_cache::AddressCache,
     availability::ApiAvailabilityHandle,
+    connection_mode::ConnectionModeActorHandle,
     https_client_with_sni::{HttpsConnectorWithSni, HttpsConnectorWithSniHandle},
-    proxy::ApiConnectionMode,
 };
 use futures::{
     channel::{mpsc, oneshot},
     stream::StreamExt,
-    Stream,
 };
 use hyper::{
     client::{connect::Connect, Client},
@@ -24,10 +23,7 @@ use std::{
     sync::{Arc, Weak},
     time::Duration,
 };
-use talpid_types::{
-    net::{AllowedEndpoint, Endpoint, TransportProtocol},
-    ErrorExt,
-};
+use talpid_types::ErrorExt;
 
 #[cfg(feature = "api-override")]
 use crate::API;
@@ -123,36 +119,25 @@ impl Error {
     }
 }
 
-use super::ApiEndpointUpdateCallback;
-
 /// A service that executes HTTP requests, allowing for on-demand termination of all in-flight
 /// requests
-pub(crate) struct RequestService<
-    T: Stream<Item = ApiConnectionMode>,
-    F: ApiEndpointUpdateCallback + Send,
-> {
+pub(crate) struct RequestService {
     command_tx: Weak<mpsc::UnboundedSender<RequestCommand>>,
     command_rx: mpsc::UnboundedReceiver<RequestCommand>,
     connector_handle: HttpsConnectorWithSniHandle,
     client: hyper::Client<HttpsConnectorWithSni, hyper::Body>,
-    proxy_config_provider: T,
-    new_address_callback: F,
+    connection_mode_handle: ConnectionModeActorHandle,
     address_cache: AddressCache,
     api_availability: ApiAvailabilityHandle,
 }
 
-impl<
-        T: Stream<Item = ApiConnectionMode> + Unpin + Send + 'static,
-        F: ApiEndpointUpdateCallback + Send + Sync + 'static,
-    > RequestService<T, F>
-{
+impl RequestService {
     /// Constructs a new request service.
     pub async fn spawn(
         sni_hostname: Option<String>,
         api_availability: ApiAvailabilityHandle,
         address_cache: AddressCache,
-        mut proxy_config_provider: T,
-        new_address_callback: F,
+        connection_mode_handle: ConnectionModeActorHandle,
         #[cfg(target_os = "android")] socket_bypass_tx: Option<mpsc::Sender<SocketBypassRequest>>,
     ) -> RequestServiceHandle {
         let (connector, connector_handle) = HttpsConnectorWithSni::new(
@@ -162,16 +147,18 @@ impl<
             socket_bypass_tx.clone(),
         );
 
-        #[cfg(feature = "api-override")]
-        let force_direct_connection = API.force_direct_connection;
-        #[cfg(not(feature = "api-override"))]
-        let force_direct_connection = false;
+        // #[cfg(feature = "api-override")]
+        // let force_direct_connection = API.force_direct_connection;
+        // #[cfg(not(feature = "api-override"))]
+        // let force_direct_connection = false;
 
-        if force_direct_connection {
-            log::debug!("API proxies are disabled");
-        } else if let Some(config) = proxy_config_provider.next().await {
-            connector_handle.set_connection_mode(config);
-        }
+        // log::info!("Getting next proxy config");
+        // if force_direct_connection {
+        //     log::debug!("API proxies are disabled");
+        // } else if let Some(config) = proxy_config_provider.next().await {
+        //     connector_handle.set_connection_mode(config);
+        // }
+        // log::info!("Done getting next proxy config!");
 
         let (command_tx, command_rx) = mpsc::unbounded();
         let client = Client::builder().build(connector);
@@ -183,8 +170,7 @@ impl<
             command_rx,
             connector_handle,
             client,
-            proxy_config_provider,
-            new_address_callback,
+            connection_mode_handle,
             address_cache,
             api_availability,
         };
@@ -209,21 +195,20 @@ impl<
                     return;
                 }
 
-                if let Some(new_config) = self.proxy_config_provider.next().await {
-                    let endpoint = match new_config.get_endpoint() {
-                        Some(endpoint) => endpoint,
-                        None => Endpoint::from_socket_address(
-                            self.address_cache.get_address().await,
-                            TransportProtocol::Tcp,
-                        ),
-                    };
-                    let clients = new_config.allowed_clients();
-                    let allowed_endpoint = AllowedEndpoint { endpoint, clients };
-                    // Switch to new connection mode unless rejected by address change callback
-                    if (self.new_address_callback)(allowed_endpoint).await {
-                        self.connector_handle.set_connection_mode(new_config);
-                    }
-                }
+                log::info!("Forcing the single-source-of-truth to rotate access method !1");
+                let _ = self.connection_mode_handle.rotate_access_method().await;
+
+                // TODO(markus):
+                // if let Some(new_config) = self.proxy_config_provider.next().await {
+                //     let endpoint = match new_config.get_endpoint() {
+                //         Some(endpoint) => endpoint,
+                //         None => self.address_cache.get_address().await,
+                //     };
+                //     // Switch to new connection mode unless rejected by address change callback
+                //     if (self.new_address_callback)(endpoint).await {
+                //         self.connector_handle.set_connection_mode(new_config);
+                //     }
+                // }
 
                 let _ = completion_tx.send(Ok(()));
             }
@@ -259,6 +244,7 @@ impl<
     }
 
     async fn into_future(mut self) {
+        // TODO(markus): Here we should have a `select!` invocation for either `self.command_rx.next()` or `ApiConnectionMode` subscribtion
         while let Some(command) = self.command_rx.next().await {
             self.process_command(command).await;
         }
@@ -522,6 +508,10 @@ impl RequestFactory {
 
     pub fn delete(&self, path: &str) -> Result<Request> {
         self.request(path, Method::DELETE)
+    }
+
+    pub fn head(&self, path: &str) -> Result<Request> {
+        self.request(path, Method::HEAD)
     }
 
     pub fn post_json<S: serde::Serialize>(&self, path: &str, body: &S) -> Result<Request> {
