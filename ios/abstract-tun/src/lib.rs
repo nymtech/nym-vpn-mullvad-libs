@@ -6,50 +6,37 @@ use std::{
 };
 
 use boringtun::noise::{errors::WireGuardError, Tunn, TunnResult};
+use ios::{data::SwiftDataArray, IOOutput};
 
 // #[cfg(target_os = "ios")]
 pub mod ios;
 #[cfg(all(unix, not(target_os = "ios")))]
 pub mod unix;
 
-pub struct WgInstance<S, T> {
+pub struct WgInstance {
     peers: Vec<Peer>,
-    udp_transport: S,
-    tunnel_transport: T,
     send_buf: Box<[u8; u16::MAX as usize]>,
 }
 
-impl<S, T> WgInstance<S, T> {
-    pub fn new(config: Config, udp_transport: S, tunnel_transport: T) -> Self {
+impl WgInstance {
+    pub fn new(config: Config) -> Self {
         let peers = config.create_peers();
 
         Self {
             peers,
-            udp_transport,
-            tunnel_transport,
             send_buf: new_send_buf(),
         }
     }
-
-    pub fn tunnel_transport(&mut self) -> &mut T {
-        &mut self.tunnel_transport
-    }
-
-    pub fn udp_transport(&mut self) -> &mut S {
-        &mut self.udp_transport
-    }
 }
 
-impl<S: UdpTransport, T> WgInstance<S, T> {
-    pub fn handle_host_traffic(&mut self, packet: &[u8]) {
+impl WgInstance {
+    pub fn handle_host_traffic(&mut self, packet: &[u8], output: &mut IoBuffer) {
         // best not to store u16::MAX bytes on the stack if we want to run on iOS
         let mut send_buf = vec![0u8; 2400];
 
         match self.peers[0].tun.encapsulate(packet, &mut send_buf) {
             TunnResult::WriteToNetwork(buf) => {
-                if let Err(err) = self.udp_transport.send_packet(self.peers[0].endpoint, buf) {
-                    log::error!("Failed to send UDP packet: {err}");
-                }
+                output.send_udp(self.peers[0].endpoint, buf);
             }
             TunnResult::Err(e) => {
                 log::error!("Failed to encapsulate IP packet: {e:?}");
@@ -62,13 +49,13 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
         std::mem::drop(send_buf);
     }
 
-    pub fn handle_timer_tick(&mut self) {
+    pub fn handle_timer_tick(&mut self, output: &mut IoBuffer) {
         let mut send_buf = new_send_buf();
         let tun_result = self.peers[0].tun.update_timers(send_buf.as_mut_slice());
-        self.inner_handle_timer_tick(tun_result);
+        self.inner_handle_timer_tick(tun_result, output);
     }
 
-    fn inner_handle_timer_tick<'a>(&mut self, first_result: TunnResult<'a>) {
+    fn inner_handle_timer_tick<'a>(&mut self, first_result: TunnResult<'a>, output: &mut IoBuffer) {
         let mut send_buf;
         let mut current_result;
         current_result = first_result;
@@ -88,9 +75,7 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
                 }
 
                 TunnResult::WriteToNetwork(packet) => {
-                    let _ = self
-                        .udp_transport
-                        .send_packet(self.peers[0].endpoint, packet);
+                    output.send_udp(self.peers[0].endpoint, packet);
                     break;
                 }
 
@@ -106,40 +91,30 @@ impl<S: UdpTransport, T> WgInstance<S, T> {
     }
 }
 
-impl<S: UdpTransport, T: TunnelTransport> WgInstance<S, T> {
-    pub fn handle_tunnel_traffic(&mut self, packet: &[u8]) {
+impl WgInstance {
+    pub fn handle_tunnel_traffic(&mut self, packet: &[u8], output: &mut IoBuffer) {
         match self.peers[0]
             .tun
             .decapsulate(None, packet, self.send_buf.as_mut_slice())
         {
             TunnResult::WriteToNetwork(data) => {
-                if let Err(err) = self.udp_transport.send_packet(self.peers[0].endpoint, data) {
-                    log::error!("Failed to send packet to peer {err}");
-                }
+                output.send_udp(self.peers[0].endpoint, data);
 
                 match self.peers[0]
                     .tun
                     .decapsulate(None, &[], self.send_buf.as_mut_slice())
                 {
                     TunnResult::WriteToNetwork(data) => {
-                        if let Err(err) =
-                            self.udp_transport.send_packet(self.peers[0].endpoint, data)
-                        {
-                            log::error!("Failed to send packet to peer {err}");
-                        }
+                        output.send_udp(self.peers[0].endpoint, data)
                     }
                     _ => {}
                 }
             }
             TunnResult::WriteToTunnelV4(clear_packet, _addr) => {
-                if let Err(err) = self.tunnel_transport.send_v4_packet(clear_packet) {
-                    log::error!("Failed to send packet to tunnel interface: {err}");
-                }
+                output.tun_v4_output.append(clear_packet);
             }
             TunnResult::WriteToTunnelV6(clear_packet, _addr) => {
-                if let Err(err) = self.tunnel_transport.send_v6_packet(clear_packet) {
-                    log::error!("Failed to send packet to tunnel interface: {err}");
-                }
+                output.tun_v6_output.append(clear_packet);
             }
             anything_else => {
                 log::error!("Unexpected WireGuard result: {anything_else:?}");
@@ -189,17 +164,42 @@ pub struct PeerConfig {
     pub pub_key: [u8; 32],
 }
 
-pub trait UdpTransport {
-    /// This method should return immediately
-    fn send_packet(&mut self, addr: SocketAddr, buffer: &[u8]) -> io::Result<()>;
-    // /// Should return immediately
-    // fn receive_packet(&self, addr: IpAddr, buffer: &[u8]) -> io::Result<()>;
+pub struct IoBuffer {
+    udp_v4_output: SwiftDataArray,
+    udp_v6_output: SwiftDataArray,
+    tun_v4_output: SwiftDataArray,
+    tun_v6_output: SwiftDataArray,
 }
 
-pub trait TunnelTransport {
-    fn send_v4_packet(&mut self, buffer: &[u8]) -> io::Result<()>;
-    fn send_v6_packet(&mut self, buffer: &[u8]) -> io::Result<()>;
+impl IoBuffer {
+    pub fn new() -> Self {
+        Self {
+            udp_v4_output: SwiftDataArray::new(),
+            udp_v6_output: SwiftDataArray::new(),
+            tun_v4_output: SwiftDataArray::new(),
+            tun_v6_output: SwiftDataArray::new(),
+        }
+    }
+
+    pub fn send_udp(&mut self, addr: SocketAddr, buffer: &[u8]) {
+        match addr.ip() {
+            IpAddr::V4(_) => self.udp_v4_output.append(buffer),
+            IpAddr::V6(_) => self.udp_v6_output.append(buffer),
+        }
+    }
+
+    /// Effectively leaks buffers, whoever consumes IOOutput must release it's memory
+    pub fn to_output(self) -> IOOutput {
+        IOOutput {
+            udp_v4_output: self.udp_v4_output.into_raw(),
+            udp_v6_output: self.udp_v6_output.into_raw(),
+            tun_v4_output: self.tun_v4_output.into_raw(),
+            tun_v6_output: self.tun_v6_output.into_raw(),
+        }
+    }
 }
+
+impl IoBuffer {}
 
 #[async_trait::async_trait]
 pub trait AsyncUdpTransport {

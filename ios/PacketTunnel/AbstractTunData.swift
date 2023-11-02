@@ -44,7 +44,8 @@ class DataArray {
 
 @_cdecl("swift_data_array_create")
 func dataArrayCreate() -> UnsafeMutableRawPointer {
-    return DataArray([]).toRaw()
+    let data = DataArray([])
+    return data.toRaw()
 }
 
 @_cdecl("swift_data_array_append")
@@ -61,7 +62,10 @@ func dataArrayDrop(ptr: UnsafeRawPointer) {
 }
 
 @_cdecl("swift_data_array_len")
-func dataArrayLen(ptr: UnsafeMutableRawPointer) -> UInt64 {
+func dataArrayLen(ptr: UnsafeMutableRawPointer?) -> UInt64 {
+    guard let ptr else {
+        return 0
+    }
     let arr = DataArray.fromRawPtrUnretained(ptr)
     return arr.len()
 }
