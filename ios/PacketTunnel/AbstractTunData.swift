@@ -112,7 +112,10 @@ extension IOOutput {
     }
     
     private func extractData(ptr: UnsafeMutableRawPointer) -> [Data] {
-        return DataArray.fromRawPtr(ptr).arr
+        let alignedPtr = ptr;
+        let dataArray = DataArray.fromRawPtr(alignedPtr)
+        let arr = dataArray.arr
+        return arr
     }
     
 }

@@ -1,7 +1,7 @@
 use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-    sync::Once,
+    sync::Once, mem,
 };
 
 use crate::{Config, PeerConfig, TunnelTransport, UdpTransport, WgInstance};
@@ -9,11 +9,6 @@ use crate::{Config, PeerConfig, TunnelTransport, UdpTransport, WgInstance};
 pub mod data;
 use data::SwiftDataArray;
 mod udp_session;
-
-use std::alloc::System;
-
-#[global_allocator]
-static A: System = System;
 
 const INIT_LOGGING: Once = Once::new();
 
@@ -26,13 +21,13 @@ impl IOSTun {
         let v4_buffer = self.wg.udp_transport().drain_v4_buffer();
         let v6_buffer = self.wg.udp_transport().drain_v6_buffer();
         let host_v4_buffer = self.wg.tunnel_transport().drain_v4_buffer();
+        let host_v6_buffer = self.wg.tunnel_transport().drain_v6_buffer();
 
         IOOutput {
             udp_v4_output: v4_buffer.into_raw(),
             udp_v6_output: v6_buffer.into_raw(),
             tun_v4_output: host_v4_buffer.into_raw(),
-            // TODO: drain v6
-            tun_v6_output: std::ptr::null_mut(),
+            tun_v6_output: host_v6_buffer.into_raw(),
         }
     }
 }
@@ -79,13 +74,11 @@ impl IOSUdpSender {
     }
 
     pub fn drain_v4_buffer(&mut self) -> SwiftDataArray {
-        let new_buf = SwiftDataArray::new();
-        std::mem::replace(&mut self.v4_buffer, new_buf)
+        self.v4_buffer.drain()
     }
 
     pub fn drain_v6_buffer(&mut self) -> SwiftDataArray {
-        let new_buf = SwiftDataArray::new();
-        std::mem::replace(&mut self.v6_buffer, new_buf)
+        self.v6_buffer.drain()
     }
 }
 
@@ -118,13 +111,11 @@ impl IOSTunWriter {
     }
 
     pub fn drain_v4_buffer(&mut self) -> SwiftDataArray {
-        let new_buf = SwiftDataArray::new();
-        std::mem::replace(&mut self.v4_buffer, new_buf)
+        self.v4_buffer.drain()
     }
 
     pub fn drain_v6_buffer(&mut self) -> SwiftDataArray {
-        let new_buf = SwiftDataArray::new();
-        std::mem::replace(&mut self.v6_buffer, new_buf)
+        self.v6_buffer.drain()
     }
 }
 
@@ -190,6 +181,7 @@ pub struct IOOutput {
     tun_v4_output: *mut libc::c_void,
     tun_v6_output: *mut libc::c_void,
 }
+
 
 #[no_mangle]
 pub extern "C" fn abstract_tun_handle_host_traffic(

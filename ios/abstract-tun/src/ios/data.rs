@@ -7,13 +7,20 @@ pub struct SwiftDataArray {
 
 impl SwiftDataArray {
     pub unsafe fn from_ptr(array_ptr: *mut libc::c_void) -> SwiftDataArray {
-        unsafe { Self { array_ptr } }
+        Self { array_ptr }
     }
 
     pub fn new() -> Self {
         Self {
             array_ptr: unsafe { swift_data_array_create() },
         }
+    }
+
+    pub fn drain(&mut self) -> Self {
+        let old_ptr = self.array_ptr;
+        self.array_ptr = unsafe { swift_data_array_create() };
+
+        Self { array_ptr: old_ptr }
     }
 
     pub fn len(&self) -> usize {
@@ -85,7 +92,6 @@ extern "C" {
     fn swift_data_array_drop(swift_data_ptr: *mut libc::c_void);
     fn swift_data_array_get(swift_data_array_ptr: *mut libc::c_void, idx: usize) -> SwiftData;
     fn swift_data_array_len(swift_data_array_ptr: *mut libc::c_void) -> usize;
-    fn owned_swift_data_create(size: usize) -> *mut libc::c_void;
 }
 
 pub struct SwiftDataWrapper<'a> {
@@ -105,13 +111,6 @@ struct SwiftData {
     ptr: *mut u8,
     len: usize,
 }
-
-#[repr(C)]
-struct OwnedSwiftData {
-    ptr: *mut libc::c_void,
-}
-
-pub struct StandaloneSwiftData {}
 
 #[no_mangle]
 pub extern "C" fn swift_data_array_test() -> *mut libc::c_void {
