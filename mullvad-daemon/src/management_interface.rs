@@ -9,7 +9,6 @@ use mullvad_management_interface::{
     Code, Request, Response, Status,
 };
 use mullvad_paths;
-#[cfg(not(target_os = "android"))]
 use mullvad_types::settings::DnsOptions;
 use mullvad_types::{
     account::AccountToken,
@@ -924,6 +923,7 @@ impl ManagementInterfaceServer {
         tunnel_tx: DaemonCommandSender,
     ) -> Result<(String, ManagementInterfaceEventBroadcaster), Error> {
         let subscriptions = Arc::<Mutex<Vec<EventsListenerSender>>>::default();
+        log::warn!("ManagementInterfaceService start");
 
         let socket_path = mullvad_paths::get_rpc_socket_path()
             .to_string_lossy()

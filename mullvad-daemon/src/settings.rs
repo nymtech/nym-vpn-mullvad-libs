@@ -28,7 +28,6 @@ pub enum Error {
     ParseError(#[error(source)] serde_json::Error),
 
     #[error(display = "Unable to remove settings file {}", _0)]
-    #[cfg(not(target_os = "android"))]
     DeleteError(String, #[error(source)] io::Error),
 
     #[error(display = "Unable to serialize settings to JSON")]
