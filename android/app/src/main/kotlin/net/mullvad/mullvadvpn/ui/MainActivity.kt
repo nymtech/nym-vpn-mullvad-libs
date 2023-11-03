@@ -18,7 +18,6 @@ import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -34,6 +33,7 @@ import net.mullvad.mullvadvpn.lib.endpoint.ApiEndpointConfiguration
 import net.mullvad.mullvadvpn.lib.endpoint.getApiEndpointConfigurationExtras
 import net.mullvad.mullvadvpn.lib.theme.AppTheme
 import net.mullvad.mullvadvpn.model.AccountExpiry
+import net.mullvad.mullvadvpn.model.AccountState
 import net.mullvad.mullvadvpn.model.DeviceState
 import net.mullvad.mullvadvpn.repository.AccountRepository
 import net.mullvad.mullvadvpn.repository.DeviceRepository
@@ -48,8 +48,6 @@ import net.mullvad.mullvadvpn.ui.fragment.PrivacyDisclaimerFragment
 import net.mullvad.mullvadvpn.ui.fragment.SettingsFragment
 import net.mullvad.mullvadvpn.ui.fragment.WelcomeFragment
 import net.mullvad.mullvadvpn.ui.serviceconnection.ServiceConnectionManager
-import net.mullvad.mullvadvpn.util.UNKNOWN_STATE_DEBOUNCE_DELAY_MILLISECONDS
-import net.mullvad.mullvadvpn.util.addDebounceForUnknownState
 import net.mullvad.mullvadvpn.viewmodel.ChangelogDialogUiState
 import net.mullvad.mullvadvpn.viewmodel.ChangelogViewModel
 import org.koin.android.ext.android.getKoin
@@ -175,28 +173,18 @@ open class MainActivity : FragmentActivity() {
     private fun launchDeviceStateHandler(): Job {
         return lifecycleScope.launch {
             launch {
-                deviceRepository.deviceState
-                    .debounce {
-                        // Debounce DeviceState.Unknown to delay view transitions during reconnect.
-                        it.addDebounceForUnknownState(UNKNOWN_STATE_DEBOUNCE_DELAY_MILLISECONDS)
+                accountRepository.accountState.collect { newState ->
+                    when (newState) {
+                        is AccountState.LoggedIn ->
+                            openLoggedInView(
+                                accountToken = newState.accountToken,
+                                shouldDelayLogin = currentDeviceState is DeviceState.LoggedOut
+                            )
+                        AccountState.LoggedOut -> openLoginView()
+                        AccountState.Revoked -> openRevokedView()
+                        AccountState.Unrecognized -> openLaunchView()
                     }
-                    .collect { newState ->
-                        if (newState != currentDeviceState)
-                            when (newState) {
-                                is DeviceState.Initial,
-                                is DeviceState.Unknown -> openLaunchView()
-                                is DeviceState.LoggedOut -> openLoginView()
-                                is DeviceState.Revoked -> openRevokedView()
-                                is DeviceState.LoggedIn -> {
-                                    openLoggedInView(
-                                        accountToken = newState.accountAndDevice.account_token,
-                                        shouldDelayLogin =
-                                            currentDeviceState is DeviceState.LoggedOut
-                                    )
-                                }
-                            }
-                        currentDeviceState = newState
-                    }
+                }
             }
 
             lifecycleScope.launch {
@@ -276,8 +264,8 @@ open class MainActivity : FragmentActivity() {
 
     private suspend fun isExpired(timeoutMillis: Long): Boolean {
         return withTimeoutOrNull(timeoutMillis) {
-            accountRepository.accountExpiryState
-                .onSubscription { accountRepository.fetchAccountExpiry() }
+            accountRepository.accountExpiry
+                .onSubscription { accountRepository.getAccountExpiry() }
                 .filter { it is AccountExpiry.Available }
                 .map { it.date()?.isBeforeNow }
                 .first()

@@ -27,7 +27,7 @@ class AccountViewModel(
     val uiSideEffect = _uiSideEffect.asSharedFlow()
 
     val uiState =
-        combine(deviceRepository.deviceState, accountRepository.accountExpiryState) {
+        combine(deviceRepository.deviceState, accountRepository.accountExpiry) {
                 deviceState,
                 accountExpiry ->
                 AccountUiState(
@@ -42,7 +42,7 @@ class AccountViewModel(
     val enterTransitionEndAction = _enterTransitionEndAction.asSharedFlow()
 
     init {
-        accountRepository.fetchAccountExpiry()
+        viewModelScope.launch { accountRepository.getAccountExpiry() }
     }
 
     fun onManageAccountClick() {
@@ -56,7 +56,7 @@ class AccountViewModel(
     }
 
     fun onLogoutClick() {
-        accountRepository.logout()
+        viewModelScope.launch { accountRepository.logout() }
     }
 
     fun onTransitionAnimationEnd() {

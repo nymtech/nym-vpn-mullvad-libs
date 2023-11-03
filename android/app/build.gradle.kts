@@ -290,6 +290,7 @@ configurations.all {
 }
 
 dependencies {
+    implementation(project(Dependencies.Mullvad.daemonGrpc))
     implementation(project(Dependencies.Mullvad.vpnService))
     implementation(project(Dependencies.Mullvad.tileService))
 

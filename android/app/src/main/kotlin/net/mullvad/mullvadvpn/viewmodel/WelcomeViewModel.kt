@@ -68,7 +68,7 @@ class WelcomeViewModel(
 
     init {
         viewModelScope.launch {
-            accountRepository.accountExpiryState.collectLatest { accountExpiry ->
+            accountRepository.accountExpiry.collectLatest { accountExpiry ->
                 accountExpiry.date()?.let { expiry ->
                     val tomorrow = DateTime.now().plusHours(20)
 
@@ -80,7 +80,7 @@ class WelcomeViewModel(
         }
         viewModelScope.launch {
             while (pollAccountExpiry) {
-                accountRepository.fetchAccountExpiry()
+                accountRepository.getAccountExpiry()
                 delay(ACCOUNT_EXPIRY_POLL_INTERVAL)
             }
         }

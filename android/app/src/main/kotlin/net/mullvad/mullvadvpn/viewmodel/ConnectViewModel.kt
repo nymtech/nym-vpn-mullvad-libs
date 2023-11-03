@@ -75,7 +75,7 @@ class ConnectViewModel(
                     inAppNotificationController.notifications,
                     serviceConnection.connectionProxy.tunnelUiStateFlow(),
                     serviceConnection.connectionProxy.tunnelRealStateFlow(),
-                    accountRepository.accountExpiryState,
+                    accountRepository.accountExpiry,
                     _isTunnelInfoExpanded,
                     deviceRepository.deviceState.map { it.deviceName() }
                 ) {
