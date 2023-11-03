@@ -174,3 +174,17 @@ pub extern "C" fn test_vec(_idx: i64) {
     // }
     // std::mem::drop(vec);
 }
+
+#[no_mangle]
+pub extern "C" fn test_mallocsing() -> IOOutput {
+    let mut output_buffer = IoBuffer::new();
+    for _ in 0..1024 {
+        let mut buf = [0u8; 1500];
+        for (idx, i) in buf.iter_mut().enumerate() {
+            *i = i.wrapping_add(idx as u8);
+        }
+        output_buffer.tun_v4_output.append(buf.as_slice());
+    }
+
+    output_buffer.to_output()
+}
