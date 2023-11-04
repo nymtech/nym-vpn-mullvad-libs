@@ -4,10 +4,14 @@ pub mod types;
 #[cfg(unix)]
 use std::{env, os::unix::fs::PermissionsExt};
 use std::{future::Future, io, path::Path};
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
+#[cfg(unix)]
 use tokio::{
     fs,
     net::{UnixListener, UnixStream},
 };
+#[cfg(unix)]
 use tokio_stream::wrappers::UnixListenerStream;
 use tonic::transport::{Endpoint, Server, Uri};
 use tower::service_fn;
@@ -131,7 +135,7 @@ pub async fn spawn_rpc_server<T: ManagementService, F: Future<Output = ()> + Sen
 ) -> std::result::Result<ServerJoinHandle, Error> {
     let socket_path = mullvad_paths::get_rpc_socket_path();
 
-    let clients = uds_server_socket(&socket_path).await?;
+    let clients = server_transport(&socket_path).await?;
 
     Ok(tokio::spawn(async move {
         let result = Server::builder()
@@ -149,7 +153,7 @@ pub async fn spawn_rpc_server<T: ManagementService, F: Future<Output = ()> + Sen
 }
 
 #[cfg(unix)]
-async fn uds_server_socket(socket_path: &Path) -> Result<UnixListenerStream, Error> {
+async fn server_transport(socket_path: &Path) -> Result<UnixListenerStream, Error> {
     let clients =
         UnixListenerStream::new(UnixListener::bind(socket_path).map_err(Error::StartServerError)?);
 
@@ -167,4 +171,16 @@ async fn uds_server_socket(socket_path: &Path) -> Result<UnixListenerStream, Err
         .map_err(Error::PermissionsError)?;
 
     Ok(clients)
+}
+
+#[cfg(windows)]
+async fn server_transport(socket_path: &Path) -> Result<NamedPipeServer, Error> {
+    // FIXME: allow everyone access
+    ServerOptions::new()
+        .reject_remote_clients(true)
+        .first_pipe_instance(true)
+        .access_inbound(true)
+        .access_outbound(true)
+        .create(socket_path)
+        .map_err(Error::StartServerError)
 }
