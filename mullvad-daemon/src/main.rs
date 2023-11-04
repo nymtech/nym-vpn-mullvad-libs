@@ -191,7 +191,7 @@ async fn create_daemon(
         .map_err(|e| e.display_chain_with_msg("Unable to get cache dir"))?;
 
     let command_channel = DaemonCommandChannel::new();
-    let event_listener = spawn_management_interface(command_channel.sender())?;
+    let event_listener = spawn_management_interface(command_channel.sender()).await?;
 
     Daemon::start(
         log_dir,
@@ -205,13 +205,14 @@ async fn create_daemon(
     .map_err(|e| e.display_chain_with_msg("Unable to initialize daemon"))
 }
 
-fn spawn_management_interface(
+async fn spawn_management_interface(
     command_sender: DaemonCommandSender,
 ) -> Result<ManagementInterfaceEventBroadcaster, String> {
     let (socket_path, event_broadcaster) = ManagementInterfaceServer::start(command_sender)
+        .await
         .map_err(|error| {
-            error.display_chain_with_msg("Unable to start management interface server")
-        })?;
+        error.display_chain_with_msg("Unable to start management interface server")
+    })?;
 
     log::info!("Management interface listening on {}", socket_path);
 

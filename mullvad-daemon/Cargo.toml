@@ -24,7 +24,7 @@ regex = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { workspace = true, features =  ["fs", "io-util", "rt-multi-thread", "sync", "time"] }
-tokio-stream = "0.1"
+tokio-stream = { workspace = true }
 
 mullvad-relay-selector = { path = "../mullvad-relay-selector" }
 mullvad-types = { path = "../mullvad-types" }

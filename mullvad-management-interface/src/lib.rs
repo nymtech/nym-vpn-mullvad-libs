@@ -1,17 +1,15 @@
 pub mod client;
 pub mod types;
 
-use parity_tokio_ipc::Endpoint as IpcEndpoint;
 #[cfg(unix)]
-use std::{env, fs, os::unix::fs::PermissionsExt};
-use std::{
-    future::Future,
-    io,
-    pin::Pin,
-    task::{Context, Poll},
+use std::{env, os::unix::fs::PermissionsExt};
+use std::{future::Future, io, path::Path};
+use tokio::{
+    fs,
+    net::{UnixListener, UnixStream},
 };
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tonic::transport::{server::Connected, Endpoint, Server, Uri};
+use tokio_stream::wrappers::UnixListenerStream;
+use tonic::transport::{Endpoint, Server, Uri};
 use tower::service_fn;
 
 pub use tonic::{async_trait, transport::Channel, Code, Request, Response, Status};
@@ -35,7 +33,7 @@ pub enum Error {
     #[error(display = "Management RPC server or client error")]
     GrpcTransportError(#[error(source)] tonic::transport::Error),
 
-    #[error(display = "Failed to start IPC pipe/socket")]
+    #[error(display = "Failed to open IPC pipe/socket")]
     StartServerError(#[error(source)] io::Error),
 
     #[error(display = "Failed to initialize pipe/socket security attributes")]
@@ -113,92 +111,60 @@ pub enum Error {
 
 #[deprecated(note = "Prefer MullvadProxyClient")]
 pub async fn new_rpc_client() -> Result<ManagementServiceClient, Error> {
-    let ipc_path = mullvad_paths::get_rpc_socket_path();
-
     // The URI will be ignored
-    let channel = Endpoint::from_static("lttp://[::]:50051")
+    Endpoint::from_static("lttp://[::]:50051")
         .connect_with_connector(service_fn(move |_: Uri| {
-            IpcEndpoint::connect(ipc_path.clone())
+            UnixStream::connect(mullvad_paths::get_rpc_socket_path())
         }))
         .await
-        .map_err(Error::GrpcTransportError)?;
-
-    Ok(ManagementServiceClient::new(channel))
+        .map(ManagementServiceClient::new)
+        .map_err(Error::GrpcTransportError)
 }
 
 pub use client::MullvadProxyClient;
 
 pub type ServerJoinHandle = tokio::task::JoinHandle<Result<(), Error>>;
 
-pub fn spawn_rpc_server<T: ManagementService, F: Future<Output = ()> + Send + 'static>(
+pub async fn spawn_rpc_server<T: ManagementService, F: Future<Output = ()> + Send + 'static>(
     service: T,
     abort_rx: F,
 ) -> std::result::Result<ServerJoinHandle, Error> {
-    use futures::stream::TryStreamExt;
-    use parity_tokio_ipc::SecurityAttributes;
-
     let socket_path = mullvad_paths::get_rpc_socket_path();
 
-    let mut endpoint = IpcEndpoint::new(socket_path.to_string_lossy().to_string());
-    endpoint.set_security_attributes(
-        SecurityAttributes::allow_everyone_create()
-            .map_err(Error::SecurityAttributes)?
-            .set_mode(0o766)
-            .map_err(Error::SecurityAttributes)?,
-    );
-    let incoming = endpoint.incoming().map_err(Error::StartServerError)?;
-
-    #[cfg(unix)]
-    if let Some(group_name) = &*MULLVAD_MANAGEMENT_SOCKET_GROUP {
-        let group = nix::unistd::Group::from_name(group_name)
-            .map_err(Error::ObtainGidError)?
-            .ok_or(Error::NoGidError)?;
-        nix::unistd::chown(&socket_path, None, Some(group.gid)).map_err(Error::SetGidError)?;
-        fs::set_permissions(&socket_path, PermissionsExt::from_mode(0o760))
-            .map_err(Error::PermissionsError)?;
-    }
+    let clients = uds_server_socket(&socket_path).await?;
 
     Ok(tokio::spawn(async move {
-        Server::builder()
+        let result = Server::builder()
             .add_service(ManagementServiceServer::new(service))
-            .serve_with_incoming_shutdown(incoming.map_ok(StreamBox), abort_rx)
+            .serve_with_incoming_shutdown(clients, abort_rx)
             .await
-            .map_err(Error::GrpcTransportError)
+            .map_err(Error::GrpcTransportError);
+
+        if let Err(err) = fs::remove_file(socket_path).await {
+            log::error!("Failed to remove IPC socket: {}", err);
+        }
+
+        result
     }))
 }
 
-#[derive(Debug)]
-struct StreamBox<T: AsyncRead + AsyncWrite>(pub T);
-impl<T: AsyncRead + AsyncWrite> Connected for StreamBox<T> {
-    type ConnectInfo = Option<()>;
+#[cfg(unix)]
+async fn uds_server_socket(socket_path: &Path) -> Result<UnixListenerStream, Error> {
+    let clients =
+        UnixListenerStream::new(UnixListener::bind(socket_path).map_err(Error::StartServerError)?);
 
-    fn connect_info(&self) -> Self::ConnectInfo {
-        None
-    }
-}
-impl<T: AsyncRead + AsyncWrite + Unpin> AsyncRead for StreamBox<T> {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.0).poll_read(cx, buf)
-    }
-}
-impl<T: AsyncRead + AsyncWrite + Unpin> AsyncWrite for StreamBox<T> {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.0).poll_write(cx, buf)
-    }
+    let mode = if let Some(group_name) = &*MULLVAD_MANAGEMENT_SOCKET_GROUP {
+        let group = nix::unistd::Group::from_name(group_name)
+            .map_err(Error::ObtainGidError)?
+            .ok_or(Error::NoGidError)?;
+        nix::unistd::chown(socket_path, None, Some(group.gid)).map_err(Error::SetGidError)?;
+        0o760
+    } else {
+        0o766
+    };
+    fs::set_permissions(socket_path, PermissionsExt::from_mode(mode))
+        .await
+        .map_err(Error::PermissionsError)?;
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.0).poll_flush(cx)
-    }
-
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.0).poll_shutdown(cx)
-    }
+    Ok(clients)
 }

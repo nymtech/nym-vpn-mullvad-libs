@@ -42,6 +42,7 @@ members = [
 
 [workspace.dependencies]
 tokio = { version = "1.8" }
+tokio-stream = "0.1"
 # Tonic and related crates
 tonic = "0.10.0"
 tonic-build = { version = "0.10.0", default-features = false }

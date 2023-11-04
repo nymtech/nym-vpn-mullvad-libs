@@ -920,7 +920,7 @@ impl ManagementServiceImpl {
 pub struct ManagementInterfaceServer(());
 
 impl ManagementInterfaceServer {
-    pub fn start(
+    pub async fn start(
         tunnel_tx: DaemonCommandSender,
     ) -> Result<(String, ManagementInterfaceEventBroadcaster), Error> {
         let subscriptions = Arc::<Mutex<Vec<EventsListenerSender>>>::default();
@@ -937,6 +937,7 @@ impl ManagementInterfaceServer {
         let join_handle = mullvad_management_interface::spawn_rpc_server(server, async move {
             server_abort_rx.into_future().await;
         })
+        .await
         .map_err(Error::SetupError)?;
 
         tokio::spawn(async move {

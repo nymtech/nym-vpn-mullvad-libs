@@ -46,7 +46,7 @@ netlink-packet-route = "0.13"
 netlink-packet-utils = "0.5.1"
 netlink-proto = "0.10"
 talpid-dbus = { path = "../talpid-dbus" }
-tokio-stream = { version = "0.1", features = ["io-util"] }
+tokio-stream = { workspace = true, features = ["io-util"] }
 
 [target.'cfg(windows)'.dependencies]
 bitflags = "1.2"
