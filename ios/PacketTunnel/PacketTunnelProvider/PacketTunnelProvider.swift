@@ -25,6 +25,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     private var stateObserverTask: AnyTask?
     private var deviceChecker: DeviceChecker!
 
+    private let ipcServer = IPCServer()
+
     override init() {
         Self.configureLogging()
 
@@ -87,6 +89,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let urlRequestProxy = URLRequestProxy(dispatchQueue: internalQueue, transportProvider: transportProvider)
 
         appMessageHandler = AppMessageHandler(packetTunnelActor: actor, urlRequestProxy: urlRequestProxy)
+
+        testReconnect()
+    }
+
+    func testReconnect() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            guard let self else { return }
+            actor.reconnect(to: .random)
+            testReconnect()
+        }
     }
 
     override func startTunnel(options: [String: NSObject]? = nil) async throws {
@@ -127,8 +139,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         await actor.waitUntilDisconnected()
     }
 
-    override func handleAppMessage(_ messageData: Data) async -> Data? {
-        return await appMessageHandler.handleAppMessage(messageData)
+    override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
+        let jsonDecoder = JSONDecoder()
+        if let ipcMessage = try? jsonDecoder.decode(IPCCommand<IPCAction>.self, from: messageData) {
+            ipcServer.handle(ipcMessage, completionHandler: completionHandler)
+        } else {
+            Task {
+                let answer = await appMessageHandler.handleAppMessage(messageData)
+                completionHandler?(answer)
+            }
+        }
     }
 
     override func sleep() async {
@@ -197,6 +217,9 @@ extension PacketTunnelProvider {
                 // Packet tunnel moves to `NEVPNStatus.connected` state once `reasserting` flag is set to `false`.
                 if case .connected = newState, self.reasserting {
                     self.reasserting = false
+                    if let hostname = newState.connectionState?.selectedRelay.hostname {
+                        self.ipcServer.sendReconnectedTo(hostname)
+                    }
                 }
 
                 switch newState {

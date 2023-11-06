@@ -75,6 +75,8 @@ final class TunnelManager: StorePaymentObserver {
     private var _tunnel: (any TunnelProtocol)?
     private var _tunnelStatus = TunnelStatus()
 
+    private var ipcClient: IPCClient!
+
     /// Last processed device check.
     private var lastPacketTunnelKeyRotation: Date?
 
@@ -666,8 +668,11 @@ final class TunnelManager: StorePaymentObserver {
 
         if let tunnel {
             subscribeVPNStatusObserver(tunnel: tunnel)
+            ipcClient = IPCClient(tunnel: tunnel)
+            ipcClient.start()
         } else {
             unsubscribeVPNStatusObserver()
+            ipcClient = nil
         }
 
         _tunnel = tunnel
