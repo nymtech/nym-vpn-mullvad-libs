@@ -32,12 +32,31 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>StartVPNIntent</string>
 		<string>StopVPNIntent</string>
 		<string>ReconnectVPNIntent</string>
 	</array>
+	<key>OSLogPreferences</key>
+	<dict>
+		<key>com.apple.VectorKit</key>
+		<dict>
+			<key>DEFAULT-OPTIONS</key>
+			<dict>
+				<key>Level</key>
+				<dict>
+					<key>Enable</key>
+					<string>Off</string>
+				</dict>
+			</dict>
+		</dict>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -67,19 +86,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>OSLogPreferences</key>
-	<dict>
-		<key>com.apple.VectorKit</key>
-		<dict>
-			<key>DEFAULT-OPTIONS</key>
-			<dict>
-				<key>Level</key>
-				<dict>
-					<key>Enable</key>
-					<string>Off</string>
-				</dict>
-			</dict>
-		</dict>
-	</dict>
 </dict>
 </plist>
