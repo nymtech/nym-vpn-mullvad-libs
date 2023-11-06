@@ -278,8 +278,8 @@ class AbstractTun: NSObject {
         handleUdpSendV4(packets: ioOutput.udpV4Traffic())
         ioOutput.discard()
         
-        var discardableOutput = test_mallocsing();
-        discardableOutput.discard()
+        // var discardableOutput = test_mallocsing();
+        // discardableOutput.discard()
         
         packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
     }
