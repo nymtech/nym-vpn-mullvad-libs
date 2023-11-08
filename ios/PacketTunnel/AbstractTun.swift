@@ -472,8 +472,17 @@ func generateNetworkSettings(tunnelConfiguration: TunnelConfiguration) -> NEPack
     let (ipv4IncludedRoutes, ipv6IncludedRoutes) = includedRoutes(tunnelConfiguration: tunnelConfiguration)
 
     let ipv4Settings = NEIPv4Settings(addresses: ipv4Addresses.map { $0.destinationAddress }, subnetMasks: ipv4Addresses.map { $0.destinationSubnetMask })
-    ipv4Settings.includedRoutes = ipv4IncludedRoutes
+    ipv4Settings.includedRoutes = [NEIPv4Route.default()]
     networkSettings.ipv4Settings = ipv4Settings
+//    let excludedRoutes = tunnelConfiguration.peers.compactMap { $0.endpoint }
+//        .compactMap { switch $0.host {
+//        case let .ipv4(addr):
+//            NEIPv4Route(destinationAddress: "\(addr)", subnetMask: "255.255.255.255")
+//        default:
+//            nil
+//        }}
+    
+//    ipv4Settings.excludedRoutes = excludedRoutes
 
     let ipv6Settings = NEIPv6Settings(addresses: ipv6Addresses.map { $0.destinationAddress }, networkPrefixLengths: ipv6Addresses.map { $0.destinationNetworkPrefixLength })
     ipv6Settings.includedRoutes = ipv6IncludedRoutes

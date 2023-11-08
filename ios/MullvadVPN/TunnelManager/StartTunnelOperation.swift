@@ -124,6 +124,13 @@ class StartTunnelOperation: ResultOperation<Void> {
         protocolConfig.providerBundleIdentifier = ApplicationConfiguration
             .packetTunnelExtensionIdentifier
         protocolConfig.serverAddress = ""
+        if #available(iOS 14.2, *) {
+            protocolConfig.includeAllNetworks = true
+            // protocolConfig.excludeLocalNetworks = true
+            protocolConfig.enforceRoutes = true
+        } else {
+            // Fallback on earlier versions
+        }
 
         let alwaysOnRule = NEOnDemandRuleConnect()
         alwaysOnRule.interfaceTypeMatch = .any
