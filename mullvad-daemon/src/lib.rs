@@ -677,6 +677,7 @@ where
             access_method_handler.handle(),
             relay_selector.clone(),
             api_runtime.address_cache.clone(),
+            cache_dir.clone(),
         );
         log::info!("successfully created a new api runtime handle!");
 

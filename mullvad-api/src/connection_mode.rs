@@ -99,11 +99,10 @@ impl ConnectionModeActorHandle {
 
 impl ConnectionModeActor {
     pub fn new(
-        // _cache_dir: PathBuf,
         connection_modes: Box<dyn ConnectionModesIterator + Send>,
     ) -> ConnectionModeActorHandle {
         let (cmd_tx, cmd_rx) = mpsc::unbounded();
-        let (broadcast_sender, _) = broadcast::channel::<Connection>(1); // TODO: Decide on capacity
+        let (broadcast_sender, _) = broadcast::channel::<Connection>(16); // TODO: Decide on capacity
         let handle = ConnectionModeActorHandle {
             cmd_tx,
             broadcast_sender,
@@ -120,7 +119,7 @@ impl ConnectionModeActor {
 
     async fn run(mut self, mut cmd_rx: mpsc::UnboundedReceiver<Message>) {
         // Handle incoming messages
-        println!("Firin' up the engines..");
+        log::trace!("Starting a new `ConnectionModeActor` agent");
         loop {
             tokio::select! {
                 cmd = cmd_rx.next() => {
@@ -131,6 +130,7 @@ impl ConnectionModeActor {
                 }
             }
         }
+        log::info!("terminating one `ConnectionModeActor` agent");
     }
 
     fn run_inner(&mut self, cmd: Option<Message>) -> Result<()> {

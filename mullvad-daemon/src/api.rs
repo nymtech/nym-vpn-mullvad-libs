@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[cfg(target_os = "android")]
 use crate::{DaemonCommand, DaemonEventSender};
 use futures::{
@@ -14,7 +16,10 @@ use mullvad_types::access_method::{AccessMethod, AccessMethodSetting, BuiltInAcc
 #[cfg(target_os = "android")]
 use talpid_core::mpsc::Sender;
 use talpid_core::tunnel_state_machine::TunnelCommand;
-use talpid_types::net::{openvpn::ProxySettings, AllowedEndpoint, Endpoint, TransportProtocol};
+use talpid_types::{
+    net::{openvpn::ProxySettings, AllowedEndpoint, Endpoint, TransportProtocol},
+    ErrorExt,
+};
 use tokio::sync::broadcast;
 
 /// A (tiny) ator listening for broadcasts when the currently active [`AccessMethodSetting`] changes.
@@ -29,6 +34,7 @@ pub(super) struct ApiEndpointUpdateListener {
     tunnel_cmd_tx: Option<mpsc::UnboundedSender<TunnelCommand>>,
     relay_selector: RelaySelector,
     address_cache: AddressCache,
+    cache_dir: PathBuf,
 }
 
 #[derive(Clone)]
@@ -45,7 +51,6 @@ impl ApiEndpointUpdateListenerHandle {
         &mut self,
         tunnel_cmd_tx: mpsc::UnboundedSender<TunnelCommand>,
     ) {
-        log::info!("Updating `tunnel_cmd_tx`!");
         let _ = self
             .cmd_tx
             .send(Message::UpdateTunnelCommandChannel(tunnel_cmd_tx))
@@ -58,6 +63,7 @@ impl ApiEndpointUpdateListener {
         connection_mode_actor: ConnectionModeActorHandle,
         relay_selector: RelaySelector,
         address_cache: AddressCache,
+        cache_dir: PathBuf,
     ) -> ApiEndpointUpdateListenerHandle {
         let (cmd_tx, cmd_rx) = mpsc::unbounded();
         tokio::spawn(
@@ -67,6 +73,7 @@ impl ApiEndpointUpdateListener {
                 tunnel_cmd_tx: None,
                 relay_selector,
                 address_cache,
+                cache_dir,
             }
             .run(),
         );
@@ -92,20 +99,21 @@ impl ApiEndpointUpdateListener {
                 cmd = self.cmd_rx.next() => {
                     match cmd {
                         Some(msg) => self.handle_command(msg).await,
-                        None => break,
+                        None => continue,
                     }
                 }
             }
         }
+        log::trace!("Shutting down an `ApiEndpointUpdateListener` agent ..");
     }
 
     async fn handle_subscription_event(&mut self, new_access_method: AccessMethodSetting) {
         match self.update_firewall(new_access_method).await {
-            Some(true) => {
-                log::info!("Firewall updated!");
-            }
-            Some(false) => {
-                log::error!("Tunnel state machine is not running")
+            Some(endpoint) => {
+                log::debug!(
+                    "Firewall updated! Allowing API communication via {endpoint}",
+                    endpoint = endpoint,
+                );
             }
             None => {
                 log::error!("Could not communicate with the Tunnel State Machine");
@@ -122,9 +130,8 @@ impl ApiEndpointUpdateListener {
     }
 
     /// Tell the daemon to update the firewall to accomodate the new [`AccessMethodSetting`].
-    async fn update_firewall(&self, access_method: AccessMethodSetting) -> Option<bool> {
+    async fn update_firewall(&self, access_method: AccessMethodSetting) -> Option<AllowedEndpoint> {
         let tunnel_tx = self.tunnel_cmd_tx.clone()?;
-        // TODO(markus): these two bindings could be done in a more succint way.
         let connection_mode = access_method_to_api_connection_mode(
             access_method.access_method,
             self.relay_selector.clone(),
@@ -144,12 +151,19 @@ impl ApiEndpointUpdateListener {
         ));
         // Wait for the firewall policy to be updated.
         let _ = result_rx.await;
-        log::debug!(
-            "API endpoint: {endpoint}",
-            endpoint = allowed_endpoint.endpoint
-        );
+        log::debug!("API endpoint: {allowed_endpoint}");
+        // Update cache
+        let cache_dir = self.cache_dir.clone();
+        tokio::spawn(async move {
+            if let Err(error) = connection_mode.save(&cache_dir).await {
+                log::debug!(
+                    "{}",
+                    error.display_chain_with_msg("Failed to save API endpoint")
+                );
+            }
+        });
 
-        Some(true)
+        Some(allowed_endpoint)
     }
 }
 
@@ -308,14 +322,3 @@ impl ConnectionModesIterator {
         Box::new(access_methods.into_iter().cycle())
     }
 }
-
-// TODO(markus): Do we need to resubscribe when cloning something here?
-/*
-impl Clone for PowerManagementListener {
-    fn clone(&self) -> Self {
-        Self {
-            _window: self._window.clone(),
-            rx: self.rx.resubscribe(),
-        }
-    }
-} */
