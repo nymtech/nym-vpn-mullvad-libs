@@ -328,7 +328,7 @@ final class TunnelMonitor: PingerDelegate {
     func pinger(
         _ pinger: Pinger,
         didReceiveResponseFromSender senderAddress: IPAddress,
-        icmpHeader: ICMPHeader
+        icmpHeader: ICMPHeader?
     ) {
         didReceivePing(from: senderAddress, icmpHeader: icmpHeader)
     }
@@ -519,38 +519,49 @@ final class TunnelMonitor: PingerDelegate {
         }
     }
 
-    private func didReceivePing(from sender: IPAddress, icmpHeader: ICMPHeader) {
+    private func didReceivePing(from sender: IPAddress, icmpHeader: ICMPHeader?) {
         nslock.lock()
         defer { nslock.unlock() }
 
-        guard let probeAddress else { return }
+//        guard let probeAddress else { return }
 
-        if sender.rawValue != probeAddress.rawValue {
-            logger.trace("Got reply from unknown sender: \(sender), expected: \(probeAddress).")
-        }
-
-        let now = Date()
-        let sequenceNumber = icmpHeader.sequenceNumber
-        guard let pingTimestamp = state.setPingReplyReceived(sequenceNumber, now: now) else {
-            logger.trace("Got unknown ping sequence: \(sequenceNumber).")
-            return
-        }
-
-        logger.trace({
-            let time = now.timeIntervalSince(pingTimestamp) * 1000
-            let message = String(
-                format: "Received reply icmp_seq=%d, time=%.2f ms.",
-                sequenceNumber,
-                time
-            )
-            return Logger.Message(stringLiteral: message)
-        }())
+//        if sender.rawValue != probeAddress.rawValue {
+//            logger.trace("Got reply from unknown sender: \(sender), expected: \(probeAddress).")
+//        }
+//
+//        let now = Date()
+//        let sequenceNumber = icmpHeader.sequenceNumber
+//        guard let pingTimestamp = state.setPingReplyReceived(sequenceNumber, now: now) else {
+//            logger.trace("Got unknown ping sequence: \(sequenceNumber).")
+//            return
+//        }
+//
+//        logger.trace({
+//            let time = now.timeIntervalSince(pingTimestamp) * 1000
+//            let message = String(
+//                format: "Received reply icmp_seq=%d, time=%.2f ms.",
+//                sequenceNumber,
+//                time
+//            )
+//            return Logger.Message(stringLiteral: message)
+//        }())
 
         if case .connecting = state.connectionState {
             state.connectionState = .connected
             state.retryAttempt = 0
             sendDelegateConnectionEstablished()
         }
+    }
+    
+    private func setConnected() {
+        nslock.lock()
+        defer { nslock.unlock() }
+        
+        if case .connecting = state.connectionState {
+            state.connectionState = .connected
+            state.retryAttempt = 0
+            sendDelegateConnectionEstablished()
+         }
     }
 
     private func startMonitoring() {

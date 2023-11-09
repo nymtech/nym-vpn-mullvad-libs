@@ -15,7 +15,7 @@ protocol PingerDelegate: AnyObject {
     func pinger(
         _ pinger: Pinger,
         didReceiveResponseFromSender senderAddress: IPAddress,
-        icmpHeader: ICMPHeader
+        icmpHeader: ICMPHeader?
     )
 
     func pinger(
@@ -198,14 +198,15 @@ final class Pinger {
         do {
             guard bytesRead > 0 else { throw Error.receivePacket(errno) }
 
-            let icmpHeader = try parseICMPResponse(buffer: &readBuffer, length: bytesRead)
-            guard let sender = Self.makeIPAddress(from: address) else { throw Error.parseIPAddress }
+//            let icmpHeader = try parseICMPResponse(buffer: &readBuffer, length: bytesRead)
+            // guard let sender = Self.makeIPAddress(from: address) else { throw Error.parseIPAddress }
+ //           let sender = Self.makeIPAddress(from: address) ?? IPv4Address("10.64.0.1")!
 
             delegateQueue.async {
                 self.delegate?.pinger(
                     self,
-                    didReceiveResponseFromSender: sender,
-                    icmpHeader: icmpHeader
+                    didReceiveResponseFromSender: IPv4Address("10.64.0.1")!,//                    didReceiveResponseFromSender: sender,
+                    icmpHeader: nil
                 )
             }
         } catch Pinger.Error.clientIdentifierMismatch {

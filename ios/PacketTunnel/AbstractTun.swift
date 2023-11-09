@@ -129,6 +129,7 @@ class AbstractTun: NSObject {
     private let logClosure: (String) -> Void
 
     private var socketObservers: [UInt32: NSKeyValueObservation] = [:]
+    private var tunnelMonitor: TunnelMonitor
 
     private (set) var bytesReceived: UInt64 = 0
     private (set) var bytesSent: UInt64 = 0
@@ -436,7 +437,16 @@ func generateNetworkSettings(tunnelConfiguration: TunnelConfiguration) -> NEPack
      * make sense. So, we fill it in with this placeholder, which is not
      * a valid IP address that will actually route over the Internet.
      */
-    let networkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
+    let serverEndpoints = tunnelConfiguration.peers.compactMap { $0.endpoint }
+    .compactMap { switch $0.host {
+    case let .ipv4(addr):
+        "\(addr)"
+    default:
+        nil
+    }}
+
+    let endpoint = serverEndpoints[0] ?? "127.0.0.1"
+    var networkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: endpoint)
 
     if !tunnelConfiguration.interface.dnsSearch.isEmpty || !tunnelConfiguration.interface.dns.isEmpty {
         let dnsServerStrings = tunnelConfiguration.interface.dns.map { $0.stringRepresentation }
@@ -472,20 +482,14 @@ func generateNetworkSettings(tunnelConfiguration: TunnelConfiguration) -> NEPack
     let (ipv4IncludedRoutes, ipv6IncludedRoutes) = includedRoutes(tunnelConfiguration: tunnelConfiguration)
 
     let ipv4Settings = NEIPv4Settings(addresses: ipv4Addresses.map { $0.destinationAddress }, subnetMasks: ipv4Addresses.map { $0.destinationSubnetMask })
-    ipv4Settings.includedRoutes = [NEIPv4Route.default()]
+
+    ipv4Settings.includedRoutes = [ NEIPv4Route.default(), NEIPv4Route(destinationAddress: "10.64.0.1", subnetMask: "255.255.255.255") ]
+    // ipv4Settings.excludedRoutes = excludedRoutes
     networkSettings.ipv4Settings = ipv4Settings
-//    let excludedRoutes = tunnelConfiguration.peers.compactMap { $0.endpoint }
-//        .compactMap { switch $0.host {
-//        case let .ipv4(addr):
-//            NEIPv4Route(destinationAddress: "\(addr)", subnetMask: "255.255.255.255")
-//        default:
-//            nil
-//        }}
-    
-//    ipv4Settings.excludedRoutes = excludedRoutes
 
     let ipv6Settings = NEIPv6Settings(addresses: ipv6Addresses.map { $0.destinationAddress }, networkPrefixLengths: ipv6Addresses.map { $0.destinationNetworkPrefixLength })
-    ipv6Settings.includedRoutes = ipv6IncludedRoutes
+//    ipv6Settings.includedRoutes = ipv6IncludedRoutes
+    ipv6Settings.includedRoutes = [ NEIPv6Route.default()]
     networkSettings.ipv6Settings = ipv6Settings
 
     return networkSettings

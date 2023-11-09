@@ -126,8 +126,8 @@ class StartTunnelOperation: ResultOperation<Void> {
         protocolConfig.serverAddress = ""
         if #available(iOS 14.2, *) {
             protocolConfig.includeAllNetworks = true
-            // protocolConfig.excludeLocalNetworks = true
-            protocolConfig.enforceRoutes = true
+            protocolConfig.excludeLocalNetworks = true
+            // protocolConfig.enforceRoutes = true
         } else {
             // Fallback on earlier versions
         }
