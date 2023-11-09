@@ -676,6 +676,7 @@ where
         let mut endpoint_updater = api::ApiEndpointUpdateListener::new(
             access_method_handler.handle(),
             relay_selector.clone(),
+            api_runtime.address_cache.clone(),
         );
         log::info!("successfully created a new api runtime handle!");
 

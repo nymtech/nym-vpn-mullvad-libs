@@ -7,14 +7,14 @@ use futures::{
 use mullvad_api::{
     availability::ApiAvailabilityHandle,
     proxy::{ApiConnectionMode, ProxyConfig},
-    ConnectionModeActorHandle,
+    AddressCache, ConnectionModeActorHandle,
 };
 use mullvad_relay_selector::RelaySelector;
 use mullvad_types::access_method::{AccessMethod, AccessMethodSetting, BuiltInAccessMethod};
 #[cfg(target_os = "android")]
 use talpid_core::mpsc::Sender;
 use talpid_core::tunnel_state_machine::TunnelCommand;
-use talpid_types::net::{openvpn::ProxySettings, AllowedEndpoint, Endpoint};
+use talpid_types::net::{openvpn::ProxySettings, AllowedEndpoint, Endpoint, TransportProtocol};
 use tokio::sync::broadcast;
 
 /// A (tiny) ator listening for broadcasts when the currently active [`AccessMethodSetting`] changes.
@@ -28,6 +28,7 @@ pub(super) struct ApiEndpointUpdateListener {
     rx: broadcast::Receiver<AccessMethodSetting>,
     tunnel_cmd_tx: Option<mpsc::UnboundedSender<TunnelCommand>>,
     relay_selector: RelaySelector,
+    address_cache: AddressCache,
 }
 
 #[derive(Clone)]
@@ -56,6 +57,7 @@ impl ApiEndpointUpdateListener {
     pub fn new(
         connection_mode_actor: ConnectionModeActorHandle,
         relay_selector: RelaySelector,
+        address_cache: AddressCache,
     ) -> ApiEndpointUpdateListenerHandle {
         let (cmd_tx, cmd_rx) = mpsc::unbounded();
         tokio::spawn(
@@ -64,6 +66,7 @@ impl ApiEndpointUpdateListener {
                 rx: connection_mode_actor.subscribe(),
                 tunnel_cmd_tx: None,
                 relay_selector,
+                address_cache,
             }
             .run(),
         );
@@ -126,17 +129,13 @@ impl ApiEndpointUpdateListener {
             access_method.access_method,
             self.relay_selector.clone(),
         );
-        let allowed_endpoint = match connection_mode.get_endpoint() {
-            Some(endpoint) => get_allowed_endpoint(endpoint),
-            None => {
-                // Endpoint::from_socket_address(
-                //     // TODO(markus): If we could have an address cache here, it would be sweet.
-                //     self.address_cache.get_address().await,
-                //     TransportProtocol::Tcp,
-                // )
-                return None;
-            }
-        };
+        let allowed_endpoint = get_allowed_endpoint(match connection_mode.get_endpoint() {
+            Some(endpoint) => endpoint,
+            None => Endpoint::from_socket_address(
+                self.address_cache.get_address().await,
+                TransportProtocol::Tcp,
+            ),
+        });
 
         let (result_tx, result_rx) = oneshot::channel();
         let _ = tunnel_tx.unbounded_send(TunnelCommand::AllowEndpoint(
