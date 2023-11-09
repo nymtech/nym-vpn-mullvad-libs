@@ -127,7 +127,6 @@ pub(crate) struct RequestService {
     connector_handle: HttpsConnectorWithSniHandle,
     client: hyper::Client<HttpsConnectorWithSni, hyper::Body>,
     connection_mode_handle: ConnectionModeActorHandle,
-    address_cache: AddressCache,
     api_availability: ApiAvailabilityHandle,
 }
 
@@ -147,18 +146,20 @@ impl RequestService {
             socket_bypass_tx.clone(),
         );
 
+        // TODO(markus): This needs to be re-implemented
         // #[cfg(feature = "api-override")]
         // let force_direct_connection = API.force_direct_connection;
         // #[cfg(not(feature = "api-override"))]
         // let force_direct_connection = false;
 
-        // log::info!("Getting next proxy config");
+        log::info!("Getting next proxy config");
+        // TODO(markus): This should probably be done from `mullvad-daemon/src/api.rs`
         // if force_direct_connection {
         //     log::debug!("API proxies are disabled");
-        // } else if let Some(config) = proxy_config_provider.next().await {
+        // } else if let Ok(config) = connection_mode_handle.get_access_method().await {
         //     connector_handle.set_connection_mode(config);
         // }
-        // log::info!("Done getting next proxy config!");
+        log::info!("Done getting next proxy config!");
 
         let (command_tx, command_rx) = mpsc::unbounded();
         let client = Client::builder().build(connector);
@@ -171,7 +172,6 @@ impl RequestService {
             connector_handle,
             client,
             connection_mode_handle,
-            address_cache,
             api_availability,
         };
         let handle = RequestServiceHandle { tx: command_tx };
@@ -195,7 +195,7 @@ impl RequestService {
                     return;
                 }
                 // Switch to new connection mode.
-                self.connection_mode_handle.rotate_access_method().await;
+                let _ = self.connection_mode_handle.rotate_access_method().await;
                 let _ = completion_tx.send(Ok(()));
             }
         }

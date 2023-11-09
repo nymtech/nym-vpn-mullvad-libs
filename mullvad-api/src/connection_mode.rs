@@ -254,7 +254,7 @@ impl Iterator for dyn ConnectionModesIterator {
     }
 }
 
-/// A useful [`ConnectionModesIterator`] which only every returns
+/// A useful [`ConnectionModesIterator`] which only ever returns
 /// [`ConnectionMode::Direct`]
 pub struct DirectConnectionModeRepeater {
     mode: Connection,

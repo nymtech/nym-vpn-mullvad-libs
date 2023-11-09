@@ -22,7 +22,7 @@ use talpid_types::{
 };
 use tokio::sync::broadcast;
 
-/// A (tiny) ator listening for broadcasts when the currently active [`AccessMethodSetting`] changes.
+/// A (tiny) actor listening for broadcasts when the currently active [`AccessMethodSetting`] changes.
 /// When such a change is broadcasted, the daemon should punch an appropriate hole
 /// in the firewall
 ///
