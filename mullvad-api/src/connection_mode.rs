@@ -34,6 +34,8 @@ pub enum Message {
     Rotate(ResponseTx<()>),
     /// Ask the [`ConnectionModeActor`] to select a new active [`Connection`]
     Set(ResponseTx<()>, Connection),
+    /// Update the [`Connection`]s which the actor may select a new active [`Connection`] from.
+    Update(ResponseTx<()>, Box<dyn ConnectionModesIterator + Send>),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -95,6 +97,18 @@ impl ConnectionModeActorHandle {
                 err
             })
     }
+
+    pub async fn update_access_methods(
+        &mut self,
+        value: Box<dyn ConnectionModesIterator + Send>,
+    ) -> Result<()> {
+        self.send_command(|tx| Message::Update(tx, value))
+            .await
+            .map_err(|err| {
+                log::error!("Failed to update to new access methods");
+                err
+            })
+    }
 }
 
 impl ConnectionModeActor {
@@ -123,25 +137,30 @@ impl ConnectionModeActor {
         loop {
             tokio::select! {
                 cmd = cmd_rx.next() => {
-                    let _ = self.run_inner(cmd).map_err(|err| {
-                        // TODO(markus): Adjust this log level
-                        log::info!("Error inside of [`ConnectionModeActor::run`]: {err:?}");
-                    });
+                    match cmd {
+                        Some(msg) => match self.handle_command(msg) {
+                            Ok(_) => (),
+                            Err(err) => {
+                                log::info!("Error inside of [`ConnectionModeActor::run`]: {err}");
+                                break
+                            }
+                        },
+                        None => {
+                            continue
+                        }
+                    }
                 }
             }
         }
         log::info!("terminating one `ConnectionModeActor` agent");
     }
 
-    fn run_inner(&mut self, cmd: Option<Message>) -> Result<()> {
+    fn handle_command(&mut self, cmd: Message) -> Result<()> {
         match cmd {
-            Some(cmd) => match cmd {
-                Message::Rotate(tx) => self.on_rotate_access_method(tx),
-                Message::Get(tx) => self.on_get_access_method(tx),
-                Message::Set(tx, value) => self.on_set_access_method(tx, value),
-            },
-            // TODO(markus): We need to propagate this case properly. Inside of `run`, we would normally break here!
-            None => Ok(()), // break;
+            Message::Rotate(tx) => self.on_rotate_access_method(tx),
+            Message::Get(tx) => self.on_get_access_method(tx),
+            Message::Set(tx, value) => self.on_set_access_method(tx, value),
+            Message::Update(tx, value) => self.on_update_access_methods(tx, value),
         }
     }
 
@@ -175,6 +194,16 @@ impl ConnectionModeActor {
         log::info!("Handling `on_set_current_access_method`");
         self.set_access_method(value);
         self.rotate_access_method()?;
+        self.reply(tx, ())
+    }
+
+    fn on_update_access_methods(
+        &mut self,
+        tx: ResponseTx<()>,
+        value: Box<dyn ConnectionModesIterator + Send>,
+    ) -> Result<()> {
+        log::info!("Handling `on_update_access_methods`");
+        self.state = value;
         self.reply(tx, ())
     }
 

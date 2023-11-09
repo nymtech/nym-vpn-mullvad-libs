@@ -194,22 +194,8 @@ impl RequestService {
                     let _ = completion_tx.send(Ok(()));
                     return;
                 }
-
-                log::info!("Forcing the single-source-of-truth to rotate access method !1");
-                let _ = self.connection_mode_handle.rotate_access_method().await;
-
-                // TODO(markus):
-                // if let Some(new_config) = self.proxy_config_provider.next().await {
-                //     let endpoint = match new_config.get_endpoint() {
-                //         Some(endpoint) => endpoint,
-                //         None => self.address_cache.get_address().await,
-                //     };
-                //     // Switch to new connection mode unless rejected by address change callback
-                //     if (self.new_address_callback)(endpoint).await {
-                //         self.connector_handle.set_connection_mode(new_config);
-                //     }
-                // }
-
+                // Switch to new connection mode.
+                self.connection_mode_handle.rotate_access_method().await;
                 let _ = completion_tx.send(Ok(()));
             }
         }

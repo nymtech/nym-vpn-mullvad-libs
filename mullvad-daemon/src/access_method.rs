@@ -1,4 +1,5 @@
 use crate::{
+    api::ConnectionModesIterator,
     settings::{self, MadeChanges},
     Daemon, EventListener,
 };
@@ -194,10 +195,12 @@ where
                 .cloned()
                 .collect();
 
-            // TODO(markus): Actually update the actor with new state!
-            // let _ = self
-            //     .access_method_handler
-            //     .update_access_methods(new_methods);
+            let mut access_method_handler = self.access_method_handler.clone();
+            tokio::spawn(async move {
+                let _ = access_method_handler
+                    .update_access_methods(Box::new(ConnectionModesIterator::new(new_methods)))
+                    .await;
+            });
         };
         self
     }
