@@ -325,7 +325,7 @@ pub async fn test_connected_state(
     );
 
     assert!(
-        helpers::using_mullvad_exit(&rpc).await,
+        helpers::using_mullvad_exit(&rpc).await?,
         "expected Mullvad exit IP"
     );
 

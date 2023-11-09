@@ -61,7 +61,7 @@ pub async fn test_openvpn_tunnel(
         connect_and_wait(&mut mullvad_client).await?;
 
         assert!(
-            helpers::using_mullvad_exit(&rpc).await,
+            helpers::using_mullvad_exit(&rpc).await?,
             "expected Mullvad exit IP"
         );
 
@@ -110,7 +110,7 @@ pub async fn test_wireguard_tunnel(
 
         if should_succeed {
             assert!(
-                helpers::using_mullvad_exit(&rpc).await,
+                helpers::using_mullvad_exit(&rpc).await?,
                 "expected Mullvad exit IP"
             );
         }
@@ -178,7 +178,7 @@ pub async fn test_udp2tcp_tunnel(
     //
 
     assert!(
-        helpers::using_mullvad_exit(&rpc).await,
+        helpers::using_mullvad_exit(&rpc).await?,
         "expected Mullvad exit IP"
     );
 
@@ -280,7 +280,7 @@ pub async fn test_bridge(
     //
 
     assert!(
-        helpers::using_mullvad_exit(&rpc).await,
+        helpers::using_mullvad_exit(&rpc).await?,
         "expected Mullvad exit IP"
     );
 
@@ -354,7 +354,7 @@ pub async fn test_multihop(
     //
 
     assert!(
-        helpers::using_mullvad_exit(&rpc).await,
+        helpers::using_mullvad_exit(&rpc).await?,
         "expected Mullvad exit IP"
     );
 
@@ -500,7 +500,7 @@ pub async fn test_quantum_resistant_tunnel(
     check_tunnel_psk(&rpc, true).await;
 
     assert!(
-        helpers::using_mullvad_exit(&rpc).await,
+        helpers::using_mullvad_exit(&rpc).await?,
         "expected Mullvad exit IP"
     );
 
@@ -577,7 +577,7 @@ pub async fn test_quantum_resistant_multihop_udp2tcp_tunnel(
     connect_and_wait(&mut mullvad_client).await?;
 
     assert!(
-        helpers::using_mullvad_exit(&rpc).await,
+        helpers::using_mullvad_exit(&rpc).await?,
         "expected Mullvad exit IP"
     );
 

@@ -72,12 +72,16 @@ impl ProbeResult {
 }
 
 /// Return whether the guest exit IP is a Mullvad relay
-pub async fn using_mullvad_exit(rpc: &ServiceClient) -> bool {
+///
+/// # Returns
+/// - `Ok(true)` in case the connection check was performed successfully.
+/// - `Ok(false)` in case the connection check was performed but the exit ip is not one of Mullvad's ips.
+/// - `Err` in case the connection check timed out or failed for network-related reasons.
+pub async fn using_mullvad_exit(rpc: &ServiceClient) -> Result<bool, Error> {
     log::info!("Test whether exit IP is a mullvad relay");
     geoip_lookup_with_retries(rpc)
         .await
-        .unwrap()
-        .mullvad_exit_ip
+        .map(|conn_check| conn_check.mullvad_exit_ip)
 }
 
 /// Sends a number of probes and returns the number of observed packets (UDP, TCP, or ICMP)
@@ -280,7 +284,7 @@ async fn find_next_tunnel_state_inner(
 
 pub async fn geoip_lookup_with_retries(rpc: &ServiceClient) -> Result<AmIMullvad, Error> {
     const MAX_ATTEMPTS: usize = 5;
-    const BEFORE_RETRY_DELAY: Duration = Duration::from_secs(2);
+    const BEFORE_RETRY_DELAY: Duration = Duration::from_secs(10);
 
     let mut attempt = 0;
 
