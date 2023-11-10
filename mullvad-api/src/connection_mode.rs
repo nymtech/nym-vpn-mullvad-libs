@@ -136,17 +136,12 @@ impl ConnectionModeActor {
         log::trace!("Starting a new `ConnectionModeActor` agent");
         loop {
             tokio::select! {
-                cmd = cmd_rx.next() => {
-                    match cmd {
-                        Some(msg) => match self.handle_command(msg) {
-                            Ok(_) => (),
-                            Err(err) => {
-                                log::info!("Error inside of [`ConnectionModeActor::run`]: {err}");
-                                break
-                            }
-                        },
-                        None => {
-                            continue
+                Some(msg) = cmd_rx.next() => {
+                    match self.handle_command(msg) {
+                        Ok(_) => (),
+                        Err(err) => {
+                            log::info!("Error inside of [`ConnectionModeActor::run`]: {err}");
+                            break
                         }
                     }
                 }

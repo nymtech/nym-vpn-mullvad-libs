@@ -96,12 +96,7 @@ impl ApiEndpointUpdateListener {
                         }
                     }
                 }
-                cmd = self.cmd_rx.next() => {
-                    match cmd {
-                        Some(msg) => self.handle_command(msg).await,
-                        None => continue,
-                    }
-                }
+                Some(msg) = self.cmd_rx.next() => self.handle_command(msg).await,
             }
         }
         log::trace!("Shutting down an `ApiEndpointUpdateListener` agent ..");
