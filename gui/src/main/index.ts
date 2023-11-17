@@ -128,6 +128,9 @@ class ApplicationMain
   }
 
   public run() {
+    app.commandLine.appendSwitch('remote-debugging-port', '3000');
+    app.commandLine.appendSwitch('remote-allow-origins', 'http://localhost:3000');
+
     // Remove window animations to combat window flickering when opening window. Can be removed when
     // this issue has been resolved: https://github.com/electron/electron/issues/12130
     if (process.platform === 'win32') {
