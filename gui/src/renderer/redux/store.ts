@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useSelector as useReduxSelector } from 'react-redux';
 import { combineReducers, compose, createStore, Dispatch, StoreEnhancer } from 'redux';
 
+import log from '../../shared/logging';
 import { useWillExit } from '../lib/will-exit';
 import accountActions, { AccountAction } from './account/actions';
 import accountReducer, { IAccountReduxState } from './account/reducers';
@@ -77,6 +78,9 @@ export function useSelector<R>(fn: (state: IReduxState) => R): R {
   const value = useReduxSelector(fn);
   const valueBeforeExit = useRef(value);
   const willExit = useWillExit();
+  if (willExit) {
+    log.info('Selector frozen by willExit');
+  }
 
   if (!willExit) {
     valueBeforeExit.current = value;

@@ -173,6 +173,9 @@ export function ModalAlert(props: IModalAlertProps & { isOpen: boolean }) {
   const [openState, setOpenState] = useState<OpenState>({ isClosing: false, wasOpen: isOpen });
 
   const willExit = useWillExit();
+  if (willExit) {
+    log.info('Modal frozen by willExit');
+  }
 
   // Modal shouldn't prepare for being opened again while view is disappearing.
   const onTransitionEnd = useCallback(() => {
