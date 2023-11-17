@@ -187,7 +187,7 @@ export default class TransitionContainer extends React.Component<IProps, IState>
     if (candidate && this.state.currentItem) {
       // Update currentItem, nextItem, queuedItem depending on which the candidate matches.
       if (
-        !this.isTransitioning &&
+        !this.isCycling &&
         this.state.currentItem.view.props.routePath === candidate.props.routePath
       ) {
         log.info(11, 'Replacing current and emptying next and queue', candidate.props.routePath);
@@ -205,7 +205,7 @@ export default class TransitionContainer extends React.Component<IProps, IState>
           },
           () => (this.isCycling = false),
         );
-      } else if (!this.isTransitioning && this.state.nextItem) {
+      } else if (!this.isCycling && this.state.nextItem) {
         log.info(
           12,
           'Emptying next and setting queue',
