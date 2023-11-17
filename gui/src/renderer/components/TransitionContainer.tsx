@@ -1,6 +1,7 @@
 import * as React from 'react';
 import styled from 'styled-components';
 
+import log from '../../shared/logging';
 import { ITransitionSpecification } from '../lib/history';
 import { WillExit } from '../lib/will-exit';
 
@@ -133,6 +134,13 @@ export default class TransitionContainer extends React.Component<IProps, IState>
   public render() {
     const willExit = this.state.queuedItem !== undefined || this.state.nextItem !== undefined;
 
+    if (willExit) {
+      log.info('willExit due to', {
+        queuedItem: this.state.queuedItem?.view.props.routePath,
+        nextItem: this.state.nextItem?.view.props.routePath,
+      });
+    }
+
     return (
       <StyledTransitionContainer>
         {this.state.currentItem && (
@@ -182,6 +190,7 @@ export default class TransitionContainer extends React.Component<IProps, IState>
         !this.isTransitioning &&
         this.state.currentItem.view.props.routePath === candidate.props.routePath
       ) {
+        log.info(11, 'Replacing current and emptying next and queue', candidate.props.routePath);
         // There's no transition in progress and the newest candidate has the same path as the
         // current. In this situation the app should just remain in the same view.
         this.setState(
@@ -197,6 +206,12 @@ export default class TransitionContainer extends React.Component<IProps, IState>
           () => (this.isCycling = false),
         );
       } else if (!this.isTransitioning && this.state.nextItem) {
+        log.info(
+          12,
+          'Emptying next and setting queue',
+          this.state.nextItem.view.props.routePath,
+          candidate.props.routePath,
+        );
         // There's no transition in progress but there is a next item. Abort the transition and add
         // the candidate to the queue. The app shouldn't start a transition if there is another view
         // to queue.
@@ -212,6 +227,7 @@ export default class TransitionContainer extends React.Component<IProps, IState>
           () => (this.isCycling = false),
         );
       } else if (this.state.nextItem?.view.props.routePath === candidate.props.routePath) {
+        log.info(13, 'Replacing next during transition', candidate.props.routePath);
         // There's an update to the item that is currently being transitioned to. Update that item
         // and continue the transition.
         this.setState({
@@ -219,6 +235,7 @@ export default class TransitionContainer extends React.Component<IProps, IState>
           queuedItem: undefined,
         });
       } else {
+        log.info(14, 'Queue new item', candidate.props.routePath);
         // If none of the above, initiate a transition to the new item.
         this.setState({ queuedItem: TransitionContainer.makeItem(this.props) });
       }
