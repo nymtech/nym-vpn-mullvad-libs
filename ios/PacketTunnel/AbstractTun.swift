@@ -129,7 +129,6 @@ class AbstractTun: NSObject {
     private let logClosure: (String) -> Void
 
     private var socketObservers: [UInt32: NSKeyValueObservation] = [:]
-    private var tunnelMonitor: TunnelMonitor
 
     private (set) var bytesReceived: UInt64 = 0
     private (set) var bytesSent: UInt64 = 0
@@ -268,21 +267,20 @@ class AbstractTun: NSObject {
     }
 
     func readPacketTunnelBytes(_ traffic: [Data], ipversion: [NSNumber]) {
-        guard let tunPtr = self.tunRef else {
-            return
+        self.dispatchQueue.sync {
+             guard let tunPtr = self.tunRef else {
+                return
+            }
+            let receivedDataArr = DataArray(traffic)
+            var dataArrPtr = receivedDataArr.toRaw()
+            
+            var ioOutput = abstract_tun_handle_host_traffic(tunPtr, dataArrPtr)
+            
+            self.handleUdpSendV4(packets: ioOutput.udpV4Traffic())
+            ioOutput.discard()
+            self.packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
         }
-        let receivedDataArr = DataArray(traffic)
-        var dataArrPtr = receivedDataArr.toRaw()
-        
-        var ioOutput = abstract_tun_handle_host_traffic(tunPtr, dataArrPtr)
-        
-        handleUdpSendV4(packets: ioOutput.udpV4Traffic())
-        ioOutput.discard()
-        
-        // var discardableOutput = test_mallocsing();
-        // discardableOutput.discard()
-        
-        packetTunnelProvider.packetFlow.readPackets(completionHandler: self.readPacketTunnelBytes)
+
     }
     
     func receiveTunnelTraffic(_ traffic: [Data]) {
@@ -418,9 +416,9 @@ class AbstractTun: NSObject {
             return
         }
         let protocols = Array.init(repeating: NSNumber(value: AF_INET), count: packets.count)
+        let totalPacketSize = packets.reduce(into: 0, { total, packet in total += packet.count})
         packetTunnelProvider.packetFlow.writePackets(packets, withProtocols: protocols)
 
-        let totalPacketSize = packets.reduce(into: 0, { total, packet in total += packet.count})
         bytesReceived += UInt64(totalPacketSize)
     }
     

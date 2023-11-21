@@ -197,15 +197,9 @@ final class TunnelMonitor: PingerDelegate {
             pingStats.lastRequestDate = now
         }
 
-        mutating func setPingReplyReceived(_ sequenceNumber: UInt16, now: Date) -> Date? {
-            guard let pingTimestamp = pingStats.requests.removeValue(forKey: sequenceNumber) else {
-                return nil
-            }
-
+        mutating func setPingReplyReceived(_ sequenceNumber: UInt16, now: Date) {
             pingStats.lastReplyDate = now
             timeoutReference = now
-
-            return pingTimestamp
         }
     }
 
@@ -529,9 +523,10 @@ final class TunnelMonitor: PingerDelegate {
 //            logger.trace("Got reply from unknown sender: \(sender), expected: \(probeAddress).")
 //        }
 //
-//        let now = Date()
+        //        let now = Date()
 //        let sequenceNumber = icmpHeader.sequenceNumber
-//        guard let pingTimestamp = state.setPingReplyReceived(sequenceNumber, now: now) else {
+        
+        //        guard let pingTimestamp = state.setPingReplyReceived(sequenceNumber, now: now) else {
 //            logger.trace("Got unknown ping sequence: \(sequenceNumber).")
 //            return
 //        }
@@ -546,6 +541,7 @@ final class TunnelMonitor: PingerDelegate {
 //            return Logger.Message(stringLiteral: message)
 //        }())
 
+        let _ = state.setPingReplyReceived(0, now: Date())
         if case .connecting = state.connectionState {
             state.connectionState = .connected
             state.retryAttempt = 0
