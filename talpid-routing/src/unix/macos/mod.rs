@@ -12,6 +12,7 @@ use std::{
     pin::Pin,
     time::Duration,
 };
+use talpid_macos::net::Family;
 use talpid_types::ErrorExt;
 use watch::RoutingTable;
 
@@ -58,8 +59,8 @@ pub enum Error {
 macro_rules! get_current_best_default_route {
     ($self:expr, $family:expr) => {{
         match $family {
-            interface::Family::V4 => &mut $self.v4_default_route,
-            interface::Family::V6 => &mut $self.v6_default_route,
+            Family::V4 => &mut $self.v4_default_route,
+            Family::V6 => &mut $self.v6_default_route,
         }
     }};
 }
@@ -135,7 +136,7 @@ impl RouteManagerImpl {
 
         // Initialize default routes
         // NOTE: This isn't race-free, as we're not listening for route changes before initializing
-        self.update_best_default_route(interface::Family::V4)
+        self.update_best_default_route(Family::V4)
             .unwrap_or_else(|error| {
                 log::error!(
                     "{}",
@@ -143,7 +144,7 @@ impl RouteManagerImpl {
                 );
                 false
             });
-        self.update_best_default_route(interface::Family::V6)
+        self.update_best_default_route(Family::V6)
             .unwrap_or_else(|error| {
                 log::error!(
                     "{}",
@@ -197,7 +198,7 @@ impl RouteManagerImpl {
                                         device: None,
                                         ip: route.gateway_ip(),
                                     },
-                                    prefix: interface::Family::V4.default_network(),
+                                    prefix: Family::V4.default_network(),
                                     metric: None,
                                 }
                             });
@@ -207,7 +208,7 @@ impl RouteManagerImpl {
                                         device: None,
                                         ip: route.gateway_ip(),
                                     },
-                                    prefix: interface::Family::V6.default_network(),
+                                    prefix: Family::V6.default_network(),
                                     metric: None,
                                 }
                             });
@@ -364,8 +365,8 @@ impl RouteManagerImpl {
     ///   server. The gateway of the relay route is set to the first interface in the network
     ///   service order that has a working ifscoped default route.
     async fn refresh_routes(&mut self) -> Result<()> {
-        self.update_best_default_route(interface::Family::V4)?;
-        self.update_best_default_route(interface::Family::V6)?;
+        self.update_best_default_route(Family::V4)?;
+        self.update_best_default_route(Family::V6)?;
 
         self.debug_offline();
 
@@ -406,7 +407,7 @@ impl RouteManagerImpl {
     /// a valid IP address and gateway.
     ///
     /// On success, the function returns whether the previously known best default changed.
-    fn update_best_default_route(&mut self, family: interface::Family) -> Result<bool> {
+    fn update_best_default_route(&mut self, family: Family) -> Result<bool> {
         let best_route = self.primary_interface_monitor.get_route(family);
         let current_route = get_current_best_default_route!(self, family);
 
@@ -431,13 +432,13 @@ impl RouteManagerImpl {
         Ok(true)
     }
 
-    fn notify_default_route_listeners(&mut self, family: interface::Family, changed: bool) {
+    fn notify_default_route_listeners(&mut self, family: Family, changed: bool) {
         // Notify default route listeners
         let event = match (family, changed) {
-            (interface::Family::V4, true) => DefaultRouteEvent::AddedOrChangedV4,
-            (interface::Family::V6, true) => DefaultRouteEvent::AddedOrChangedV6,
-            (interface::Family::V4, false) => DefaultRouteEvent::RemovedV4,
-            (interface::Family::V6, false) => DefaultRouteEvent::RemovedV6,
+            (Family::V4, true) => DefaultRouteEvent::AddedOrChangedV4,
+            (Family::V6, true) => DefaultRouteEvent::AddedOrChangedV6,
+            (Family::V4, false) => DefaultRouteEvent::RemovedV4,
+            (Family::V6, false) => DefaultRouteEvent::RemovedV6,
         };
         self.default_route_listeners
             .retain(|tx| tx.unbounded_send(event).is_ok());
@@ -472,9 +473,9 @@ impl RouteManagerImpl {
                 None => continue,
             };
             let family = if tunnel_route.is_ipv4() {
-                interface::Family::V4
+                Family::V4
             } else {
-                interface::Family::V6
+                Family::V6
             };
 
             // Replace the default route with an ifscope route
@@ -552,7 +553,7 @@ impl RouteManagerImpl {
     }
 
     /// Replace a known default route with an ifscope route.
-    async fn replace_with_scoped_route(&mut self, family: interface::Family) -> Result<()> {
+    async fn replace_with_scoped_route(&mut self, family: Family) -> Result<()> {
         let Some(default_route) = get_current_best_default_route!(self, family) else {
             return Ok(());
         };
@@ -640,13 +641,12 @@ impl RouteManagerImpl {
     /// Add back unscoped default routes, if they are still missing. This function returns
     /// true when no routes had to be added.
     async fn try_restore_default_routes(&mut self) -> bool {
-        self.restore_default_route(interface::Family::V4).await
-            && self.restore_default_route(interface::Family::V6).await
+        self.restore_default_route(Family::V4).await && self.restore_default_route(Family::V6).await
     }
 
     /// Add back unscoped default route for the given `family`, if it is still missing. This
     /// function returns true when no route had to be added.
-    async fn restore_default_route(&mut self, family: interface::Family) -> bool {
+    async fn restore_default_route(&mut self, family: Family) -> bool {
         let Some(desired_default_route) = self.primary_interface_monitor.get_route(family) else {
             return true;
         };

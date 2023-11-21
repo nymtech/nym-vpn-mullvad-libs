@@ -1,5 +1,4 @@
 use futures::channel::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use ipnetwork::IpNetwork;
 use nix::{
     net::if_::{if_nametoindex, InterfaceFlags},
     sys::socket::{AddressFamily, SockaddrLike, SockaddrStorage},
@@ -9,59 +8,21 @@ use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
 };
+use talpid_macos::net::{Family, NetworkService};
 
 use super::data::{Destination, RouteMessage};
 use system_configuration::{
     core_foundation::{
         array::CFArray,
-        base::{CFType, TCFType, ToVoid},
-        dictionary::CFDictionary,
         runloop::{kCFRunLoopCommonModes, CFRunLoop},
         string::CFString,
     },
     dynamic_store::{SCDynamicStore, SCDynamicStoreBuilder, SCDynamicStoreCallBackContext},
-    network_configuration::SCNetworkSet,
-    preferences::SCPreferences,
-    sys::schema_definitions::{
-        kSCDynamicStorePropNetPrimaryInterface, kSCDynamicStorePropNetPrimaryService,
-        kSCPropInterfaceName, kSCPropNetIPv4Router, kSCPropNetIPv6Router,
-    },
 };
 
 const STATE_IPV4_KEY: &str = "State:/Network/Global/IPv4";
 const STATE_IPV6_KEY: &str = "State:/Network/Global/IPv6";
 const STATE_SERVICE_PATTERN: &str = "State:/Network/Service/.*/IP.*";
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Family {
-    V4,
-    V6,
-}
-
-impl std::fmt::Display for Family {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Family::V4 => f.write_str("V4"),
-            Family::V6 => f.write_str("V6"),
-        }
-    }
-}
-
-impl Family {
-    pub fn default_network(self) -> IpNetwork {
-        match self {
-            Family::V4 => IpNetwork::new(Ipv4Addr::UNSPECIFIED.into(), 0).unwrap(),
-            Family::V6 => IpNetwork::new(Ipv6Addr::UNSPECIFIED.into(), 0).unwrap(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct NetworkService {
-    id: String,
-    name: Option<String>,
-    router_ip: Option<IpAddr>,
-}
 
 #[derive(Debug)]
 pub struct ActiveInterface {
@@ -70,20 +31,17 @@ pub struct ActiveInterface {
     router_ip: IpAddr,
 }
 
-impl NetworkService {
-    pub fn into_active_interface(self) -> Option<ActiveInterface> {
+impl ActiveInterface {
+    pub fn from_service(service: NetworkService) -> Option<ActiveInterface> {
         Some(ActiveInterface {
-            id: self.id,
-            name: self.name?,
-            router_ip: self.router_ip?,
+            id: service.id,
+            name: service.name?,
+            router_ip: service.router_ip?,
         })
     }
 }
 
-pub struct PrimaryInterfaceMonitor {
-    store: SCDynamicStore,
-    prefs: SCPreferences,
-}
+pub struct PrimaryInterfaceMonitor {}
 
 // FIXME: Implement Send on SCDynamicStore, if it's safe
 unsafe impl Send for PrimaryInterfaceMonitor {}
@@ -94,13 +52,10 @@ pub enum InterfaceEvent {
 
 impl PrimaryInterfaceMonitor {
     pub fn new() -> (Self, UnboundedReceiver<InterfaceEvent>) {
-        let store = SCDynamicStoreBuilder::new("talpid-routing").build();
-        let prefs = SCPreferences::default(&CFString::new("talpid-routing"));
-
         let (tx, rx) = mpsc::unbounded();
         Self::start_listener(tx);
 
-        (Self { store, prefs }, rx)
+        (Self {}, rx)
     }
 
     fn start_listener(tx: UnboundedSender<InterfaceEvent>) {
@@ -145,21 +100,20 @@ impl PrimaryInterfaceMonitor {
     /// Retrieve the best current default route. This is based on the primary interface, or else
     /// the first active interface in the network service order.
     pub fn get_route(&self, family: Family) -> Option<RouteMessage> {
-        let ifaces = self
-            .get_primary_interface(family)
+        let ifaces = talpid_macos::net::get_primary_interface(family)
             .map(|iface| {
                 log::debug!("Found primary interface for {family}");
                 vec![iface]
             })
             .unwrap_or_else(|| {
                 log::debug!("Found no primary interface for {family}");
-                self.network_services(family)
+                talpid_macos::net::network_services(family)
             });
 
         let (iface, index) = ifaces
             .into_iter()
             .filter_map(|iface| {
-                let iface = iface.into_active_interface()?;
+                let iface = ActiveInterface::from_service(iface)?;
                 let index = if_nametoindex(iface.name.as_str()).map_err(|error| {
                     log::error!("Failed to retrieve interface index for \"{}\": {error}", iface.name);
                     error
@@ -184,103 +138,15 @@ impl PrimaryInterfaceMonitor {
         Some(msg)
     }
 
-    fn get_primary_interface(&self, family: Family) -> Option<NetworkService> {
-        let global_name = if family == Family::V4 {
-            STATE_IPV4_KEY
-        } else {
-            STATE_IPV6_KEY
-        };
-        let global_dict = self
-            .store
-            .get(CFString::new(global_name))
-            .and_then(|v| v.downcast_into::<CFDictionary>())?;
-
-        let id = global_dict
-            .find(unsafe { kSCDynamicStorePropNetPrimaryService }.to_void())
-            .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
-            .and_then(|s| s.downcast::<CFString>())
-            .map(|s| s.to_string())?;
-        let name = global_dict
-            .find(unsafe { kSCDynamicStorePropNetPrimaryInterface }.to_void())
-            .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
-            .and_then(|s| s.downcast::<CFString>())
-            .map(|s| s.to_string());
-
-        let router_key = if family == Family::V4 {
-            unsafe { kSCPropNetIPv4Router.to_void() }
-        } else {
-            unsafe { kSCPropNetIPv6Router.to_void() }
-        };
-        let router_ip = global_dict
-            .find(router_key)
-            .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
-            .and_then(|s| s.downcast::<CFString>())
-            .and_then(|ip| ip.to_string().parse().ok());
-
-        Some(NetworkService {
-            id,
-            name,
-            router_ip,
-        })
-    }
-
-    fn network_services(&self, family: Family) -> Vec<NetworkService> {
-        let router_key = if family == Family::V4 {
-            unsafe { kSCPropNetIPv4Router.to_void() }
-        } else {
-            unsafe { kSCPropNetIPv6Router.to_void() }
-        };
-
-        SCNetworkSet::new(&self.prefs)
-            .service_order()
-            .iter()
-            .map(|service_id| {
-                let service_id_s = service_id.to_string();
-
-                let key = if family == Family::V4 {
-                    format!("State:/Network/Service/{service_id_s}/IPv4")
-                } else {
-                    format!("State:/Network/Service/{service_id_s}/IPv6")
-                };
-                let ip_dict = self
-                    .store
-                    .get(CFString::new(&key))
-                    .and_then(|v| v.downcast_into::<CFDictionary>());
-
-                let (name, router_ip) = if let Some(ip_dict) = ip_dict {
-                    let name = ip_dict
-                        .find(unsafe { kSCPropInterfaceName }.to_void())
-                        .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
-                        .and_then(|s| s.downcast::<CFString>())
-                        .map(|s| s.to_string());
-                    let router_ip = ip_dict
-                        .find(router_key)
-                        .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
-                        .and_then(|s| s.downcast::<CFString>())
-                        .and_then(|ip| ip.to_string().parse().ok());
-                    (name, router_ip)
-                } else {
-                    (None, None)
-                };
-
-                NetworkService {
-                    id: service_id_s,
-                    name,
-                    router_ip,
-                }
-            })
-            .collect::<Vec<_>>()
-    }
-
     pub fn debug(&self) {
         for family in [Family::V4, Family::V6] {
             log::debug!(
                 "Primary interface ({family}): {:?}",
-                self.get_primary_interface(family)
+                talpid_macos::net::get_primary_interface(family)
             );
             log::debug!(
                 "Network services ({family}): {:?}",
-                self.network_services(family)
+                talpid_macos::net::network_services(family)
             );
         }
     }

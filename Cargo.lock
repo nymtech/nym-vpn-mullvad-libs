@@ -3485,6 +3485,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "talpid-macos"
+version = "0.0.0"
+dependencies = [
+ "err-derive",
+ "ipnetwork",
+ "once_cell",
+ "system-configuration",
+]
+
+[[package]]
 name = "talpid-openvpn"
 version = "0.0.0"
 dependencies = [
@@ -3556,6 +3566,7 @@ dependencies = [
  "once_cell",
  "rtnetlink",
  "system-configuration",
+ "talpid-macos",
  "talpid-types",
  "talpid-windows",
  "tokio",
