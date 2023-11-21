@@ -373,6 +373,8 @@ impl RouteManagerImpl {
             return Ok(());
         }
 
+        log::debug!("Reapplying routes");
+
         // Remove any existing ifscope route that we've added
         self.remove_applied_routes(|route| {
             route.is_ifscope() && route.is_default().unwrap_or(false)

@@ -23,8 +23,8 @@ use system_configuration::{
     network_configuration::SCNetworkSet,
     preferences::SCPreferences,
     sys::schema_definitions::{
-        kSCDynamicStorePropNetPrimaryInterface, kSCPropInterfaceName, kSCPropNetIPv4Router,
-        kSCPropNetIPv6Router,
+        kSCDynamicStorePropNetPrimaryInterface, kSCDynamicStorePropNetPrimaryService,
+        kSCPropInterfaceName, kSCPropNetIPv4Router, kSCPropNetIPv6Router,
     },
 };
 
@@ -57,9 +57,27 @@ impl Family {
 }
 
 #[derive(Debug)]
-struct NetworkServiceDetails {
+pub struct NetworkService {
+    id: String,
+    name: Option<String>,
+    router_ip: Option<IpAddr>,
+}
+
+#[derive(Debug)]
+pub struct ActiveInterface {
+    id: String,
     name: String,
     router_ip: IpAddr,
+}
+
+impl NetworkService {
+    pub fn into_active_interface(self) -> Option<ActiveInterface> {
+        Some(ActiveInterface {
+            id: self.id,
+            name: self.name?,
+            router_ip: self.router_ip?,
+        })
+    }
 }
 
 pub struct PrimaryInterfaceMonitor {
@@ -119,7 +137,7 @@ impl PrimaryInterfaceMonitor {
         tx: &mut UnboundedSender<InterfaceEvent>,
     ) {
         for k in changed_keys.iter() {
-            log::debug!("Interface change, key {}", k.to_string());
+            log::trace!("Interface change, key {}", k.to_string());
         }
         let _ = tx.unbounded_send(InterfaceEvent::Update);
     }
@@ -134,13 +152,14 @@ impl PrimaryInterfaceMonitor {
                 vec![iface]
             })
             .unwrap_or_else(|| {
-                log::debug!("No primary interface for {family}. Checking service order");
+                log::debug!("Found no primary interface for {family}");
                 self.network_services(family)
             });
 
         let (iface, index) = ifaces
             .into_iter()
             .filter_map(|iface| {
+                let iface = iface.into_active_interface()?;
                 let index = if_nametoindex(iface.name.as_str()).map_err(|error| {
                     log::error!("Failed to retrieve interface index for \"{}\": {error}", iface.name);
                     error
@@ -165,7 +184,7 @@ impl PrimaryInterfaceMonitor {
         Some(msg)
     }
 
-    fn get_primary_interface(&self, family: Family) -> Option<NetworkServiceDetails> {
+    fn get_primary_interface(&self, family: Family) -> Option<NetworkService> {
         let global_name = if family == Family::V4 {
             STATE_IPV4_KEY
         } else {
@@ -175,36 +194,37 @@ impl PrimaryInterfaceMonitor {
             .store
             .get(CFString::new(global_name))
             .and_then(|v| v.downcast_into::<CFDictionary>())?;
+
+        let id = global_dict
+            .find(unsafe { kSCDynamicStorePropNetPrimaryService }.to_void())
+            .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
+            .and_then(|s| s.downcast::<CFString>())
+            .map(|s| s.to_string())?;
         let name = global_dict
             .find(unsafe { kSCDynamicStorePropNetPrimaryInterface }.to_void())
             .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
             .and_then(|s| s.downcast::<CFString>())
-            .map(|s| s.to_string())
-            .or_else(|| {
-                log::debug!("Missing name for primary interface ({family})");
-                None
-            })?;
+            .map(|s| s.to_string());
 
         let router_key = if family == Family::V4 {
             unsafe { kSCPropNetIPv4Router.to_void() }
         } else {
             unsafe { kSCPropNetIPv6Router.to_void() }
         };
-
         let router_ip = global_dict
             .find(router_key)
             .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
             .and_then(|s| s.downcast::<CFString>())
-            .and_then(|ip| ip.to_string().parse().ok())
-            .or_else(|| {
-                log::debug!("Missing router IP for primary interface \"{name}\"");
-                None
-            })?;
+            .and_then(|ip| ip.to_string().parse().ok());
 
-        Some(NetworkServiceDetails { name, router_ip })
+        Some(NetworkService {
+            id,
+            name,
+            router_ip,
+        })
     }
 
-    fn network_services(&self, family: Family) -> Vec<NetworkServiceDetails> {
+    fn network_services(&self, family: Family) -> Vec<NetworkService> {
         let router_key = if family == Family::V4 {
             unsafe { kSCPropNetIPv4Router.to_void() }
         } else {
@@ -214,42 +234,40 @@ impl PrimaryInterfaceMonitor {
         SCNetworkSet::new(&self.prefs)
             .service_order()
             .iter()
-            .filter_map(|service_id| {
+            .map(|service_id| {
                 let service_id_s = service_id.to_string();
+
                 let key = if family == Family::V4 {
                     format!("State:/Network/Service/{service_id_s}/IPv4")
                 } else {
                     format!("State:/Network/Service/{service_id_s}/IPv6")
                 };
-
                 let ip_dict = self
                     .store
                     .get(CFString::new(&key))
-                    .and_then(|v| v.downcast_into::<CFDictionary>())
-                    .or_else(|| {
-                        log::debug!("No {family} dict for {service_id_s}");
-                        None
-                    })?;
-                let name = ip_dict
-                    .find(unsafe { kSCPropInterfaceName }.to_void())
-                    .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
-                    .and_then(|s| s.downcast::<CFString>())
-                    .map(|s| s.to_string())
-                    .or_else(|| {
-                        log::debug!("Missing name for service {service_id_s} ({family})");
-                        None
-                    })?;
-                let router_ip = ip_dict
-                    .find(router_key)
-                    .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
-                    .and_then(|s| s.downcast::<CFString>())
-                    .and_then(|ip| ip.to_string().parse().ok())
-                    .or_else(|| {
-                        log::debug!("Missing router IP for {service_id_s} ({name}, {family})");
-                        None
-                    })?;
+                    .and_then(|v| v.downcast_into::<CFDictionary>());
 
-                Some(NetworkServiceDetails { name, router_ip })
+                let (name, router_ip) = if let Some(ip_dict) = ip_dict {
+                    let name = ip_dict
+                        .find(unsafe { kSCPropInterfaceName }.to_void())
+                        .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
+                        .and_then(|s| s.downcast::<CFString>())
+                        .map(|s| s.to_string());
+                    let router_ip = ip_dict
+                        .find(router_key)
+                        .map(|s| unsafe { CFType::wrap_under_get_rule(*s) })
+                        .and_then(|s| s.downcast::<CFString>())
+                        .and_then(|ip| ip.to_string().parse().ok());
+                    (name, router_ip)
+                } else {
+                    (None, None)
+                };
+
+                NetworkService {
+                    id: service_id_s,
+                    name,
+                    router_ip,
+                }
             })
             .collect::<Vec<_>>()
     }
