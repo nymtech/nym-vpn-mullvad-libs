@@ -1,17 +1,29 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import styled from 'styled-components';
 
+import { colors } from '../../config.json';
 import { AccessMethodSetting } from '../../shared/daemon-rpc-types';
 import { messages } from '../../shared/gettext';
 import { useAppContext } from '../context';
 import { useHistory } from '../lib/history';
 import { useSelector } from '../redux/store';
 import * as Cell from './cell';
+import {
+  ContextMenu,
+  ContextMenuContainer,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from './ContextMenu';
 import InfoButton from './InfoButton';
 import { BackAction } from './KeyboardNavigation';
 import { Layout, SettingsContainer } from './Layout';
 import { NavigationBar, NavigationContainer, NavigationItems, TitleBarItem } from './NavigationBar';
 import SettingsHeader, { HeaderSubTitle, HeaderTitle } from './SettingsHeader';
 import { StyledContent, StyledNavigationScrollbars, StyledSettingsContent } from './SettingsStyles';
+
+const StyledContextMenuButton = styled(Cell.Icon)({
+  marginRight: '8px',
+});
 
 export default function ApiAccessMethods() {
   const history = useHistory();
@@ -69,7 +81,8 @@ interface ApiAccessMethodProps {
 }
 
 function ApiAccessMethod(props: ApiAccessMethodProps) {
-  const { updateApiAccessMethod } = useAppContext();
+  const { setApiAccessMethod, updateApiAccessMethod, removeApiAccessMethod } = useAppContext();
+  const history = useHistory();
 
   const toggle = useCallback(
     async (value: boolean) => {
@@ -80,9 +93,49 @@ function ApiAccessMethod(props: ApiAccessMethodProps) {
     [props.method],
   );
 
+  const menuItems = useMemo<Array<ContextMenuItem>>(
+    () => [
+      { type: 'item' as const, label: 'Use', onClick: () => setApiAccessMethod(props.method.id) },
+      {
+        type: 'item' as const,
+        label: 'Test',
+        onClick: () => console.log('Test', props.method.name),
+      },
+      ...(props.method.type === 'direct' || props.method.type === 'bridges'
+        ? []
+        : [
+            { type: 'separator' as const },
+            {
+              type: 'item' as const,
+              label: 'Edit',
+              onClick: () =>
+                history.push(
+                  generateRoutePath(RoutePath.editApiAccessMethods, { id: props.method.id }),
+                ),
+            },
+            {
+              type: 'item' as const,
+              label: 'Delete',
+              onClick: () => removeApiAccessMethod(props.method.id),
+            },
+          ]),
+    ],
+    [props.method.id],
+  );
+
   return (
     <Cell.Row>
       <Cell.Label>{props.method.name}</Cell.Label>
+      <ContextMenuContainer>
+        <ContextMenuTrigger>
+          <StyledContextMenuButton
+            source="icon-more"
+            tintColor={colors.white}
+            tintHoverColor={colors.white80}
+          />
+        </ContextMenuTrigger>
+        <ContextMenu items={menuItems} align="right" />
+      </ContextMenuContainer>
       <Cell.Switch isOn={props.method.enabled} onChange={toggle} />
     </Cell.Row>
   );
