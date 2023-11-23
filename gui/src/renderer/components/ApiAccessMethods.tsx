@@ -20,6 +20,7 @@ import { Layout, SettingsContainer } from './Layout';
 import { NavigationBar, NavigationContainer, NavigationItems, TitleBarItem } from './NavigationBar';
 import SettingsHeader, { HeaderSubTitle, HeaderTitle } from './SettingsHeader';
 import { StyledContent, StyledNavigationScrollbars, StyledSettingsContent } from './SettingsStyles';
+import { SmallButton, SmallButtonGroup } from './SmallButton';
 
 const StyledContextMenuButton = styled(Cell.Icon)({
   marginRight: '8px',
@@ -66,6 +67,10 @@ export default function ApiAccessMethods() {
                       <ApiAccessMethod key={method.id} method={method} />
                     ))}
                   </Cell.Group>
+
+                  <SmallButtonGroup $noMarginTop>
+                    <SmallButton>{messages.pgettext('api-access-methods-view', 'Add')}</SmallButton>
+                  </SmallButtonGroup>
                 </StyledSettingsContent>
               </StyledContent>
             </StyledNavigationScrollbars>
