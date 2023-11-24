@@ -31,7 +31,6 @@ pub async fn set_config(config: &mut ConfigFile, vm_name: &str, vm_config: VmCon
         .edit(|config| {
             config.vms.insert(vm_name.to_owned(), vm_config);
         })
-        .await
         .context("Failed to update VM config")
 }
 

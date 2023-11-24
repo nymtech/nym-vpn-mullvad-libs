@@ -141,9 +141,8 @@ async fn main() -> Result<()> {
         .join("mullvad-test")
         .join("config.json");
 
-    let mut config = config::ConfigFile::load_or_default(config_path)
-        .await
-        .context("Failed to load config")?;
+    let mut config =
+        config::ConfigFile::load_or_default(config_path).context("Failed to load config")?;
 
     match args.cmd {
         Commands::Set {
@@ -161,7 +160,6 @@ async fn main() -> Result<()> {
                 .edit(|config| {
                     config.vms.remove_entry(&name);
                 })
-                .await
                 .context("Failed to remove config entry")?;
             println!("Removed configuration \"{name}\"");
             Ok(())

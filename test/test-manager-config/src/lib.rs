@@ -139,7 +139,7 @@ pub struct ConfigFile {
 
 impl ConfigFile {
     /// Make config changes and save them to disk
-    pub async fn load_or_default<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+    pub fn load_or_default<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         Ok(Self {
             path: path.as_ref().to_path_buf(),
             config: Config::load_or_default(path)?,
@@ -147,7 +147,7 @@ impl ConfigFile {
     }
 
     /// Make config changes and save them to disk
-    pub async fn edit(&mut self, edit: impl FnOnce(&mut Config)) -> Result<(), Error> {
+    pub fn edit(&mut self, edit: impl FnOnce(&mut Config)) -> Result<(), Error> {
         edit(&mut self.config);
         self.config.save(&self.path)
     }
