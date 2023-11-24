@@ -107,6 +107,9 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     let items: Vec<ListItem> = vec![
         ListItem::new(API::Production.to_string()).style(selected_style),
+        ListItem::new("- 6582447815775908".to_string()),
+        ListItem::new("- 1312313545364523".to_string()),
+        ListItem::new("- 9879817981729812".to_string()),
         ListItem::new(API::Staging.to_string()),
     ];
 
