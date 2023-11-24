@@ -3,15 +3,16 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use ratatui::widgets::{Block, Borders, Cell, Row, Table, TableState};
 use ratatui::{
-    prelude::{Backend, Constraint, CrosstermBackend, Layout, Stylize, Terminal},
+    prelude::{Backend, Constraint, CrosstermBackend, Layout, Terminal},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
     Frame,
 };
 use std::io::{self, stdout, Result};
 use test_manager_config::{ConfigFile, OsType, VmType};
 
+#[allow(unused)]
 struct App {
     state: TableState,
     items: Vec<VMSummary>,
@@ -38,24 +39,6 @@ fn main() -> Result<()> {
     // Run application
     let app = App::new(config);
     let res = run_app(&mut terminal, app);
-    loop {
-        terminal.draw(|frame| {
-            let area = frame.size();
-            frame.render_widget(
-                Paragraph::new("Hello Ratatui! (press 'q' to quit)")
-                    .white()
-                    .on_blue(),
-                area,
-            );
-        })?;
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                    break;
-                }
-            }
-        }
-    }
 
     // Restore terminal
     disable_raw_mode()?;
@@ -73,13 +56,15 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Char('q') => return Ok(()),
-                    KeyCode::Down => app.next(),
-                    KeyCode::Up => app.previous(),
-                    _ => {}
+        if event::poll(std::time::Duration::from_millis(16))? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Char('q') => return Ok(()),
+                        KeyCode::Down => app.next(),
+                        KeyCode::Up => app.previous(),
+                        _ => {}
+                    }
                 }
             }
         }
