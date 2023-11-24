@@ -60,6 +60,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Down => app.next(),
                         KeyCode::Up => app.previous(),
+                        // Fold or Unfold the currently selected item
+                        KeyCode::Tab => {
+                            app.on_tab();
+                        }
                         _ => {}
                     }
                 }
@@ -113,7 +117,7 @@ impl App {
             //     os_type: vm.1.os_type.clone(),
             // })
             // .map(VMInfo::Folded)
-            .map(|(vm, options)| VMInfo::Unfolded { name: vm.clone(), config: options.clone() })
+            .map(|(vm, options)| VMInfo { name: vm.clone(), inner: options.clone(), folded: true })
             .collect();
         App {
             state: TableState::default(),
@@ -148,14 +152,34 @@ impl App {
         };
         self.state.select(Some(i));
     }
+
+    pub fn on_tab(&mut self) {
+        // Currently selected row
+        let index = match self.state.selected() {
+            Some(index) => index,
+            None => {
+                // This *should* be logged: Row index is out of bounds, probably due to a bug in `next` or `previous`.
+                return;
+            }
+        };
+        let item = match self.items.get_mut(index) {
+            Some(item) => item,
+            None => {
+                // This *should* be logged: Row index does not point at a VM config, probably due to a bug in `next` or `previous`.
+                return;
+            }
+        };
+        item.folded = !item.folded;
+    }
 }
 
 /// The item representing a virtual machine configuration which is rendered in
 /// the TUI.
 #[derive(Debug, Clone)]
-pub enum VMInfo {
-    Folded(VMSummary),
-    Unfolded { name: String, config: VmConfig },
+pub struct VMInfo {
+    folded: bool,
+    name: String,
+    inner: VmConfig,
 }
 
 impl VMInfo {}
@@ -178,48 +202,45 @@ impl From<VMInfo> for Vec<Row<'_>> {
         //     .max()
         //     .unwrap_or(0)
         //     + 1;
-        match value {
+        if value.folded {
             // Return a single row containing just a summary.
-            VMInfo::Folded(summary) => {
-                let cells = [
-                    Cell::from(summary.name.clone()),
-                    Cell::from(summary.vm_type.to_string()),
-                    Cell::from(summary.os_type.to_string()),
-                ];
+            let cells = [
+                Cell::from(value.name.clone()),
+                Cell::from(value.inner.vm_type.to_string()),
+                Cell::from(value.inner.os_type.to_string()),
+            ];
 
-                vec![Row::new(cells).height(height as u16).bottom_margin(1)]
-            }
+            vec![Row::new(cells).height(height as u16).bottom_margin(1)]
+        } else {
             // Return multiple rows, each one containing a mapping between some key to a value.
-            VMInfo::Unfolded { name, config } => {
-                let header_row = vec![Row::new(vec![
-                    Cell::from(name.clone()),
-                    Cell::from(config.vm_type.to_string()),
-                    Cell::from(config.os_type.to_string()),
-                ])
-                .height(height as u16)
-                .bottom_margin(1)];
+            let header_row = vec![Row::new(vec![
+                Cell::from(value.name.clone()),
+                Cell::from(value.inner.vm_type.to_string()),
+                Cell::from(value.inner.os_type.to_string()),
+            ])
+            .height(height as u16)
+            .bottom_margin(1)];
 
-                let configuration_rows: Vec<Row> = vec![
-                    Row::new(vec![
-                        Cell::from(""),
-                        Cell::from("VM Image"),
-                        Cell::from(config.image_path),
-                    ]),
-                    Row::new(vec![
-                        Cell::from(""),
-                        Cell::from("Package Type"),
-                        Cell::from(config.package_type.unwrap().to_string()), // TODO(markus): Do not unwrap
-                    ]),
-                    Row::new(vec![
-                        Cell::from(""),
-                        Cell::from("Provisioner"),
-                        Cell::from(config.provisioner.to_string()),
-                    ]),
-                ];
+            let configuration_rows: Vec<Row> = vec![
+                Row::new(vec![
+                    Cell::from(""),
+                    Cell::from("VM Image"),
+                    Cell::from(value.inner.image_path),
+                ]),
+                Row::new(vec![
+                    Cell::from(""),
+                    Cell::from("Package Type"),
+                    Cell::from(value.inner.package_type.unwrap().to_string()), // TODO(markus): Do not unwrap
+                ]),
+                Row::new(vec![
+                    Cell::from(""),
+                    Cell::from("Provisioner"),
+                    Cell::from(value.inner.provisioner.to_string()),
+                ]),
+            ];
 
-                let result = vec![header_row, configuration_rows].concat();
-                result
-            }
+            let result = vec![header_row, configuration_rows].concat();
+            result
         }
     }
 }
