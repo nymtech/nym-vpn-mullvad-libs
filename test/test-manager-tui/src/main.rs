@@ -10,7 +10,7 @@ use ratatui::{
     Frame,
 };
 use std::io::{self, stdout, Result};
-use test_manager_config::{ConfigFile, OsType, VmConfig, VmType};
+use test_manager_config::{ConfigFile, VmConfig};
 
 #[allow(unused)]
 struct App {
@@ -181,13 +181,6 @@ pub struct VMInfo {
 }
 
 impl VMInfo {}
-
-#[derive(Debug, Clone)]
-pub struct VMSummary {
-    name: String,
-    vm_type: VmType,
-    os_type: OsType,
-}
 
 impl From<VMInfo> for Vec<Row<'_>> {
     fn from(value: VMInfo) -> Self {
