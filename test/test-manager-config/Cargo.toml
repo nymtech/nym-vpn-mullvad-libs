@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_with = { version = "3.4" }
 err-derive = { workspace = true }
 clap = { workspace = true }

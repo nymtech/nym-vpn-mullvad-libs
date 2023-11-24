@@ -2,6 +2,8 @@
 
 use core::fmt;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use serde_with::DisplayFromStr;
 use std::{
     collections::BTreeMap,
     fs, io,
@@ -22,10 +24,12 @@ pub enum Error {
 
 #[derive(err_derive::Error, Debug)]
 pub enum ConfigError {
-    #[error(display = "Parsed VM config is not valid")]
+    #[error(display = "Parsed VM config is not valid! {}", _0)]
     InvalidConfig(serde_json::Error),
     #[error(display = "Error parsing {} as it is not a valid Mullvad account", _0)]
     ParseAccount(String),
+    #[error(display = "Error parsing {} as it is not a valid Mullvad API", _0)]
+    ParseAPI(String),
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]
@@ -33,7 +37,61 @@ pub struct Config {
     #[serde(skip)]
     pub runtime_opts: RuntimeOptions,
     pub vms: BTreeMap<String, VmConfig>,
-    pub mullvad_host: Option<String>,
+    pub test_environment: Vec<Environment>,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
+pub struct Environment {
+    #[serde_as(as = "DisplayFromStr")]
+    api: API,
+    accounts: Vec<Account>,
+}
+
+/// The Mullvad API is avaiable from multiple different environments.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub enum API {
+    Production,
+    Staging,
+}
+
+impl API {
+    const PRODUCTION: &'static str = "mullvad.net";
+    const STAGING: &'static str = "stagemole.eu";
+}
+
+impl fmt::Display for API {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let url = match self {
+            API::Production => Self::PRODUCTION.to_string(),
+            API::Staging => Self::STAGING.to_string(),
+        };
+        write!(f, "{url}")
+    }
+}
+
+impl fmt::Debug for API {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Production => f
+                .debug_tuple("Production")
+                .field(&Self::PRODUCTION)
+                .finish(),
+            Self::Staging => f.debug_tuple("Staging").field(&Self::STAGING).finish(),
+        }
+    }
+}
+
+impl FromStr for API {
+    type Err = ConfigError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            Self::PRODUCTION => Ok(API::Production),
+            Self::STAGING => Ok(API::Staging),
+            _ => Err(ConfigError::ParseAPI(s.to_string())),
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]
@@ -115,9 +173,6 @@ pub struct VmConfig {
 
     /// Type of operating system.
     pub os_type: OsType,
-
-    /// Mullvad account to use inside of the Virtual Machine
-    pub account: Account,
 
     /// Package type to use, e.g. deb or rpm
     #[arg(long, required_if_eq("os_type", "linux"))]
