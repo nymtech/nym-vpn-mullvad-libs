@@ -6,8 +6,7 @@ use std::{
     path::Path,
 };
 
-use tarpc::context;
-use tarpc::server::Channel;
+use tarpc::{context, server::Channel};
 use test_rpc::{
     meta,
     mullvad_daemon::{ServiceStatus, SOCKET_PATH},
@@ -15,10 +14,10 @@ use test_rpc::{
     transport::GrpcForwarder,
     AppTrace, Service,
 };
-use tokio::sync::broadcast::error::TryRecvError;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     process::Command,
+    sync::broadcast::error::TryRecvError,
 };
 use tokio_util::codec::{Decoder, LengthDelimitedCodec};
 
@@ -140,7 +139,7 @@ impl Service for TestServer {
         interface: Option<String>,
         destination: IpAddr,
     ) -> Result<(), test_rpc::Error> {
-        net::send_ping(interface.as_ref().map(String::as_str), destination).await
+        net::send_ping(interface.as_deref(), destination).await
     }
 
     async fn geoip_lookup(

@@ -2,8 +2,7 @@
 
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use serde_with::DisplayFromStr;
+use serde_with::{serde_as, DisplayFromStr};
 use std::{
     collections::BTreeMap,
     fs, io,
@@ -48,7 +47,7 @@ pub struct Environment {
     accounts: Vec<Account>,
 }
 
-/// The Mullvad API is avaiable from multiple different environments.
+/// The Mullvad API is available from multiple different environments.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum API {
     Production,
@@ -125,7 +124,7 @@ impl Config {
 
     fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let data = serde_json::to_vec_pretty(self).unwrap();
-        fs::write(path, &data).map_err(Error::Write)
+        fs::write(path, data).map_err(Error::Write)
     }
 
     pub fn get_vm(&self, name: &str) -> Option<&VmConfig> {

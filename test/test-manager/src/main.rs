@@ -10,8 +10,7 @@ mod vm;
 
 use std::path::PathBuf;
 
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use test_manager_config as config;
 use tests::config::DEFAULT_MULLVAD_HOST;
@@ -76,7 +75,8 @@ enum Commands {
         ///
         /// # Note
         ///
-        /// The gRPC interface must be compatible with the version specified for `mullvad-management-interface` in Cargo.toml.
+        /// The gRPC interface must be compatible with the version specified for
+        /// `mullvad-management-interface` in Cargo.toml.
         #[arg(long, short)]
         current_app: String,
 
