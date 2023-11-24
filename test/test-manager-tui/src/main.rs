@@ -10,7 +10,7 @@ use ratatui::{
     Frame,
 };
 use std::io::{self, stdout, Result};
-use test_manager_config::{ConfigFile, OsType, VmConfig, VmType, API};
+use test_manager_config::{ConfigFile, VmConfig, API};
 
 #[allow(unused)]
 struct App {
