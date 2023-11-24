@@ -119,7 +119,7 @@ fn ui(f: &mut Frame, app: &mut App) {
     });
     let t = Table::new(rows)
         .header(header)
-        .block(Block::default().borders(Borders::ALL).title("Table"))
+        .block(Block::default().borders(Borders::ALL).title("VMs"))
         .highlight_style(selected_style)
         .highlight_symbol(">> ")
         .widths(&[
