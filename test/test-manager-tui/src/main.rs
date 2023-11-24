@@ -10,12 +10,12 @@ use ratatui::{
     Frame,
 };
 use std::io::{self, stdout, Result};
-use test_manager_config::{ConfigFile, OsType, VmType};
+use test_manager_config::{ConfigFile, OsType, VmConfig, VmType};
 
 #[allow(unused)]
 struct App {
     state: TableState,
-    items: Vec<VMSummary>,
+    items: Vec<VMInfo>,
     config: ConfigFile,
 }
 
@@ -81,23 +81,12 @@ fn ui(f: &mut Frame, app: &mut App) {
         .style(normal_style)
         .height(1)
         .bottom_margin(1);
-    let rows = app.items.iter().map(|item| {
-        let height = 1;
-        // let height = item
-        //     .name
-        //     .chars()
-        //     .filter(|c| *c == '\n')
-        //     .count()
-        //     .max()
-        //     .unwrap_or(0)
-        //     + 1;
-        let cells = vec![
-            item.name.clone(),
-            item.vm_type.to_string(),
-            item.os_type.to_string(),
-        ];
-        Row::new(cells).height(height as u16).bottom_margin(1)
-    });
+    let rows: Vec<Row> = app
+        .items
+        .iter()
+        .cloned()
+        .flat_map(|vm| Vec::<Row>::from(vm))
+        .collect();
     let t = Table::new(rows)
         .header(header)
         .block(Block::default().borders(Borders::ALL).title("VMs"))
@@ -113,14 +102,17 @@ fn ui(f: &mut Frame, app: &mut App) {
 
 impl App {
     fn new(config: ConfigFile) -> App {
-        let items: Vec<VMSummary> = config
+        let items: Vec<VMInfo> = config
             .vms
             .iter()
-            .map(|vm| VMSummary {
-                name: vm.0.to_string(),
-                vm_type: vm.1.vm_type.clone(),
-                os_type: vm.1.os_type.clone(),
-            })
+            // TODO(markus): Revert to `Folded`.
+            // .map(|vm| VMSummary {
+            //     name: vm.0.to_string(),
+            //     vm_type: vm.1.vm_type.clone(),
+            //     os_type: vm.1.os_type.clone(),
+            // })
+            // .map(VMInfo::Folded)
+            .map(|(vm, options)| VMInfo::Unfolded { name: vm.clone(), config: options.clone() })
             .collect();
         App {
             state: TableState::default(),
@@ -157,8 +149,76 @@ impl App {
     }
 }
 
-struct VMSummary {
+/// The item representing a virtual machine configuration which is rendered in
+/// the TUI.
+#[derive(Debug, Clone)]
+pub enum VMInfo {
+    Folded(VMSummary),
+    Unfolded { name: String, config: VmConfig },
+}
+
+impl VMInfo {}
+
+#[derive(Debug, Clone)]
+pub struct VMSummary {
     name: String,
     vm_type: VmType,
     os_type: OsType,
+}
+
+impl From<VMInfo> for Vec<Row<'_>> {
+    fn from(value: VMInfo) -> Self {
+        let height = 1;
+        // let height = item
+        //     .name
+        //     .chars()
+        //     .filter(|c| *c == '\n')
+        //     .count()
+        //     .max()
+        //     .unwrap_or(0)
+        //     + 1;
+        match value {
+            // Return a single row containing just a summary.
+            VMInfo::Folded(summary) => {
+                let cells = [
+                    Cell::from(summary.name.clone()),
+                    Cell::from(summary.vm_type.to_string()),
+                    Cell::from(summary.os_type.to_string()),
+                ];
+
+                vec![Row::new(cells).height(height as u16).bottom_margin(1)]
+            }
+            // Return multiple rows, each one containing a mapping between some key to a value.
+            VMInfo::Unfolded { name, config } => {
+                let header_row = vec![Row::new(vec![
+                    Cell::from(name.clone()),
+                    Cell::from(config.vm_type.to_string()),
+                    Cell::from(config.os_type.to_string()),
+                ])
+                .height(height as u16)
+                .bottom_margin(1)];
+
+                let configuration_rows: Vec<Row> = vec![
+                    Row::new(vec![
+                        Cell::from(""),
+                        Cell::from("VM Image"),
+                        Cell::from(config.image_path),
+                    ]),
+                    Row::new(vec![
+                        Cell::from(""),
+                        Cell::from("Package Type"),
+                        Cell::from(config.package_type.unwrap().to_string()), // TODO(markus): Do not unwrap
+                    ]),
+                    Row::new(vec![
+                        Cell::from(""),
+                        Cell::from("Provisioner"),
+                        Cell::from(config.provisioner.to_string()),
+                    ]),
+                ];
+
+                let result = vec![header_row, configuration_rows].concat();
+                result
+            }
+        }
+    }
 }

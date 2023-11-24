@@ -308,6 +308,15 @@ pub enum PackageType {
     Rpm,
 }
 
+impl fmt::Display for PackageType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PackageType::Deb => write!(f, "deb"),
+            PackageType::Rpm => write!(f, "rpm"),
+        }
+    }
+}
+
 #[derive(clap::ValueEnum, Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Architecture {
@@ -332,6 +341,15 @@ pub enum Provisioner {
     Noop,
     /// Set up test runner over SSH.
     Ssh,
+}
+
+impl fmt::Display for Provisioner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Provisioner::Noop => write!(f, "NOOP"),
+            Provisioner::Ssh => write!(f, "SSH"),
+        }
+    }
 }
 
 /// A ~String type whose plain-text content can not be printed.
