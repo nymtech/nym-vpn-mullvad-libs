@@ -274,12 +274,31 @@ pub enum VmType {
     Tart,
 }
 
+impl fmt::Display for VmType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VmType::Qemu => write!(f, "Qemu"),
+            VmType::Tart => write!(f, "Tart"),
+        }
+    }
+}
+
 #[derive(clap::ValueEnum, Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum OsType {
     Windows,
     Linux,
     Macos,
+}
+
+impl fmt::Display for OsType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OsType::Windows => write!(f, "Windows"),
+            OsType::Linux => write!(f, "Linux"),
+            OsType::Macos => write!(f, "Macos"),
+        }
+    }
 }
 
 #[derive(clap::ValueEnum, Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]

@@ -10,11 +10,12 @@ use ratatui::{
     Frame,
 };
 use std::io::{self, stdout, Result};
-use test_manager_config::ConfigFile;
+use test_manager_config::{ConfigFile, OsType, VmType};
 
-struct App<'a> {
+struct App {
     state: TableState,
-    items: Vec<Vec<&'a str>>,
+    items: Vec<VMSummary>,
+    config: ConfigFile,
 }
 
 #[allow(dead_code, unused)]
@@ -35,7 +36,7 @@ fn main() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Run application
-    let app = App::new();
+    let app = App::new(config);
     let res = run_app(&mut terminal, app);
     loop {
         terminal.draw(|frame| {
@@ -100,13 +101,20 @@ fn ui(f: &mut Frame, app: &mut App) {
         .height(1)
         .bottom_margin(1);
     let rows = app.items.iter().map(|item| {
-        let height = item
-            .iter()
-            .map(|content| content.chars().filter(|c| *c == '\n').count())
-            .max()
-            .unwrap_or(0)
-            + 1;
-        let cells = item.iter().map(|c| Cell::from(*c));
+        let height = 1;
+        // let height = item
+        //     .name
+        //     .chars()
+        //     .filter(|c| *c == '\n')
+        //     .count()
+        //     .max()
+        //     .unwrap_or(0)
+        //     + 1;
+        let cells = vec![
+            item.name.clone(),
+            item.vm_type.to_string(),
+            item.os_type.to_string(),
+        ];
         Row::new(cells).height(height as u16).bottom_margin(1)
     });
     let t = Table::new(rows)
@@ -122,15 +130,21 @@ fn ui(f: &mut Frame, app: &mut App) {
     f.render_stateful_widget(t, rects[0], &mut app.state);
 }
 
-impl<'a> App<'a> {
-    fn new() -> App<'a> {
+impl App {
+    fn new(config: ConfigFile) -> App {
+        let items: Vec<VMSummary> = config
+            .vms
+            .iter()
+            .map(|vm| VMSummary {
+                name: vm.0.to_string(),
+                vm_type: vm.1.vm_type.clone(),
+                os_type: vm.1.os_type.clone(),
+            })
+            .collect();
         App {
             state: TableState::default(),
-            items: vec![
-                vec!["Debian 12", "QEMU", "Linux"],
-                vec!["Ubuntu 22.04", "QEMU", "Linux"],
-                vec!["Windows 10", "QEMU", "Windows"],
-            ],
+            items,
+            config,
         }
     }
     pub fn next(&mut self) {
@@ -160,4 +174,10 @@ impl<'a> App<'a> {
         };
         self.state.select(Some(i));
     }
+}
+
+struct VMSummary {
+    name: String,
+    vm_type: VmType,
+    os_type: OsType,
 }
