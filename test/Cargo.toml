@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "test-manager",
     "test-manager-config",
+    "test-manager-tui",
     "test-runner",
     "test-rpc",
 ]
