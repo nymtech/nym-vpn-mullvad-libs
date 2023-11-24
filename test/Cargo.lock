@@ -3387,7 +3387,9 @@ name = "test-manager-tui"
 version = "0.1.0"
 dependencies = [
  "crossterm",
+ "dirs",
  "ratatui",
+ "test-manager-config",
 ]
 
 [[package]]

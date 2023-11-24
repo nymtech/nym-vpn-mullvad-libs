@@ -8,8 +8,16 @@ use ratatui::{
     widgets::Paragraph,
 };
 use std::io::{stdout, Result};
+use test_manager_config::ConfigFile;
 
 fn main() -> Result<()> {
+    let config_path = dirs::config_dir()
+        .expect("Config directory not found. Can not load VM config")
+        .join("mullvad-test")
+        .join("config.json");
+
+    let mut config = ConfigFile::load_or_default(config_path).expect("Failed to load config");
+
     stdout().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
