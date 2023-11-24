@@ -257,6 +257,10 @@ impl Account {
     pub fn into_string(self) -> String {
         self.0.clone()
     }
+
+    fn placeholder(&self) -> String {
+        self.0.chars().map(|_| '*').collect()
+    }
 }
 
 impl FromStr for Account {
@@ -271,9 +275,14 @@ impl FromStr for Account {
     }
 }
 
+impl fmt::Display for Account {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.placeholder())
+    }
+}
+
 impl fmt::Debug for Account {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let placeholder: String = self.0.chars().map(|_| '*').collect();
-        f.debug_tuple("Account").field(&placeholder).finish()
+        f.debug_tuple("Account").field(&self.placeholder()).finish()
     }
 }
