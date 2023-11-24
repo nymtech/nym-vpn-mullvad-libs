@@ -224,10 +224,26 @@ impl From<VMInfo> for Vec<Row<'_>> {
                     ])
                 }),
                 Some(Row::new(vec![
-                    Cell::from(""),
                     Cell::from("Provisioner"),
                     Cell::from(value.inner.provisioner.to_string()),
                 ])),
+                value.inner.ssh_user.map(|ssh_user| {
+                    Row::new(vec![
+                        Cell::from("SSH username"),
+                        Cell::from(ssh_user.to_string()),
+                    ])
+                }),
+                value.inner.ssh_password.map(|ssh_password| {
+                    Row::new(vec![
+                        Cell::from("SSH password"),
+                        Cell::from(ssh_password.to_string()),
+                    ])
+                }),
+                Some(Row::new(vec![
+                    Cell::from("TPM"),
+                    Cell::from(value.inner.tpm.to_string()),
+                ])),
+                Some(Row::new(vec![Cell::from("")]).bottom_margin(1)),
             ]
             .into_iter()
             .filter(|o| o.is_some())
