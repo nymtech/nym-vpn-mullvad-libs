@@ -31,12 +31,32 @@ pub enum ConfigError {
     ParseAPI(String),
 }
 
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     #[serde(skip)]
     pub runtime_opts: RuntimeOptions,
     pub vms: BTreeMap<String, VmConfig>,
     pub test_environment: Vec<Environment>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        let test_environement = vec![
+            Environment {
+                api: API::Production,
+                accounts: vec![],
+            },
+            Environment {
+                api: API::Staging,
+                accounts: vec![],
+            },
+        ];
+        Self {
+            runtime_opts: Default::default(),
+            vms: Default::default(),
+            test_environment: test_environement,
+        }
+    }
 }
 
 #[serde_as]
