@@ -72,10 +72,6 @@ enum Commands {
         #[arg(long, group = "display_args")]
         vnc: Option<u16>,
 
-        /// Account number to use for testing
-        #[arg(long, short)]
-        account: String,
-
         /// App package to test.
         ///
         /// # Note
@@ -148,6 +144,7 @@ async fn main() -> Result<()> {
     let mut config = config::ConfigFile::load_or_default(config_path)
         .await
         .context("Failed to load config")?;
+
     match args.cmd {
         Commands::Set {
             name,
@@ -201,7 +198,6 @@ async fn main() -> Result<()> {
             name,
             display,
             vnc,
-            account,
             current_app,
             previous_app,
             test_filters,
@@ -248,7 +244,7 @@ async fn main() -> Result<()> {
 
             let result = run_tests::run(
                 tests::config::TestConfig {
-                    account_number: account,
+                    account: vm_config.account.clone(),
                     artifacts_dir,
                     current_app_filename: manifest
                         .current_app_path

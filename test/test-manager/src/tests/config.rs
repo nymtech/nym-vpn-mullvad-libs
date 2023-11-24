@@ -1,6 +1,8 @@
 use once_cell::sync::OnceCell;
 use std::ops::Deref;
 
+use crate::config::Account;
+
 // Default `mullvad_host`. This should match the production env.
 pub const DEFAULT_MULLVAD_HOST: &str = "mullvad.net";
 
@@ -8,8 +10,7 @@ pub const DEFAULT_MULLVAD_HOST: &str = "mullvad.net";
 /// The constants must be initialized before running any tests using `TEST_CONFIG.init()`.
 #[derive(Debug, Clone)]
 pub struct TestConfig {
-    pub account_number: String,
-
+    pub account: Account,
     pub artifacts_dir: String,
     pub current_app_filename: String,
     pub previous_app_filename: String,

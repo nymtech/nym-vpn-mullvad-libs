@@ -241,7 +241,7 @@ pub async fn test_uninstall_app(
     // Login to test preservation of device/account
     // TODO: Remove once we can login before upgrade above
     mullvad_client
-        .login_account(TEST_CONFIG.account_number.clone())
+        .login_account(TEST_CONFIG.account.clone().into_string())
         .await
         .expect("login failed");
 

@@ -130,7 +130,10 @@ pub async fn test_ui_login(_: TestContext, rpc: ServiceClient) -> Result<(), Err
     let ui_result = run_test_env(
         &rpc,
         &["login.spec"],
-        [("ACCOUNT_NUMBER", &*TEST_CONFIG.account_number)],
+        [(
+            "ACCOUNT_NUMBER",
+            &*TEST_CONFIG.account.clone().into_string(),
+        )],
     )
     .await
     .unwrap();
