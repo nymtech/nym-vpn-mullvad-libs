@@ -34,6 +34,7 @@ log = { workspace = true }
 pcap = { version = "0.10.1", features = ["capture-stream"] }
 pnet_packet = "0.31.0"
 
+test-manager-config = { path = "../test-manager-config" }
 test-rpc = { path = "../test-rpc" }
 
 env_logger = { workspace = true }

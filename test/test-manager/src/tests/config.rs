@@ -1,7 +1,7 @@
 use once_cell::sync::OnceCell;
 use std::ops::Deref;
 
-use crate::config::Account;
+use test_manager_config::Account;
 
 // Default `mullvad_host`. This should match the production env.
 pub const DEFAULT_MULLVAD_HOST: &str = "mullvad.net";

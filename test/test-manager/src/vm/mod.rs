@@ -1,7 +1,6 @@
-use crate::{
-    config::{Config, ConfigFile, VmConfig, VmType},
-    package,
-};
+use crate::package;
+use test_manager_config::{Config, ConfigFile, VmConfig, VmType};
+
 use anyhow::{Context, Result};
 use std::net::IpAddr;
 

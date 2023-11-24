@@ -1,4 +1,3 @@
-use crate::config::{OsType, Provisioner, VmConfig};
 use crate::package;
 use anyhow::{Context, Result};
 use ssh2::Session;
@@ -7,6 +6,7 @@ use std::io::{self, Read};
 use std::net::IpAddr;
 use std::net::TcpStream;
 use std::{net::SocketAddr, path::Path};
+use test_manager_config::{OsType, Provisioner, VmConfig};
 
 pub async fn provision(
     config: &VmConfig,

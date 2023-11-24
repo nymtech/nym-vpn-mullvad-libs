@@ -1,4 +1,3 @@
-mod config;
 mod container;
 mod logging;
 mod mullvad_daemon;
@@ -14,6 +13,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use anyhow::Result;
 use clap::Parser;
+use test_manager_config as config;
 use tests::config::DEFAULT_MULLVAD_HOST;
 
 /// Test manager for Mullvad VPN app

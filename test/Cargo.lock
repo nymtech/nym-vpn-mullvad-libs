@@ -3142,6 +3142,7 @@ dependencies = [
  "ssh2",
  "talpid-types",
  "tarpc",
+ "test-manager-config",
  "test-rpc",
  "test_macro",
  "tokio",

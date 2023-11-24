@@ -1,7 +1,4 @@
-use crate::{
-    config::{self, Config, VmConfig},
-    vm::{logging::forward_logs, util::find_pty},
-};
+use crate::vm::{logging::forward_logs, util::find_pty};
 use async_tempfile::TempFile;
 use regex::Regex;
 use std::{
@@ -11,6 +8,7 @@ use std::{
     process::{ExitStatus, Stdio},
     time::Duration,
 };
+use test_manager_config::{self as config, Config, VmConfig};
 use tokio::{
     fs,
     process::{Child, Command},

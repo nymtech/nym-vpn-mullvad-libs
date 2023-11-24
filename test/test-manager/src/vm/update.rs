@@ -1,7 +1,7 @@
-use crate::config::{OsType, PackageType, Provisioner, VmConfig};
 use crate::vm::ssh::SSHSession;
 use anyhow::{Context, Result};
 use std::fmt;
+use test_manager_config::{OsType, PackageType, Provisioner, VmConfig};
 
 #[derive(Debug)]
 pub enum Update {

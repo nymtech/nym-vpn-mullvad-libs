@@ -1,8 +1,8 @@
-use crate::config::{Architecture, OsType, PackageType, VmConfig};
 use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::path::{Path, PathBuf};
+use test_manager_config::{Architecture, OsType, PackageType, VmConfig};
 use tokio::fs;
 
 static VERSION_REGEX: Lazy<Regex> =
