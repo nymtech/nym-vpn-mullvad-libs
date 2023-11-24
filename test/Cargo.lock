@@ -3155,6 +3155,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-manager-config"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "err-derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "test-rpc"
 version = "0.1.0"
 dependencies = [
