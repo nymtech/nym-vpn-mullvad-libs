@@ -110,17 +110,15 @@ impl App {
         let items: Vec<VMInfo> = config
             .vms
             .iter()
-            // TODO(markus): Revert to `Folded`.
-            // .map(|vm| VMSummary {
-            //     name: vm.0.to_string(),
-            //     vm_type: vm.1.vm_type.clone(),
-            //     os_type: vm.1.os_type.clone(),
-            // })
-            // .map(VMInfo::Folded)
-            .map(|(vm, options)| VMInfo { name: vm.clone(), inner: options.clone(), folded: true })
+            .map(|(vm, options)| VMInfo {
+                name: vm.clone(),
+                inner: options.clone(),
+                folded: true,
+            })
             .collect();
+        let initial_state = TableState::default().with_selected(Some(0));
         App {
-            state: TableState::default(),
+            state: initial_state,
             items,
             config,
         }
