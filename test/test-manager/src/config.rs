@@ -1,11 +1,13 @@
 //! Test manager configuration.
 
+use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     io,
     ops::Deref,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 #[derive(err_derive::Error, Debug)]
@@ -13,9 +15,17 @@ pub enum Error {
     #[error(display = "Failed to read config")]
     Read(io::Error),
     #[error(display = "Failed to parse config")]
-    InvalidConfig(serde_json::Error),
+    Config(#[error(source)] ConfigError),
     #[error(display = "Failed to write config")]
     Write(io::Error),
+}
+
+#[derive(err_derive::Error, Debug)]
+pub enum ConfigError {
+    #[error(display = "Parsed VM config is not valid")]
+    InvalidConfig(serde_json::Error),
+    #[error(display = "Error parsing {} as it is not a valid Mullvad account", _0)]
+    ParseAccount(String),
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]
@@ -52,7 +62,7 @@ impl Config {
 
     async fn load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let data = tokio::fs::read(path).await.map_err(Error::Read)?;
-        serde_json::from_slice(&data).map_err(Error::InvalidConfig)
+        Ok(serde_json::from_slice(&data).map_err(ConfigError::InvalidConfig)?)
     }
 
     async fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
@@ -105,6 +115,9 @@ pub struct VmConfig {
 
     /// Type of operating system.
     pub os_type: OsType,
+
+    /// Mullvad account to use inside of the Virtual Machine
+    pub account: Account,
 
     /// Package type to use, e.g. deb or rpm
     #[arg(long, required_if_eq("os_type", "linux"))]
@@ -226,4 +239,41 @@ pub enum Provisioner {
     Noop,
     /// Set up test runner over SSH.
     Ssh,
+}
+
+/// A ~String type whose plain-text content can not be printed.
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct Account(String);
+
+#[allow(unused)]
+impl Account {
+    /// Access the plain-text account number.
+    ///
+    /// # Note
+    ///
+    /// This should never be used to log the account number. Rather, it is to be
+    /// used by frontends/wrappers around `test-manager`.
+    pub fn into_string(self) -> String {
+        self.0.clone()
+    }
+}
+
+impl FromStr for Account {
+    type Err = ConfigError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s.chars().all(|c| c.is_numeric()) {
+            Err(ConfigError::ParseAccount(s.to_owned()))
+        } else {
+            Ok(Account(s.to_owned()))
+        }
+    }
+}
+
+impl fmt::Debug for Account {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let placeholder: String = self.0.chars().map(|_| '*').collect();
+        f.debug_tuple("Account").field(&placeholder).finish()
+    }
 }
