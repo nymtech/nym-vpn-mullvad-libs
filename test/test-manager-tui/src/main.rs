@@ -3,18 +3,19 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::widgets::{Block, Borders, Cell, Row, Table, TableState};
 use ratatui::{
     prelude::{Backend, Constraint, CrosstermBackend, Layout, Terminal},
     style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, List, ListItem, ListState, Row, Table, TableState},
     Frame,
 };
 use std::io::{self, stdout, Result};
-use test_manager_config::{ConfigFile, VmConfig};
+use test_manager_config::{ConfigFile, OsType, VmConfig, VmType, API};
 
 #[allow(unused)]
 struct App {
     state: TableState,
+    env_state: ListState,
     items: Vec<VMInfo>,
     config: ConfigFile,
 }
@@ -74,7 +75,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 
 fn ui(f: &mut Frame, app: &mut App) {
     let rects = Layout::default()
-        .constraints([Constraint::Percentage(100)])
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(5)])
         .split(f.size());
 
     let selected_style = Style::default().add_modifier(Modifier::REVERSED);
@@ -90,7 +91,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         .items
         .iter()
         .cloned()
-        .flat_map(|vm| Vec::<Row>::from(vm))
+        .flat_map(Vec::<Row>::from)
         .collect();
     let t = Table::new(rows)
         .header(header)
@@ -103,6 +104,28 @@ fn ui(f: &mut Frame, app: &mut App) {
             Constraint::Min(10),
         ]);
     f.render_stateful_widget(t, rects[0], &mut app.state);
+
+    let items: Vec<ListItem> = vec![
+        ListItem::new(API::Production.to_string()).style(selected_style),
+        ListItem::new(API::Staging.to_string()),
+    ];
+
+    // Create a List from all list items and highlight the currently selected one
+    let items = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Test environments"),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+                .add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol(">> ");
+
+    // We can now render the item list
+    f.render_stateful_widget(items, rects[1], &mut app.env_state);
 }
 
 impl App {
@@ -121,6 +144,7 @@ impl App {
             state: initial_state,
             items,
             config,
+            env_state: ListState::default(),
         }
     }
     pub fn next(&mut self) {
@@ -156,14 +180,16 @@ impl App {
         let index = match self.state.selected() {
             Some(index) => index,
             None => {
-                // This *should* be logged: Row index is out of bounds, probably due to a bug in `next` or `previous`.
+                // This *should* be logged: Row index is out of bounds, probably due to a bug in
+                // `next` or `previous`.
                 return;
             }
         };
         let item = match self.items.get_mut(index) {
             Some(item) => item,
             None => {
-                // This *should* be logged: Row index does not point at a VM config, probably due to a bug in `next` or `previous`.
+                // This *should* be logged: Row index does not point at a VM config, probably due to
+                // a bug in `next` or `previous`.
                 return;
             }
         };
