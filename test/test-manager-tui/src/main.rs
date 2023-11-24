@@ -58,8 +58,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('q') => return Ok(()),
-                        KeyCode::Down => app.next(),
-                        KeyCode::Up => app.previous(),
+                        KeyCode::Down | KeyCode::Char('j') => app.next(),
+                        KeyCode::Up | KeyCode::Char('k') => app.previous(),
                         // Fold or Unfold the currently selected item
                         KeyCode::Tab => {
                             app.on_tab();
