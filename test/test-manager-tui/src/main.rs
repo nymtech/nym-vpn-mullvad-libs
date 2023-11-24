@@ -220,22 +220,26 @@ impl From<VMInfo> for Vec<Row<'_>> {
             .bottom_margin(1)];
 
             let configuration_rows: Vec<Row> = vec![
-                Row::new(vec![
-                    Cell::from(""),
+                Some(Row::new(vec![
                     Cell::from("VM Image"),
                     Cell::from(value.inner.image_path),
-                ]),
-                Row::new(vec![
-                    Cell::from(""),
-                    Cell::from("Package Type"),
-                    Cell::from(value.inner.package_type.unwrap().to_string()), // TODO(markus): Do not unwrap
-                ]),
-                Row::new(vec![
+                ])),
+                value.inner.package_type.map(|package_type| {
+                    Row::new(vec![
+                        Cell::from("Package Type"),
+                        Cell::from(package_type.to_string()),
+                    ])
+                }),
+                Some(Row::new(vec![
                     Cell::from(""),
                     Cell::from("Provisioner"),
                     Cell::from(value.inner.provisioner.to_string()),
-                ]),
-            ];
+                ])),
+            ]
+            .into_iter()
+            .filter(|o| o.is_some())
+            .flatten()
+            .collect();
 
             let result = vec![header_row, configuration_rows].concat();
             result
