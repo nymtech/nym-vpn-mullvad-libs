@@ -25,7 +25,8 @@ extension PacketTunnelActor {
         defaultPathObserver: DefaultPathObserverProtocol = DefaultPathObserverFake(),
         blockedStateErrorMapper: BlockedStateErrorMapperProtocol = BlockedStateErrorMapperStub(),
         relaySelector: RelaySelectorProtocol = RelaySelectorStub.nonFallible(),
-        settingsReader: SettingsReaderProtocol = SettingsReaderStub.staticConfiguration()
+        settingsReader: SettingsReaderProtocol = SettingsReaderStub.staticConfiguration(),
+        connectivityAdaptor: ConnectivityAdaptorProtocol = ConnectivityAdaptorDummy()
     ) -> PacketTunnelActor {
         return PacketTunnelActor(
             timings: .timingsForTests,
@@ -35,7 +36,8 @@ extension PacketTunnelActor {
             blockedStateErrorMapper: blockedStateErrorMapper,
             relaySelector: relaySelector,
             settingsReader: settingsReader,
-            protocolObfuscator: ProtocolObfuscationStub()
+            protocolObfuscator: ProtocolObfuscationStub(),
+            connectivityAdaptor: connectivityAdaptor
         )
     }
 }

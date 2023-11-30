@@ -45,6 +45,7 @@ extension PacketTunnelActor {
 
         func mutateConnectionState(_ connState: inout ConnectionState) -> Bool {
             if connState.networkReachability != newReachability {
+                connectivityAdaptor.reset()
                 connState.networkReachability = newReachability
                 return true
             }

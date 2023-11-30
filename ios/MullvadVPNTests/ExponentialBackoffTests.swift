@@ -6,13 +6,12 @@
 //  Copyright © 2022 Mullvad VPN AB. All rights reserved.
 //
 
-@testable import MullvadREST
-import MullvadTypes
+@testable import MullvadTypes
 import XCTest
 
 final class ExponentialBackoffTests: XCTestCase {
     func testExponentialBackoff() {
-        var backoff = ExponentialBackoff(initial: .seconds(2), multiplier: 3)
+        var backoff = ExponentialBackoffDelay(initial: .seconds(2), multiplier: 3)
 
         XCTAssertEqual(backoff.next(), .seconds(2))
         XCTAssertEqual(backoff.next(), .seconds(6))
@@ -20,7 +19,7 @@ final class ExponentialBackoffTests: XCTestCase {
     }
 
     func testAtMaximumValue() {
-        var backoff = ExponentialBackoff(initial: .milliseconds(.max - 1), multiplier: 2)
+        var backoff = ExponentialBackoffDelay(initial: .milliseconds(.max - 1), multiplier: 2)
 
         XCTAssertEqual(backoff.next(), .milliseconds(.max - 1))
         XCTAssertEqual(backoff.next(), .milliseconds(.max))
@@ -28,7 +27,7 @@ final class ExponentialBackoffTests: XCTestCase {
     }
 
     func testMaximumBound() {
-        var backoff = ExponentialBackoff(
+        var backoff = ExponentialBackoffDelay(
             initial: .milliseconds(2),
             multiplier: 3,
             maxDelay: .milliseconds(7)
@@ -40,12 +39,12 @@ final class ExponentialBackoffTests: XCTestCase {
     }
 
     func testMinimumValue() {
-        var backoff = ExponentialBackoff(initial: .milliseconds(0), multiplier: 10)
+        var backoff = ExponentialBackoffDelay(initial: .milliseconds(0), multiplier: 10)
 
         XCTAssertEqual(backoff.next(), .milliseconds(0))
         XCTAssertEqual(backoff.next(), .milliseconds(0))
 
-        backoff = ExponentialBackoff(initial: .milliseconds(1), multiplier: 0)
+        backoff = ExponentialBackoffDelay(initial: .milliseconds(1), multiplier: 0)
 
         XCTAssertEqual(backoff.next(), .milliseconds(1))
         XCTAssertEqual(backoff.next(), .milliseconds(0))
@@ -53,7 +52,7 @@ final class ExponentialBackoffTests: XCTestCase {
 
     func testJitter() {
         let initial: Duration = .milliseconds(500)
-        var iterator = Jittered(ExponentialBackoff(initial: initial, multiplier: 3))
+        var iterator = Jittered(ExponentialBackoffDelay(initial: initial, multiplier: 3))
 
         XCTAssertGreaterThanOrEqual(iterator.next()!, initial)
     }

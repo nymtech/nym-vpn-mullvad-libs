@@ -8,6 +8,7 @@
 
 import Foundation
 import MullvadLogging
+import MullvadREST
 import MullvadTypes
 import NetworkExtension
 import TunnelObfuscation
@@ -45,6 +46,7 @@ public actor PacketTunnelActor {
     let relaySelector: RelaySelectorProtocol
     let settingsReader: SettingsReaderProtocol
     let protocolObfuscator: ProtocolObfuscation
+    let connectivityAdaptor: ConnectivityAdaptorProtocol
 
     nonisolated let commandChannel = CommandChannel()
 
@@ -56,7 +58,8 @@ public actor PacketTunnelActor {
         blockedStateErrorMapper: BlockedStateErrorMapperProtocol,
         relaySelector: RelaySelectorProtocol,
         settingsReader: SettingsReaderProtocol,
-        protocolObfuscator: ProtocolObfuscation
+        protocolObfuscator: ProtocolObfuscation,
+        connectivityAdaptor: ConnectivityAdaptorProtocol
     ) {
         self.timings = timings
         self.tunnelAdapter = tunnelAdapter
@@ -66,7 +69,7 @@ public actor PacketTunnelActor {
         self.relaySelector = relaySelector
         self.settingsReader = settingsReader
         self.protocolObfuscator = protocolObfuscator
-
+        self.connectivityAdaptor = connectivityAdaptor
         consumeCommands(channel: commandChannel)
     }
 

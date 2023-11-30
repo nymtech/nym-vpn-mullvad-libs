@@ -192,7 +192,6 @@
 		58968FAE28743E2000B799DC /* TunnelInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58968FAD28743E2000B799DC /* TunnelInteractor.swift */; };
 		5896AE84246D5889005B36CB /* CustomDateComponentsFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5896AE83246D5889005B36CB /* CustomDateComponentsFormatting.swift */; };
 		5896CEF226972DEB00B0FAE8 /* AccountContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5896CEF126972DEB00B0FAE8 /* AccountContentView.swift */; };
-		5897F1742913EAF800AF5695 /* ExponentialBackoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5897F1732913EAF800AF5695 /* ExponentialBackoff.swift */; };
 		5898D29F29017DD000EB5EBA /* RelaySelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58781CD422AFBA39009B9D8E /* RelaySelector.swift */; };
 		5898D2A22901801000EB5EBA /* MullvadREST.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 06799ABC28F98E1D00ACD94E /* MullvadREST.framework */; platformFilter = ios; };
 		5898D2A92901844E00EB5EBA /* libRelaySelector.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5898D29829017DAC00EB5EBA /* libRelaySelector.a */; };
@@ -676,6 +675,14 @@
 		F0C6FA852A6A733700F521F0 /* InAppPurchaseInteractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C6FA842A6A733700F521F0 /* InAppPurchaseInteractor.swift */; };
 		F0D8825B2B04F53600D3EF9A /* OutgoingConnectionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8825A2B04F53600D3EF9A /* OutgoingConnectionData.swift */; };
 		F0D8825C2B04F70E00D3EF9A /* OutgoingConnectionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8825A2B04F53600D3EF9A /* OutgoingConnectionData.swift */; };
+		F0D8825E2B0E062E00D3EF9A /* RetryStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8825D2B0E062E00D3EF9A /* RetryStrategy.swift */; };
+		F0D882602B0E11FC00D3EF9A /* RetryDelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8825F2B0E11FC00D3EF9A /* RetryDelay.swift */; };
+		F0D882612B0E125B00D3EF9A /* ExponentialBackoffDelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5897F1732913EAF800AF5695 /* ExponentialBackoffDelay.swift */; };
+		F0D882632B0F4DAA00D3EF9A /* ConnectivityAdaptorManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D882622B0F4DAA00D3EF9A /* ConnectivityAdaptorManager.swift */; };
+		F0D882652B0F4DEE00D3EF9A /* ConnectivityAdaptorProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D882642B0F4DEE00D3EF9A /* ConnectivityAdaptorProtocol.swift */; };
+		F0D882672B0F676700D3EF9A /* ConnectivityAdaptorManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D882662B0F676700D3EF9A /* ConnectivityAdaptorManagerTests.swift */; };
+		F0D8826C2B109C1400D3EF9A /* JitteredDelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8826B2B109C1400D3EF9A /* JitteredDelay.swift */; };
+		F0D8826F2B15E6ED00D3EF9A /* ConnectivityAdaptorDummy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8826E2B15E6ED00D3EF9A /* ConnectivityAdaptorDummy.swift */; };
 		F0DA87472A9CB9A2006044F1 /* AccountExpiryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0DA87462A9CB9A2006044F1 /* AccountExpiryRow.swift */; };
 		F0DA87492A9CBA9F006044F1 /* AccountDeviceRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0DA87482A9CBA9F006044F1 /* AccountDeviceRow.swift */; };
 		F0DA874B2A9CBACB006044F1 /* AccountNumberRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0DA874A2A9CBACB006044F1 /* AccountNumberRow.swift */; };
@@ -1389,7 +1396,7 @@
 		5896AE83246D5889005B36CB /* CustomDateComponentsFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDateComponentsFormatting.swift; sourceTree = "<group>"; };
 		5896AE85246D6AD8005B36CB /* CustomDateComponentsFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDateComponentsFormattingTests.swift; sourceTree = "<group>"; };
 		5896CEF126972DEB00B0FAE8 /* AccountContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountContentView.swift; sourceTree = "<group>"; };
-		5897F1732913EAF800AF5695 /* ExponentialBackoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExponentialBackoff.swift; sourceTree = "<group>"; };
+		5897F1732913EAF800AF5695 /* ExponentialBackoffDelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExponentialBackoffDelay.swift; sourceTree = "<group>"; };
 		5898D29829017DAC00EB5EBA /* libRelaySelector.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libRelaySelector.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5898D2A7290182B000EB5EBA /* TunnelProviderReply.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelProviderReply.swift; sourceTree = "<group>"; };
 		5898D2AD290185D200EB5EBA /* ProxyURLResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyURLResponse.swift; sourceTree = "<group>"; };
@@ -1686,6 +1693,13 @@
 		F0C6FA802A66E23300F521F0 /* DeleteAccountOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountOperation.swift; sourceTree = "<group>"; };
 		F0C6FA842A6A733700F521F0 /* InAppPurchaseInteractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppPurchaseInteractor.swift; sourceTree = "<group>"; };
 		F0D8825A2B04F53600D3EF9A /* OutgoingConnectionData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutgoingConnectionData.swift; sourceTree = "<group>"; };
+		F0D8825D2B0E062E00D3EF9A /* RetryStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryStrategy.swift; sourceTree = "<group>"; };
+		F0D8825F2B0E11FC00D3EF9A /* RetryDelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryDelay.swift; sourceTree = "<group>"; };
+		F0D882622B0F4DAA00D3EF9A /* ConnectivityAdaptorManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityAdaptorManager.swift; sourceTree = "<group>"; };
+		F0D882642B0F4DEE00D3EF9A /* ConnectivityAdaptorProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityAdaptorProtocol.swift; sourceTree = "<group>"; };
+		F0D882662B0F676700D3EF9A /* ConnectivityAdaptorManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityAdaptorManagerTests.swift; sourceTree = "<group>"; };
+		F0D8826B2B109C1400D3EF9A /* JitteredDelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JitteredDelay.swift; sourceTree = "<group>"; };
+		F0D8826E2B15E6ED00D3EF9A /* ConnectivityAdaptorDummy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityAdaptorDummy.swift; sourceTree = "<group>"; };
 		F0DA87462A9CB9A2006044F1 /* AccountExpiryRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountExpiryRow.swift; sourceTree = "<group>"; };
 		F0DA87482A9CBA9F006044F1 /* AccountDeviceRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeviceRow.swift; sourceTree = "<group>"; };
 		F0DA874A2A9CBACB006044F1 /* AccountNumberRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountNumberRow.swift; sourceTree = "<group>"; };
@@ -1934,7 +1948,6 @@
 			children = (
 				06AC114128F8413A0037AF9A /* AddressCache.swift */,
 				062B45A228FD4C0F00746E77 /* Assets */,
-				5897F1732913EAF800AF5695 /* ExponentialBackoff.swift */,
 				06FAE67128F83CA40033DD93 /* HTTP.swift */,
 				582FFA82290A84E700895745 /* Info.plist */,
 				06799ABE28F98E1D00ACD94E /* MullvadREST.h */,
@@ -1984,16 +1997,18 @@
 				584D26BE270C550B004EA533 /* AnyIPAddress.swift */,
 				586A951329013235007BAF2B /* AnyIPEndpoint.swift */,
 				06AC113628F83FD70037AF9A /* Cancellable.swift */,
-				A9A8A8EA2A262AB30086D569 /* FileCache.swift */,
 				58E511E328DDDE8900B0BCDE /* CustomErrorDescriptionProtocol.swift */,
 				586168682976F6BD00EF8598 /* DisplayError.swift */,
 				7A307AD82A8CD8DA0017618B /* Duration.swift */,
 				7A307ADA2A8F56DF0017618B /* Duration+Extensions.swift */,
 				58E511EA28DDE18400B0BCDE /* Error+Chain.swift */,
+				5897F1732913EAF800AF5695 /* ExponentialBackoffDelay.swift */,
+				A9A8A8EA2A262AB30086D569 /* FileCache.swift */,
 				58900D0228BBDCC70094E4F0 /* FixedWidthInteger+Arithmetics.swift */,
 				06AC115628F848D00037AF9A /* IPAddress+Codable.swift */,
 				58561C98239A5D1500BD6B5E /* IPv4Endpoint.swift */,
 				586A95112901321B007BAF2B /* IPv6Endpoint.swift */,
+				F0D8826B2B109C1400D3EF9A /* JitteredDelay.swift */,
 				58AEEF642344A36000C9BBD5 /* KeychainError.swift */,
 				58A1AA8623F43901009F7EA6 /* Location.swift */,
 				5840250322B11AB700E4CFEC /* MullvadEndpoint.swift */,
@@ -2006,6 +2021,7 @@
 				5898D2AF2902A67C00EB5EBA /* RelayLocation.swift */,
 				581DA2722A1E227D0046ED47 /* RESTTypes.swift */,
 				58F1311427E0B2AB007AC5BC /* Result+Extensions.swift */,
+				F0D8825F2B0E11FC00D3EF9A /* RetryDelay.swift */,
 				58E511E028DDB7F100B0BCDE /* WrappingError.swift */,
 			);
 			path = MullvadTypes;
@@ -2404,6 +2420,7 @@
 		5864AF802A9F52E3008BC928 /* Actor */ = {
 			isa = PBXGroup;
 			children = (
+				F0D882622B0F4DAA00D3EF9A /* ConnectivityAdaptorManager.swift */,
 				58BDEBA02A9CA14B00F578F2 /* AnyTask.swift */,
 				58F3F3652AA086A400D3B0A4 /* AutoCancellingTask.swift */,
 				583832282AC3DF1300EA2071 /* Command.swift */,
@@ -2423,6 +2440,7 @@
 				7AD0AA192AD69B6E00119E10 /* PacketTunnelActorProtocol.swift */,
 				A97D25AD2B0BB18100946B2D /* ProtocolObfuscator.swift */,
 				58E7A0312AA0715100C57861 /* Protocols */,
+				F0D8825D2B0E062E00D3EF9A /* RetryStrategy.swift */,
 				58ED3A132A7C199C0085CE65 /* StartOptions.swift */,
 				5824030C2A811B0000163DE8 /* State.swift */,
 				58342C032AAB61FB003BA12D /* State+Extensions.swift */,
@@ -2541,6 +2559,7 @@
 				58915D622A25F8400066445B /* DeviceCheckOperationTests.swift */,
 				A900E9BB2ACC609200C95F67 /* DevicesProxy+Stubs.swift */,
 				58FBFBF0291630700020E046 /* DurationTests.swift */,
+				58FBFBE8291622580020E046 /* ExponentialBackoffTests.swift */,
 				58C3FA672A385C89006A450A /* FileCacheTests.swift */,
 				582A8A3928BCE19B00D0F9FB /* FixedWidthIntegerArithmeticsTests.swift */,
 				58B0A2A4238EE67E00BC001D /* Info.plist */,
@@ -2548,7 +2567,6 @@
 				F07BF2572A26112D00042943 /* InputTextFormatterTests.swift */,
 				A9B6AC172ADE8F4300F7802A /* MigrationManagerTests.swift */,
 				58C3FA652A38549D006A450A /* MockFileCache.swift */,
-				F09D04BA2AE95396003D4F89 /* URLSessionStub.swift */,
 				F09D04B42AE93CB6003D4F89 /* OutgoingConnectionProxy+Stub.swift */,
 				F09D04B62AE941DA003D4F89 /* OutgoingConnectionProxyTests.swift */,
 				F09D04BF2AF39D63003D4F89 /* OutgoingConnectionServiceTests.swift */,
@@ -2561,6 +2579,7 @@
 				A9A5F9A12ACB003D0083449F /* TunnelManagerTests.swift */,
 				A9E0317B2ACBFC7E0095D843 /* TunnelStore+Stubs.swift */,
 				A9E031792ACB0AE70095D843 /* UIApplication+Stubs.swift */,
+				F09D04BA2AE95396003D4F89 /* URLSessionStub.swift */,
 				58165EBD2A262CBB00688EAD /* WgKeyRotationTests.swift */,
 				F0B0E6962AFE6E7E001DC66B /* XCTest+Async.swift */,
 			);
@@ -2674,6 +2693,7 @@
 				5838321C2AC1C54600EA2071 /* TaskSleepTests.swift */,
 				58092E532A8B832E00C3CC72 /* TunnelMonitorTests.swift */,
 				A97D25B12B0CB02D00946B2D /* ProtocolObfuscatorTests.swift */,
+				F0D882662B0F676700D3EF9A /* ConnectivityAdaptorManagerTests.swift */,
 			);
 			path = PacketTunnelCoreTests;
 			sourceTree = "<group>";
@@ -2917,6 +2937,7 @@
 				5824037F2A827DF300163DE8 /* RelaySelectorProtocol.swift */,
 				586E7A2C2A987689006DAB1B /* SettingsReaderProtocol.swift */,
 				5819ABC22A8CF02C007B59A6 /* TunnelAdapterProtocol.swift */,
+				F0D882642B0F4DEE00D3EF9A /* ConnectivityAdaptorProtocol.swift */,
 			);
 			path = Protocols;
 			sourceTree = "<group>";
@@ -2938,6 +2959,7 @@
 				7AD0AA202AD6CB0000119E10 /* URLRequestProxyStub.swift */,
 				A97D25AF2B0BB5C400946B2D /* ProtocolObfuscationStub.swift */,
 				A97D25B32B0CB59300946B2D /* TunnelObfuscationStub.swift */,
+				F0D8826E2B15E6ED00D3EF9A /* ConnectivityAdaptorDummy.swift */,
 			);
 			path = Mocks;
 			sourceTree = "<group>";
@@ -2981,7 +3003,6 @@
 		58FBFBE7291622580020E046 /* MullvadRESTTests */ = {
 			isa = PBXGroup;
 			children = (
-				58FBFBE8291622580020E046 /* ExponentialBackoffTests.swift */,
 				A917352029FAAA5200D5DCFD /* TransportStrategyTests.swift */,
 				58B4656F2A98C53300467203 /* RequestExecutorTests.swift */,
 				58BDEB9E2A98F6B400F578F2 /* Mocks */,
@@ -4090,7 +4111,6 @@
 				06799ADA28F98E4800ACD94E /* RESTResponseHandler.swift in Sources */,
 				062B45BC28FD8C3B00746E77 /* RESTDefaults.swift in Sources */,
 				06799AE428F98E4800ACD94E /* RESTAccountsProxy.swift in Sources */,
-				5897F1742913EAF800AF5695 /* ExponentialBackoff.swift in Sources */,
 				06799AE328F98E4800ACD94E /* RESTNetworkOperation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4303,17 +4323,20 @@
 				58C7AF172ABD84AA007EDD7A /* ProxyURLRequest.swift in Sources */,
 				5838321F2AC3160A00EA2071 /* PacketTunnelActor+KeyPolicy.swift in Sources */,
 				58C7AF122ABD8480007EDD7A /* TunnelProviderReply.swift in Sources */,
+				F0D8825E2B0E062E00D3EF9A /* RetryStrategy.swift in Sources */,
 				58C7A4572A863FB90060C66F /* TunnelDeviceInfoProtocol.swift in Sources */,
 				58C7A4562A863FB90060C66F /* DefaultPathObserverProtocol.swift in Sources */,
 				58FE25DA2AA72A8F003D1918 /* PacketTunnelActor.swift in Sources */,
 				587A5E522ADD7569003A70F1 /* ObservedState+Extensions.swift in Sources */,
 				58FE25E62AA738E8003D1918 /* TunnelAdapterProtocol.swift in Sources */,
 				583832252AC318A100EA2071 /* PacketTunnelActor+ConnectionMonitoring.swift in Sources */,
+				F0D882652B0F4DEE00D3EF9A /* ConnectivityAdaptorProtocol.swift in Sources */,
 				58C7A4552A863FB90060C66F /* TunnelMonitor.swift in Sources */,
 				58C7AF182ABD84AB007EDD7A /* ProxyURLResponse.swift in Sources */,
 				58C7A4512A863FB50060C66F /* PingerProtocol.swift in Sources */,
 				583832292AC3DF1300EA2071 /* Command.swift in Sources */,
 				58CF95A22AD6F35800B59F5D /* ObservedState.swift in Sources */,
+				F0D882632B0F4DAA00D3EF9A /* ConnectivityAdaptorManager.swift in Sources */,
 				583832232AC3181400EA2071 /* PacketTunnelActor+ErrorState.swift in Sources */,
 				58C7AF112ABD8480007EDD7A /* TunnelProviderMessage.swift in Sources */,
 				58C7AF162ABD84A8007EDD7A /* URLRequestProxy.swift in Sources */,
@@ -4345,6 +4368,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0D8826F2B15E6ED00D3EF9A /* ConnectivityAdaptorDummy.swift in Sources */,
 				7AD0AA1C2AD6A63F00119E10 /* PacketTunnelActorStub.swift in Sources */,
 				58EC067A2A8D208D00BEB973 /* TunnelDeviceInfoStub.swift in Sources */,
 				586C14582AC463BB00245C01 /* CommandChannelTests.swift in Sources */,
@@ -4355,6 +4379,7 @@
 				581F23AD2A8CF92100788AB6 /* DefaultPathObserverFake.swift in Sources */,
 				5838321B2AC1B18400EA2071 /* PacketTunnelActor+Mocks.swift in Sources */,
 				5838321D2AC1C54600EA2071 /* TaskSleepTests.swift in Sources */,
+				F0D882672B0F676700D3EF9A /* ConnectivityAdaptorManagerTests.swift in Sources */,
 				58092E542A8B832E00C3CC72 /* TunnelMonitorTests.swift in Sources */,
 				7AD0AA212AD6CB0000119E10 /* URLRequestProxyStub.swift in Sources */,
 				58FE25F02AA77664003D1918 /* RelaySelectorStub.swift in Sources */,
@@ -4700,6 +4725,8 @@
 				58D2240A294C90210029F5F8 /* IPAddress+Codable.swift in Sources */,
 				58E45A5729F12C5100281ECF /* Result+Extensions.swift in Sources */,
 				A9E031782ACB09930095D843 /* UIApplication+Extensions.swift in Sources */,
+				F0D8826C2B109C1400D3EF9A /* JitteredDelay.swift in Sources */,
+				F0D882602B0E11FC00D3EF9A /* RetryDelay.swift in Sources */,
 				58D2240B294C90210029F5F8 /* Cancellable.swift in Sources */,
 				58D2240C294C90210029F5F8 /* WrappingError.swift in Sources */,
 				A9A8A8EB2A262AB30086D569 /* FileCache.swift in Sources */,
@@ -4714,6 +4741,7 @@
 				7AF9BE8C2A321D1F00DBFEDB /* RelayFilter.swift in Sources */,
 				58D22414294C90210029F5F8 /* RelayLocation.swift in Sources */,
 				581DA2732A1E227D0046ED47 /* RESTTypes.swift in Sources */,
+				F0D882612B0E125B00D3EF9A /* ExponentialBackoffDelay.swift in Sources */,
 				58D22417294C90210029F5F8 /* FixedWidthInteger+Arithmetics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

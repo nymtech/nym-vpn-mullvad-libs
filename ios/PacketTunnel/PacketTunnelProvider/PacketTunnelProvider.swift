@@ -83,7 +83,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             blockedStateErrorMapper: BlockedStateErrorMapper(),
             relaySelector: RelaySelectorWrapper(relayCache: relayCache),
             settingsReader: SettingsReader(),
-            protocolObfuscator: obfuscator
+            protocolObfuscator: obfuscator,
+            connectivityAdaptor: ConnectivityAdaptorManager(retryStrategy: PacketTunnelActor.RetryStrategy(
+                initial: 5,
+                delay: .exponentialBackoffWithJitter(
+                    initial: .seconds(15),
+                    multiplier: 2,
+                    maxDelay: nil
+                ),
+                timeout: .minutes(15)
+            ))
         )
 
         let urlRequestProxy = URLRequestProxy(dispatchQueue: internalQueue, transportProvider: transportProvider)

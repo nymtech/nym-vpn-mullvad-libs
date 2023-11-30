@@ -51,8 +51,11 @@ extension PacketTunnelActor {
     private func onHandleConnectionRecovery() async {
         switch state {
         case .connecting, .reconnecting, .connected:
-            commandChannel.send(.reconnect(.random, reason: .connectionLoss))
-
+            connectivityAdaptor.handle {
+                commandChannel.send(.reconnect(.random, reason: .connectionLoss))
+            } onThrottling: {
+                commandChannel.send(.stop)
+            }
         case .initial, .disconnected, .disconnecting, .error:
             break
         }
