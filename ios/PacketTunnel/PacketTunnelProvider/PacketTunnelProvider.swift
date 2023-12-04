@@ -87,11 +87,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             connectivityAdaptor: ConnectivityAdaptorManager(retryStrategy: PacketTunnelActor.RetryStrategy(
                 initial: 5,
                 delay: .exponentialBackoffWithJitter(
-                    initial: .seconds(15),
+                    initial: .seconds(2),
                     multiplier: 2,
                     maxDelay: nil
                 ),
-                timeout: .minutes(15)
+                timeout: .minutes(3)
             ))
         )
 
