@@ -443,7 +443,7 @@ func generateNetworkSettings(tunnelConfiguration: TunnelConfiguration) -> NEPack
         nil
     }}
 
-    let endpoint = serverEndpoints[0] ?? "127.0.0.1"
+    let endpoint = serverEndpoints.first ?? "127.0.0.1"
     var networkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: endpoint)
 
     if !tunnelConfiguration.interface.dnsSearch.isEmpty || !tunnelConfiguration.interface.dns.isEmpty {

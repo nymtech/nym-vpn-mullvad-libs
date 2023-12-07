@@ -11,7 +11,6 @@ import Foundation
 
 class DataArray {
     public var arr: [Data]
-    private (set) var outstandingRefs: Int64 = 0
 
     init(_ arr: [Data]) {
         self.arr = arr

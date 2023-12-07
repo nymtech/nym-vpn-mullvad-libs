@@ -106,6 +106,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
 
     /// Whether to use the cached device state.
     private var useCachedDeviceState = false
+    
+    var localUDPSession: NWUDPSession?
+    var localUDPSessionIsReady = false
+    var localUDPSessionStateObserver: NSKeyValueObservation?
+    var localUDPSessionBetterPathObserver: NSKeyValueObservation?
+    var localUDPSessionIsViableObserver: NSKeyValueObservation?
 
     /// Returns `PacketTunnelStatus` used for sharing with main bundle process.
     private var packetTunnelStatus: PacketTunnelStatus {
@@ -126,8 +132,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider, TunnelMonitorDelegate {
     override init() {
         var loggerBuilder = LoggerBuilder()
         
-        
-
         let pid = ProcessInfo.processInfo.processIdentifier
         loggerBuilder.metadata["pid"] = .string("\(pid)")
 
