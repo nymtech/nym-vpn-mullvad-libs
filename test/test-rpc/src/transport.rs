@@ -164,7 +164,7 @@ pub fn create_server_transports(
     (runner_forwarder_1, daemon_rx, completion_handle)
 }
 
-pub async fn create_client_transports(
+pub fn create_client_transports(
     serial_stream: impl AsyncRead + AsyncWrite + Unpin + Send + 'static,
 ) -> Result<ClientTransports, Error> {
     let (runner_forwarder_1, runner_forwarder_2) = tarpc::transport::channel::unbounded();
