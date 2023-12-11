@@ -5839,6 +5839,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 58ECD29123F178FD004298B6 /* Screenshots.xcconfig */;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = CKG9MXH72F;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = CKG9MXH72F;
 				INFOPLIST_FILE = MullvadVPNScreenshots/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -5848,6 +5851,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).Screenshots";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Screenshots Development";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
 				SWIFT_VERSION = 5.0;
 				TEST_TARGET_NAME = MullvadVPN;
 			};
@@ -5857,6 +5862,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 58ECD29123F178FD004298B6 /* Screenshots.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = CKG9MXH72F;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = CKG9MXH72F;
 				INFOPLIST_FILE = MullvadVPNScreenshots/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -5866,6 +5877,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APPLICATION_IDENTIFIER).Screenshots";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Screenshots Development";
 				SWIFT_VERSION = 5.0;
 				TEST_TARGET_NAME = MullvadVPN;
 			};
