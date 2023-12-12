@@ -1,6 +1,4 @@
 use socket2::SockAddr;
-#[cfg(target_os = "macos")]
-use std::{ffi::CString, num::NonZeroU32};
 use std::{
     io::Write,
     net::{IpAddr, SocketAddr},
@@ -24,31 +22,7 @@ pub async fn send_tcp(
         })?;
 
     if let Some(iface) = bind_interface {
-        #[cfg(target_os = "macos")]
-        let interface_index = unsafe {
-            let name = CString::new(iface).unwrap();
-            let index = libc::if_nametoindex(name.as_bytes_with_nul().as_ptr() as _);
-            NonZeroU32::new(index).ok_or_else(|| {
-                log::error!("Invalid interface index");
-                test_rpc::Error::SendTcp
-            })?
-        };
-
-        #[cfg(target_os = "macos")]
-        sock.bind_device_by_index_v4(Some(interface_index))
-            .map_err(|error| {
-                log::error!("Failed to set IP_BOUND_IF on socket: {error}");
-                test_rpc::Error::SendTcp
-            })?;
-
-        #[cfg(target_os = "linux")]
-        sock.bind_device(Some(iface.as_bytes())).map_err(|error| {
-            log::error!("Failed to bind TCP socket to {iface}: {error}");
-            test_rpc::Error::SendTcp
-        })?;
-
-        #[cfg(windows)]
-        log::trace!("Bind interface {iface} is ignored on Windows")
+        bind_socket(iface, &sock)?;
     }
 
     log::debug!("Connecting from {bind_addr} to {destination}/TCP");
@@ -91,31 +65,7 @@ pub async fn send_udp(
         })?;
 
     if let Some(iface) = bind_interface {
-        #[cfg(target_os = "macos")]
-        let interface_index = unsafe {
-            let name = CString::new(iface).unwrap();
-            let index = libc::if_nametoindex(name.as_bytes_with_nul().as_ptr() as _);
-            NonZeroU32::new(index).ok_or_else(|| {
-                log::error!("Invalid interface index");
-                test_rpc::Error::SendUdp
-            })?
-        };
-
-        #[cfg(target_os = "macos")]
-        sock.bind_device_by_index_v4(Some(interface_index))
-            .map_err(|error| {
-                log::error!("Failed to set IP_BOUND_IF on socket: {error}");
-                test_rpc::Error::SendUdp
-            })?;
-
-        #[cfg(target_os = "linux")]
-        sock.bind_device(Some(iface.as_bytes())).map_err(|error| {
-            log::error!("Failed to bind UDP socket to {iface}: {error}");
-            test_rpc::Error::SendUdp
-        })?;
-
-        #[cfg(windows)]
-        log::trace!("Bind interface {iface} is ignored on Windows")
+        bind_socket(iface, &sock)?;
     }
 
     let _ = tokio::task::spawn_blocking(move || {
@@ -199,6 +149,61 @@ pub async fn send_ping(
             test_rpc::Error::Ping
         })
         .and_then(|output| result_from_output("ping", output, test_rpc::Error::Ping))
+}
+
+/// Bind a socket to some interface.
+///
+/// If a socket is bound to an interface, only packets received from that
+/// particular interface are processed by the socket. Note that this only works
+/// for some socket types, particularly `AF_INET` (*A*dress *F*amilly) sockets
+/// (in this case IPv4).
+///
+/// # Linux
+/// Sets the value for the `SO_BINDTODEVICE` option on this socket.
+///
+/// See [`socket2::Socket`] for further details.
+///
+/// # macOS
+/// Sets the value for `IP_BOUND_IF` option on this socket.
+///
+/// See [`socket2::Socket::bind_device_by_index_v4`] for further details.
+///
+/// # Windows
+/// This function does nothing on Windows.
+fn bind_socket(bind_interface: String, sock: &socket2::Socket) -> Result<(), test_rpc::Error> {
+    Ok({
+        #[cfg(target_os = "linux")]
+        {
+            sock.bind_device(Some(bind_interface.as_bytes()))
+                .map_err(|error| {
+                    log::error!("Failed to bind UDP socket to {bind_interface}: {error}");
+                    test_rpc::Error::SendUdp
+                })?;
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            use std::{ffi::CString, num::NonZeroU32};
+            let interface_index = {
+                let name = CString::new(bind_interface).unwrap();
+                let index = unsafe { libc::if_nametoindex(name.as_bytes_with_nul().as_ptr() as _) };
+                NonZeroU32::new(index).ok_or_else(|| {
+                    log::error!("Invalid interface index");
+                    test_rpc::Error::SendUdp
+                })?
+            };
+
+            sock.bind_device_by_index_v4(Some(interface_index))
+                .map_err(|error| {
+                    log::error!("Failed to set IP_BOUND_IF on socket: {error}");
+                    test_rpc::Error::SendUdp
+                })?;
+        }
+        #[cfg(windows)]
+        {
+            log::trace!("Bind interface {bind_interface} is ignored on Windows")
+        }
+    })
 }
 
 #[cfg(unix)]
