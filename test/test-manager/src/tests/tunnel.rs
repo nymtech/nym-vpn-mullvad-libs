@@ -357,11 +357,15 @@ pub async fn test_multihop(
 }
 
 /// Test whether the daemon automatically connects on reboot when using
-/// WireGuard.
+/// WireGuard. This test checks for the following leaks during both shutdown &
+/// boot:
 ///
-/// # Limitations
+/// * Outgoing network traffic.
 ///
-/// This test does not guarantee that nothing leaks during boot or shutdown.
+/// On linux, an adverserial system service is started & enabled on boot. This
+/// system service will try to "phone home" to some arbitrary resource in the
+/// internet in any way possible. If the adversary is allowed to do that outside
+/// of a VPN tunnel, we consider the test run a failure.
 #[test_function]
 pub async fn test_wireguard_autoconnect(
     _: TestContext,
