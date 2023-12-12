@@ -93,20 +93,20 @@ pub async fn send_ping(
     destination: IpAddr,
 ) -> Result<(), test_rpc::Error> {
     #[cfg(target_os = "windows")]
-    let mut source_ip = None;
-    #[cfg(target_os = "windows")]
-    if let Some(interface) = interface {
-        let family = match destination {
-            IpAddr::V4(_) => talpid_windows::net::AddressFamily::Ipv4,
-            IpAddr::V6(_) => talpid_windows::net::AddressFamily::Ipv6,
-        };
-        source_ip = get_interface_ip_for_family(interface, family)
-            .map_err(|_error| test_rpc::Error::Syscall)?;
-        if source_ip.is_none() {
-            log::error!("Failed to obtain interface IP");
-            return Err(test_rpc::Error::Ping);
+    let source_ip = {
+        if let Some(interface) = interface {
+            let family = match destination {
+                IpAddr::V4(_) => talpid_windows::net::AddressFamily::Ipv4,
+                IpAddr::V6(_) => talpid_windows::net::AddressFamily::Ipv6,
+            };
+            get_interface_ip_for_family(interface, family).map_err(|_error| {
+                log::error!("Failed to obtain interface IP");
+                test_rpc::Error::Syscall
+            })?
+        } else {
+            None
         }
-    }
+    };
 
     let mut cmd = Command::new("ping");
     cmd.arg(destination.to_string());
