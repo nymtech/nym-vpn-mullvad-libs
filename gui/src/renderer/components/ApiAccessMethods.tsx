@@ -31,6 +31,14 @@ const StyledContextMenuButton = styled(Cell.Icon)({
   marginRight: '8px',
 });
 
+const StyledTitleInfoButton = styled(InfoButton)({
+  marginLeft: '12px',
+});
+
+const StyledMethodInfoButton = styled(InfoButton)({
+  marginRight: '11px',
+});
+
 const StyledSpinner = styled(ImageView)({
   height: '10px',
   width: '10px',
@@ -80,7 +88,22 @@ export default function ApiAccessMethods() {
                 <SettingsHeader>
                   <HeaderTitle>
                     {messages.pgettext('navigation-bar', 'API access')}
-                    <InfoButton message="TODO: Message goes here" />
+                    <StyledTitleInfoButton
+                      message={[
+                        messages.pgettext(
+                          'api-access-methods-view',
+                          'The app needs to communicate with a Mullvad API server to log you in, fetch server lists, and other critical operations.',
+                        ),
+                        messages.pgettext(
+                          'api-access-methods-view',
+                          'On some networks, where various types of censorship are being used, the API servers might not be directly reachable.',
+                        ),
+                        messages.pgettext(
+                          'api-access-methods-view',
+                          'This feature allows you to circumvent that censorship by adding custom ways to access the API via proxies and similar methods.',
+                        ),
+                      ]}
+                    />
                   </HeaderTitle>
                   <HeaderSubTitle>
                     {messages.pgettext(
@@ -198,6 +221,34 @@ function ApiAccessMethod(props: ApiAccessMethodProps) {
           </Cell.SubLabel>
         )}
       </Cell.LabelContainer>
+      {props.method.type === 'direct' && (
+        <StyledMethodInfoButton
+          message={[
+            messages.pgettext(
+              'api-access-methods-view',
+              'With the “Direct” method, the app communicates with a Mullvad API server directly without any intermediate proxies.',
+            ),
+            messages.pgettext(
+              'api-access-methods-view',
+              'This can be useful when you are not affected by censorship.',
+            ),
+          ]}
+        />
+      )}
+      {props.method.type === 'bridges' && (
+        <StyledMethodInfoButton
+          message={[
+            messages.pgettext(
+              'api-access-methods-view',
+              'With the “Mullvad bridges” method, the app communicates with a Mullvad API server via a Mullvad bridge server. It does this by sending the traffic obfuscated by Shadowsocks.',
+            ),
+            messages.pgettext(
+              'api-access-methods-view',
+              'This can be useful if the API is censored but Mullvad’s bridge servers are not.',
+            ),
+          ]}
+        />
+      )}
       <ContextMenuContainer>
         <ContextMenuTrigger>
           <StyledContextMenuButton
