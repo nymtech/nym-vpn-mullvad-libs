@@ -157,6 +157,10 @@ export default class AppRenderer {
       this.updateBlockedState(this.tunnelState, newSettings.blockWhenDisconnected);
     });
 
+    IpcRendererEventChannel.settings.listenApiAccessMethodSettingChange((setting) => {
+      this.setCurrentApiAccessMethod(setting);
+    });
+
     IpcRendererEventChannel.relays.listen((relayListPair: IRelayListWithEndpointData) => {
       this.setRelayListPair(relayListPair);
     });
@@ -233,6 +237,7 @@ export default class AppRenderer {
     this.setGuiSettings(initialState.guiSettings);
     this.storeAutoStart(initialState.autoStart);
     this.setChangelog(initialState.changelog, initialState.forceShowChanges);
+    this.setCurrentApiAccessMethod(initialState.currentApiAccessMethod);
 
     if (initialState.macOsScrollbarVisibility !== undefined) {
       this.reduxActions.userInterface.setMacOsScrollbarVisibility(
@@ -973,6 +978,12 @@ export default class AppRenderer {
         this.setLocation(this.tunnelState.details?.location ?? this.getLocationFromConstraints());
         break;
       }
+    }
+  }
+
+  private setCurrentApiAccessMethod(method?: AccessMethodSetting) {
+    if (method) {
+      this.reduxActions.settings.updateCurrentApiAccessMethod(method);
     }
   }
 

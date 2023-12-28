@@ -56,6 +56,7 @@ const StyledTestResultCircle = styled.div<{ $result: boolean }>((props) => ({
 export default function ApiAccessMethods() {
   const history = useHistory();
   const methods = useSelector((state) => state.settings.apiAccessMethods);
+  const currentMethod = useSelector((state) => state.settings.currentApiAccessMethod);
 
   const navigateToEdit = useCallback(
     (id?: string) => {
@@ -116,7 +117,11 @@ export default function ApiAccessMethods() {
                 <StyledSettingsContent>
                   <Cell.Group>
                     {methods.map((method) => (
-                      <ApiAccessMethod key={method.id} method={method} />
+                      <ApiAccessMethod
+                        key={method.id}
+                        method={method}
+                        inUse={method.id === currentMethod?.id}
+                      />
                     ))}
                   </Cell.Group>
 
@@ -137,6 +142,7 @@ export default function ApiAccessMethods() {
 
 interface ApiAccessMethodProps {
   method: AccessMethodSetting;
+  inUse: boolean;
 }
 
 function ApiAccessMethod(props: ApiAccessMethodProps) {
@@ -178,7 +184,12 @@ function ApiAccessMethod(props: ApiAccessMethodProps) {
 
   const menuItems = useMemo<Array<ContextMenuItem>>(
     () => [
-      { type: 'item' as const, label: 'Use', onClick: () => setApiAccessMethod(props.method.id) },
+      {
+        type: 'item' as const,
+        label: 'Use',
+        disabled: props.inUse,
+        onClick: () => setApiAccessMethod(props.method.id),
+      },
       { type: 'item' as const, label: 'Test', onClick: testApiAccessMethod },
       ...(props.method.type === 'direct' || props.method.type === 'bridges'
         ? []
@@ -219,6 +230,9 @@ function ApiAccessMethod(props: ApiAccessMethodProps) {
               ? messages.pgettext('api-access-methods-view', 'API responsive')
               : messages.pgettext('api-access-methods-view', 'API non-responsive')}
           </Cell.SubLabel>
+        )}
+        {!testing && testResult === undefined && props.inUse && (
+          <Cell.SubLabel>{messages.pgettext('api-access-methods-view', 'In use')}</Cell.SubLabel>
         )}
       </Cell.LabelContainer>
       {props.method.type === 'direct' && (

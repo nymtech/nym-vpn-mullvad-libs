@@ -110,18 +110,19 @@ const StyledMenu = styled.div<StyledMenuProps>((props) => {
   };
 });
 
-const StyledMenuItem = styled.button(smallText, {
+const StyledMenuItem = styled.button(smallText, (props) => ({
   minWidth: '110px',
   padding: '1px 10px 2px',
   lineHeight: `${ITEM_HEIGHT}px`,
   background: 'transparent',
   border: 'none',
   textAlign: 'left',
+  color: props.disabled ? colors.white50 : colors.white,
 
   '&&:hover': {
-    background: colors.blue,
+    background: props.disabled ? 'transparent' : colors.blue,
   },
-});
+}));
 
 const StyledSeparator = styled.hr({
   height: '1px',
@@ -133,6 +134,7 @@ const StyledSeparator = styled.hr({
 type ContextMenuItemItem = {
   type: 'item';
   label: string;
+  disabled?: boolean;
   onClick: () => void;
 };
 
@@ -189,9 +191,15 @@ interface ContextMenuItemRowProps {
 
 function ContextMenuItemRow(props: ContextMenuItemRowProps) {
   const onClick = useCallback(() => {
-    props.closeMenu();
-    props.item.onClick();
-  }, [props.closeMenu, props.item.onClick]);
+    if (!props.item.disabled) {
+      props.closeMenu();
+      props.item.onClick();
+    }
+  }, [props.closeMenu, props.item.disabled, props.item.onClick]);
 
-  return <StyledMenuItem onClick={onClick}>{props.item.label}</StyledMenuItem>;
+  return (
+    <StyledMenuItem onClick={onClick} disabled={props.item.disabled}>
+      {props.item.label}
+    </StyledMenuItem>
+  );
 }

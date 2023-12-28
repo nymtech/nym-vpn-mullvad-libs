@@ -73,6 +73,7 @@ export interface IAppStateSnapshot {
   changelog: IChangelog;
   forceShowChanges: boolean;
   navigationHistory?: IHistoryObject;
+  currentApiAccessMethod?: AccessMethodSetting;
 }
 
 // The different types of requests are:
@@ -162,6 +163,7 @@ export const ipcSchema = {
   },
   settings: {
     '': notifyRenderer<ISettings>(),
+    apiAccessMethodSettingChange: notifyRenderer<AccessMethodSetting>(),
     setAllowLan: invoke<boolean, void>(),
     setShowBetaReleases: invoke<boolean, void>(),
     setEnableIpv6: invoke<boolean, void>(),

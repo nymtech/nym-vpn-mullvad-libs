@@ -1,5 +1,6 @@
 import { IWindowsApplication } from '../../../shared/application-types';
 import {
+  AccessMethodSetting,
   ApiAccessMethodSettings,
   BridgeState,
   CustomLists,
@@ -110,6 +111,11 @@ export interface ISetApiAccessMethods {
   accessMethods: ApiAccessMethodSettings;
 }
 
+export interface ISetCurrentApiAccessMethod {
+  type: 'SET_CURRENT_API_ACCESS_METHOD';
+  accessMethod: AccessMethodSetting;
+}
+
 export type SettingsAction =
   | IUpdateGuiSettingsAction
   | IUpdateRelayAction
@@ -130,7 +136,8 @@ export type SettingsAction =
   | ISetSplitTunnelingApplicationsAction
   | ISetObfuscationSettings
   | ISetCustomLists
-  | ISetApiAccessMethods;
+  | ISetApiAccessMethods
+  | ISetCurrentApiAccessMethod;
 
 function updateGuiSettings(guiSettings: IGuiSettingsState): IUpdateGuiSettingsAction {
   return {
@@ -284,6 +291,13 @@ function updateApiAccessMethods(methods: ApiAccessMethodSettings): ISetApiAccess
   };
 }
 
+function updateCurrentApiAccessMethod(setting: AccessMethodSetting): ISetCurrentApiAccessMethod {
+  return {
+    type: 'SET_CURRENT_API_ACCESS_METHOD',
+    accessMethod: setting,
+  };
+}
+
 export default {
   updateGuiSettings,
   updateRelay,
@@ -305,4 +319,5 @@ export default {
   updateObfuscationSettings,
   updateCustomLists,
   updateApiAccessMethods,
+  updateCurrentApiAccessMethod,
 };

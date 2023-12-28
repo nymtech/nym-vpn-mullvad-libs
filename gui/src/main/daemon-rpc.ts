@@ -71,7 +71,6 @@ import {
   wrapConstraint,
 } from '../shared/daemon-rpc-types';
 import log from '../shared/logging';
-import { hasValue } from '../shared/utils';
 import { ManagementServiceClient } from './management_interface/management_interface_grpc_pb';
 import * as grpcTypes from './management_interface/management_interface_pb';
 
@@ -658,6 +657,13 @@ export class DaemonRpc {
 
   public async updateApiAccessMethod(method: AccessMethodSetting) {
     await this.call(this.client.updateApiAccessMethod, convertToApiAccessMethodSetting(method));
+  }
+
+  public async getCurrentApiAccessMethod() {
+    const response = await this.callEmpty<grpcTypes.AccessMethodSetting>(
+      this.client.getCurrentApiAccessMethod,
+    );
+    return convertFromApiAccessMethodSetting(response);
   }
 
   public async removeApiAccessMethod(id: string) {
@@ -1453,6 +1459,11 @@ function convertFromDaemonEvent(data: grpcTypes.DaemonEvent): DaemonEvent {
     return { appVersionInfo: versionInfo.toObject() };
   }
 
+  const newAccessMethod = data.getNewAccessMethod();
+  if (newAccessMethod !== undefined) {
+    return { accessMethodSetting: convertFromApiAccessMethodSetting(newAccessMethod) };
+  }
+
   // Handle unknown daemon events
   const keys = Object.entries(data.toObject())
     .filter(([, value]) => value !== undefined)
@@ -1861,19 +1872,16 @@ function convertFromApiAccessMethodSettings(
   return (
     accessMethods
       ?.getAccessMethodSettingsList()
-      .map(convertFromApiAccessMethodSetting)
-      .filter(hasValue) ?? []
+      .filter((setting) => setting.hasId() && setting.hasAccessMethod())
+      .map(convertFromApiAccessMethodSetting) ?? []
   );
 }
 
 function convertFromApiAccessMethodSetting(
   setting: grpcTypes.AccessMethodSetting,
-): AccessMethodSetting | undefined {
-  const id = setting.getId();
-  const accessMethod = setting.getAccessMethod();
-  if (id === undefined || accessMethod === undefined) {
-    return undefined;
-  }
+): AccessMethodSetting {
+  const id = setting.getId()!;
+  const accessMethod = setting.getAccessMethod()!;
 
   return {
     id: id.getValue(),
