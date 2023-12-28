@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { sprintf } from 'sprintf-js';
 import styled from 'styled-components';
 
 import { colors } from '../../config.json';
@@ -22,10 +23,11 @@ import ImageView from './ImageView';
 import InfoButton from './InfoButton';
 import { BackAction } from './KeyboardNavigation';
 import { Layout, SettingsContainer } from './Layout';
+import { ModalAlert, ModalAlertType } from './Modal';
 import { NavigationBar, NavigationContainer, NavigationItems, TitleBarItem } from './NavigationBar';
 import SettingsHeader, { HeaderSubTitle, HeaderTitle } from './SettingsHeader';
 import { StyledContent, StyledNavigationScrollbars, StyledSettingsContent } from './SettingsStyles';
-import { SmallButton, SmallButtonGroup } from './SmallButton';
+import { SmallButton, SmallButtonColor, SmallButtonGroup } from './SmallButton';
 
 const StyledContextMenuButton = styled(Cell.Icon)({
   marginRight: '8px',
@@ -153,9 +155,16 @@ function ApiAccessMethod(props: ApiAccessMethodProps) {
     testApiAccessMethod: testApiAccessMethodImpl,
   } = useAppContext();
   const history = useHistory();
+
   const [testing, setTesting, unsetTesting] = useBoolean();
   const [testResult, setTestResult] = useState<boolean>();
   const testResultResetScheduler = useScheduler();
+
+  const [removeConfirmationVisible, showRemoveConfirmation, hideRemoveConfirmation] = useBoolean();
+  const confirmRemove = useCallback(() => {
+    void removeApiAccessMethod(props.method.id);
+    hideRemoveConfirmation();
+  }, [props.method.id]);
 
   const toggle = useCallback(
     async (value: boolean) => {
@@ -206,7 +215,7 @@ function ApiAccessMethod(props: ApiAccessMethodProps) {
             {
               type: 'item' as const,
               label: 'Delete',
-              onClick: () => removeApiAccessMethod(props.method.id),
+              onClick: showRemoveConfirmation,
             },
           ]),
     ],
@@ -274,6 +283,31 @@ function ApiAccessMethod(props: ApiAccessMethodProps) {
         <ContextMenu items={menuItems} align="right" />
       </ContextMenuContainer>
       <Cell.Switch isOn={props.method.enabled} onChange={toggle} />
+
+      <ModalAlert
+        isOpen={removeConfirmationVisible}
+        type={ModalAlertType.warning}
+        gridButtons={[
+          <SmallButton key="cancel" onClick={hideRemoveConfirmation}>
+            {messages.gettext('Cancel')}
+          </SmallButton>,
+          <SmallButton key="confirm" onClick={confirmRemove} color={SmallButtonColor.red}>
+            {messages.pgettext('in-app-notifications', 'Delete')}
+          </SmallButton>,
+        ]}
+        close={hideRemoveConfirmation}
+        title={sprintf(messages.pgettext('api-access-methods-view', 'Delete %(name)s?'), {
+          name: props.method.name,
+        })}
+        message={
+          props.inUse
+            ? messages.pgettext(
+                'api-access-methods-view',
+                'The in use API access method will change.',
+              )
+            : undefined
+        }
+      />
     </Cell.Row>
   );
 }
