@@ -57,8 +57,8 @@ pub async fn setup_test_network() -> Result<()> {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 continue;
             };
-            match create_dummy_interface(interface).await {
-                Ok(_) => log::debug!("Created dummy interface"),
+            match create_dummy_interface(interface.clone()).await {
+                Ok(_) => log::debug!("Created dummy interface {interface}"),
                 Err(error) => log::error!("Failed to create dummy interface: {error}"),
             }
             return;
@@ -102,9 +102,7 @@ pub fn find_vm_bridge() -> Result<String> {
     }
 
     // This is probably either due to IP mismatch or Tart not running
-    Err(anyhow!(
-        "Failed to identify bridge used by tart -- not running?"
-    ))
+    anyhow::bail!("Failed to identify bridge used by tart -- not running?")
 }
 
 async fn enable_forwarding() -> Result<()> {

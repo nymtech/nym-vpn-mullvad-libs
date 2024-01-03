@@ -75,7 +75,7 @@ pub async fn test_lan(
         send_guest_probes(rpc.clone(), default_interface, lan_destination).await?;
     assert!(
         detected_probes.all(),
-        "did not observe all outgoing LAN packets: {detected_probes:?}"
+        "Expected to observe every type of outgoing packets: {detected_probes:?}"
     );
 
     Ok(())
@@ -166,14 +166,14 @@ pub async fn test_lockdown(
         send_guest_probes(rpc.clone(), default_interface.clone(), lan_destination).await?;
     assert!(
         detected_probes.all(),
-        "did not observe some outgoing packets: {detected_probes:?}"
+        "Expected to observe every type of outgoing packets: {detected_probes:?}"
     );
 
     let detected_probes =
         send_guest_probes(rpc.clone(), default_interface.clone(), inet_destination).await?;
     assert!(
         detected_probes.none(),
-        "observed outgoing packets to internet: {detected_probes:?}"
+        "Expected to not observe any outgoing packets to internet: {detected_probes:?}"
     );
 
     //
