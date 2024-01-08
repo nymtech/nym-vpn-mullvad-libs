@@ -126,7 +126,7 @@ impl TestOutput {
                 return;
             }
             Ok(Err(e)) => {
-                println!(
+                eprintln!(
                     "{}",
                     format!(
                         "TEST {} RETURNED ERROR: {}",
@@ -137,7 +137,7 @@ impl TestOutput {
                 );
             }
             Err(panic_msg) => {
-                println!(
+                eprintln!(
                     "{}",
                     format!(
                         "TEST {} PANICKED WITH MESSAGE: {}",
