@@ -23,7 +23,7 @@ class RelayTests: LoggedInWithTimeUITestCase {
 
         TunnelControlPage(app) // Make sure we're taken back to tunnel control page again
 
-        verifyCanReachAdServingDomain()
+        NetworkTester.verifyCanReachAdServingDomain()
 
         HeaderBar(app)
             .tapSettingsButton()
@@ -34,47 +34,6 @@ class RelayTests: LoggedInWithTimeUITestCase {
             .tapDNSContentBlockingHeaderExpandButton()
             .tapBlockAdsSwitch()
 
-        verifyCannotReachAdServingDomain()
-    }
-
-    /// Verify that an ad serving domain is reachable by making sure the host can be found when sending HTTP request to it
-    func verifyCanReachAdServingDomain() {
-        XCTAssertTrue(canReachAdServingDomain())
-    }
-
-    /// Verify that an ad serving domain is NOT reachable by making sure the host cannot be found when sending HTTP request to it
-    func verifyCannotReachAdServingDomain() {
-        XCTAssertFalse(canReachAdServingDomain())
-    }
-
-    /// Attempt to reach HTTP server on an ad serving domain
-    /// - Returns: `true` if host can be resolved, otherwise `false`
-    private func canReachAdServingDomain() -> Bool {
-        guard let url = URL(string: "http://\(adServingDomain)") else { return false }
-
-        var requestError: Error?
-        var requestResponse: URLResponse?
-
-        let completionHandlerInvokedExpectation = expectation(
-            description: "Completion handler for the request is invoked"
-        )
-
-        let task = URLSession.shared.dataTask(with: url) { _, response, error in
-            requestError = error
-            requestResponse = response
-            completionHandlerInvokedExpectation.fulfill()
-        }
-
-        task.resume()
-
-        wait(for: [completionHandlerInvokedExpectation], timeout: 30)
-
-        if let urlError = requestError as? URLError {
-            if urlError.code == .cannotFindHost && requestResponse == nil {
-                return false
-            }
-        }
-
-        return true
+        NetworkTester.verifyCannotReachAdServingDomain()
     }
 }

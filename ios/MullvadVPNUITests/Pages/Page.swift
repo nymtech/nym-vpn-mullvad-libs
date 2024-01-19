@@ -17,7 +17,7 @@ class Page {
         self.app = app
     }
 
-    public func waitForPageToBeShown() {
+    func waitForPageToBeShown() {
         if let pageAccessibilityIdentifier = self.pageAccessibilityIdentifier {
             XCTAssert(
                 self.app.otherElements[pageAccessibilityIdentifier]
@@ -26,8 +26,13 @@ class Page {
         }
     }
 
-    @discardableResult public func enterText(_ text: String) -> Self {
+    @discardableResult func enterText(_ text: String) -> Self {
         app.typeText(text)
+        return self
+    }
+
+    @discardableResult func tapKeyboardDoneButton() -> Self {
+        app.toolbars.buttons["Done"].tap()
         return self
     }
 }

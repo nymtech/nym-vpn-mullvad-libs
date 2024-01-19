@@ -30,6 +30,8 @@ public enum AccessibilityIdentifier: String {
     case selectLocationButton
     case settingsButton
     case startUsingTheAppButton
+    case problemReportAppLogsButton
+    case problemReportSendButton
 
     // Cells
     case preferencesCell
@@ -55,6 +57,7 @@ public enum AccessibilityIdentifier: String {
     case selectLocationTableView
     case settingsTableView
     case tunnelControlView
+    case problemReportView
 
     // Other UI elements
     case connectionPanelInAddressRow
@@ -63,6 +66,8 @@ public enum AccessibilityIdentifier: String {
     case dnsContentBlockersHeaderView
     case loginTextField
     case selectLocationSearchTextField
+    case problemReportEmailTextField
+    case problemReportMessageTextView
 
     // DNS settings
     case dnsSettings
