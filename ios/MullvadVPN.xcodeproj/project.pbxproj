@@ -580,6 +580,9 @@
 		8529693A2B4F0238007EAD4C /* TermsOfServicePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 852969392B4F0238007EAD4C /* TermsOfServicePage.swift */; };
 		8529693C2B4F0257007EAD4C /* Alert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8529693B2B4F0257007EAD4C /* Alert.swift */; };
 		85557B162B5ABBBE00795FE1 /* XCUIElementQuery+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85557B152B5ABBBE00795FE1 /* XCUIElementQuery+Extensions.swift */; };
+		85557B182B5E61C700795FE1 /* XCUIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85557B172B5E61C700795FE1 /* XCUIApplication+Extensions.swift */; };
+		85557B1A2B5EA7E100795FE1 /* LoggedInUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85557B192B5EA7E100795FE1 /* LoggedInUITestCase.swift */; };
+		85557B1C2B5EA7F300795FE1 /* LoggedOutUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85557B1B2B5EA7F300795FE1 /* LoggedOutUITestCase.swift */; };
 		A900E9B82ACC5C2B00C95F67 /* AccountsProxy+Stubs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900E9B72ACC5C2B00C95F67 /* AccountsProxy+Stubs.swift */; };
 		A900E9BA2ACC5D0600C95F67 /* RESTRequestExecutor+Stubs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900E9B92ACC5D0600C95F67 /* RESTRequestExecutor+Stubs.swift */; };
 		A900E9BC2ACC609200C95F67 /* DevicesProxy+Stubs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900E9BB2ACC609200C95F67 /* DevicesProxy+Stubs.swift */; };
@@ -1744,6 +1747,9 @@
 		852969392B4F0238007EAD4C /* TermsOfServicePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsOfServicePage.swift; sourceTree = "<group>"; };
 		8529693B2B4F0257007EAD4C /* Alert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alert.swift; sourceTree = "<group>"; };
 		85557B152B5ABBBE00795FE1 /* XCUIElementQuery+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCUIElementQuery+Extensions.swift"; sourceTree = "<group>"; };
+		85557B172B5E61C700795FE1 /* XCUIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "XCUIApplication+Extensions.swift"; path = "MullvadVPNUITests/XCUIApplication+Extensions.swift"; sourceTree = SOURCE_ROOT; };
+		85557B192B5EA7E100795FE1 /* LoggedInUITestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggedInUITestCase.swift; sourceTree = "<group>"; };
+		85557B1B2B5EA7F300795FE1 /* LoggedOutUITestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggedOutUITestCase.swift; sourceTree = "<group>"; };
 		A900E9B72ACC5C2B00C95F67 /* AccountsProxy+Stubs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AccountsProxy+Stubs.swift"; sourceTree = "<group>"; };
 		A900E9B92ACC5D0600C95F67 /* RESTRequestExecutor+Stubs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RESTRequestExecutor+Stubs.swift"; sourceTree = "<group>"; };
 		A900E9BB2ACC609200C95F67 /* DevicesProxy+Stubs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DevicesProxy+Stubs.swift"; sourceTree = "<group>"; };
@@ -3355,6 +3361,9 @@
 				850201E02B51389500EF8C96 /* BaseUITestCase.swift */,
 				850201DA2B503D7700EF8C96 /* RelayTests.swift */,
 				85557B152B5ABBBE00795FE1 /* XCUIElementQuery+Extensions.swift */,
+				85557B192B5EA7E100795FE1 /* LoggedInUITestCase.swift */,
+				85557B1B2B5EA7F300795FE1 /* LoggedOutUITestCase.swift */,
+				85557B172B5E61C700795FE1 /* XCUIApplication+Extensions.swift */,
 			);
 			path = MullvadVPNUITests;
 			sourceTree = "<group>";
@@ -5239,10 +5248,13 @@
 				852969352B4E9270007EAD4C /* LoginPage.swift in Sources */,
 				850201E12B51389500EF8C96 /* BaseUITestCase.swift in Sources */,
 				850201E32B51A93C00EF8C96 /* SettingsPage.swift in Sources */,
+				85557B1C2B5EA7F300795FE1 /* LoggedOutUITestCase.swift in Sources */,
 				852969282B4D9C1F007EAD4C /* AccountTests.swift in Sources */,
 				85557B162B5ABBBE00795FE1 /* XCUIElementQuery+Extensions.swift in Sources */,
 				8529693A2B4F0238007EAD4C /* TermsOfServicePage.swift in Sources */,
 				850201DF2B5040A500EF8C96 /* TunnelControlPage.swift in Sources */,
+				85557B1A2B5EA7E100795FE1 /* LoggedInUITestCase.swift in Sources */,
+				85557B182B5E61C700795FE1 /* XCUIApplication+Extensions.swift in Sources */,
 				852969332B4E9232007EAD4C /* Page.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

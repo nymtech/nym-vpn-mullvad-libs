@@ -13,10 +13,11 @@ class AccountTests: BaseUITestCase {
         continueAfterFailure = false
     }
 
-    override func tearDownWithError() throws {}
+    override func tearDownWithError() throws {
+        uninstallApp(app)
+    }
 
     func testLogin() throws {
-        let app = XCUIApplication()
         app.launch()
 
         TermsOfServicePage(app)
