@@ -7,6 +7,7 @@ use tokio::net::TcpSocket;
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
 use zeroize::Zeroize;
+use talpid_types::ErrorExt;
 
 mod classic_mceliece;
 mod kyber;
@@ -93,6 +94,13 @@ pub const CONFIG_SERVICE_PORT: u16 = 1337;
 ///    handshake to work even if there is fragmentation.
 const CONFIG_CLIENT_MTU: u16 = 576;
 
+/// Disable Nagle's algorithm
+const CONFIG_CLIENT_NODELAY: bool = true;
+
+/// Send buffer size to use on the config client socket. Setting a high value let's us to fill it
+/// with the entire keys. Seems wise if Nagle's algorithm is disabled.
+const CONFIG_CLIENT_SNDBUF: u32 = 1 * 1024 * 1024;
+
 /// Generates a new WireGuard key pair and negotiates a PSK with the relay in a PQ-safe
 /// manner. This creates a peer on the relay with the new WireGuard pubkey and PSK,
 /// which can then be used to establish a PQ-safe tunnel to the relay.
@@ -176,10 +184,16 @@ async fn new_client(addr: IpAddr) -> Result<RelayConfigService, Error> {
             let sock = TcpSocket::new_v4()?;
 
             #[cfg(target_os = "windows")]
-            try_set_tcp_sock_mtu(sock.as_raw_socket(), CONFIG_CLIENT_MTU);
+            try_set_and_log(|v| set_tcp_sock_mss(sock.as_raw_socket(), v), "IP_USER_MTU", CONFIG_CLIENT_MTU);
 
             #[cfg(not(target_os = "windows"))]
-            try_set_tcp_sock_mtu(&addr, sock.as_raw_fd(), CONFIG_CLIENT_MTU);
+            {
+                let mss = u32::from(mss_from_mtu(CONFIG_CLIENT_MTU));
+                try_set_and_log(|v| set_tcp_sock_mss(sock.as_raw_fd(), v), "TCP_MAXSEG", mss);
+            }
+
+            //try_set_and_log(|v| sock.set_nodelay(v), "TCP_NODELAY", CONFIG_CLIENT_NODELAY);
+            //try_set_and_log(|v| sock.set_send_buffer_size(v), "SO_SNDBUF", CONFIG_CLIENT_SNDBUF);
 
             sock.connect(SocketAddr::new(addr, CONFIG_SERVICE_PORT))
                 .await
@@ -190,11 +204,16 @@ async fn new_client(addr: IpAddr) -> Result<RelayConfigService, Error> {
     Ok(RelayConfigService::new(conn))
 }
 
-#[cfg(windows)]
-fn try_set_tcp_sock_mtu(sock: RawSocket, mtu: u16) {
-    let mtu = u32::from(mtu);
-    log::debug!("Config client socket MTU: {mtu}");
+fn try_set_and_log<T: Copy + std::fmt::Display>(set_opt: impl FnOnce(T) -> std::io::Result<()>, opt: &'static str, val: T) {
+    match set_opt(val) {
+        Ok(()) => log::debug!("{opt}: {val}"),
+        Err(error) => log::warn!("Failed to set {opt}: {val}: {}", error.display_chain()),
+    }
+}
 
+#[cfg(windows)]
+fn set_tcp_sock_mtu(sock: RawSocket, mtu: u16) -> io::Result<()> {
+    let mtu = u32::from(mtu);
     let raw_sock = usize::try_from(sock).unwrap();
 
     let result = unsafe {
@@ -207,29 +226,20 @@ fn try_set_tcp_sock_mtu(sock: RawSocket, mtu: u16) {
         )
     };
     if result != 0 {
-        log::error!(
-            "Failed to set user MTU on config client socket: {}",
-            std::io::Error::last_os_error()
-        );
+        return Err(std::io::Error::last_os_error());
     }
+    Ok(())
 }
 
 #[cfg(not(windows))]
-fn try_set_tcp_sock_mtu(dest: &IpAddr, sock: RawFd, mut mtu: u16) {
+const fn mss_from_mtu(mtu: u16) -> u16 {
     const IPV4_HEADER_SIZE: u16 = 20;
-    const IPV6_HEADER_SIZE: u16 = 40;
     const MAX_TCP_HEADER_SIZE: u16 = 60;
+    mtu.saturating_sub(IPV4_HEADER_SIZE).saturating_sub(MAX_TCP_HEADER_SIZE)
+}
 
-    if dest.is_ipv4() {
-        mtu = mtu.saturating_sub(IPV4_HEADER_SIZE);
-    } else {
-        mtu = mtu.saturating_sub(IPV6_HEADER_SIZE);
-    }
-
-    let mss = u32::from(mtu.saturating_sub(MAX_TCP_HEADER_SIZE));
-
-    log::debug!("Config client socket MSS: {mss}");
-
+#[cfg(not(windows))]
+fn set_tcp_sock_mss(sock: RawFd, mss: u32) -> std::io::Result<()> {
     let result = unsafe {
         setsockopt(
             sock,
@@ -240,9 +250,7 @@ fn try_set_tcp_sock_mtu(dest: &IpAddr, sock: RawFd, mut mtu: u16) {
         )
     };
     if result != 0 {
-        log::error!(
-            "Failed to set MSS on config client socket: {}",
-            std::io::Error::last_os_error()
-        );
+        return Err(std::io::Error::last_os_error());
     }
+    Ok(())
 }
