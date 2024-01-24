@@ -2,6 +2,7 @@ package net.mullvad.mullvadvpn.relaylist
 
 import net.mullvad.mullvadvpn.model.Constraint
 import net.mullvad.mullvadvpn.model.GeographicLocationConstraint
+import net.mullvad.mullvadvpn.model.LocationConstraint
 import net.mullvad.mullvadvpn.model.Ownership
 import net.mullvad.mullvadvpn.model.Providers
 import net.mullvad.mullvadvpn.model.Relay as DaemonRelay
@@ -69,28 +70,30 @@ fun RelayList.toRelayCountries(
     return relayCountries.toList()
 }
 
-fun List<RelayCountry>.findItemForLocation(
-    constraint: Constraint<GeographicLocationConstraint>
-): RelayItem? {
+fun List<RelayCountry>.findItemForLocation(constraint: Constraint<LocationConstraint>): RelayItem? {
     return when (constraint) {
         is Constraint.Any -> null
         is Constraint.Only -> {
-            when (val location = constraint.value) {
-                is GeographicLocationConstraint.Country -> {
-                    this.find { country -> country.code == location.countryCode }
-                }
-                is GeographicLocationConstraint.City -> {
-                    val country = this.find { country -> country.code == location.countryCode }
+            if (constraint.value is LocationConstraint.Location) {
+                when (val location = (constraint.value as LocationConstraint.Location).location) {
+                    is GeographicLocationConstraint.Country -> {
+                        this.find { country -> country.code == location.countryCode }
+                    }
+                    is GeographicLocationConstraint.City -> {
+                        val country = this.find { country -> country.code == location.countryCode }
 
-                    country?.cities?.find { city -> city.code == location.cityCode }
-                }
-                is GeographicLocationConstraint.Hostname -> {
-                    val country = this.find { country -> country.code == location.countryCode }
+                        country?.cities?.find { city -> city.code == location.cityCode }
+                    }
+                    is GeographicLocationConstraint.Hostname -> {
+                        val country = this.find { country -> country.code == location.countryCode }
 
-                    val city = country?.cities?.find { city -> city.code == location.cityCode }
+                        val city = country?.cities?.find { city -> city.code == location.cityCode }
 
-                    city?.relays?.find { relay -> relay.name == location.hostname }
+                        city?.relays?.find { relay -> relay.name == location.hostname }
+                    }
                 }
+            } else {
+                null
             }
         }
     }
@@ -237,8 +240,7 @@ private fun List<RelayCountry>.expandItemForSelection(
                 }
             }
         }
-    }
-        ?: this
+    } ?: this
 }
 
 private const val MIN_SEARCH_LENGTH = 2

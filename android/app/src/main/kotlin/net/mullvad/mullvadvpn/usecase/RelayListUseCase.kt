@@ -3,7 +3,6 @@ package net.mullvad.mullvadvpn.usecase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import net.mullvad.mullvadvpn.lib.common.util.toGeographicLocationConstraint
 import net.mullvad.mullvadvpn.model.Constraint
 import net.mullvad.mullvadvpn.model.GeographicLocationConstraint
 import net.mullvad.mullvadvpn.model.RelaySettings
@@ -56,6 +55,6 @@ class RelayListUseCase(
         relaySettings: RelaySettings?,
     ): RelayItem? {
         val location = relaySettings?.relayConstraints()?.location
-        return location?.let { this.findItemForLocation(location.toGeographicLocationConstraint()) }
+        return location?.let { this.findItemForLocation(location) }
     }
 }
