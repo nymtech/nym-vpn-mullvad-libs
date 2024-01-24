@@ -40,8 +40,21 @@ class BaseUITestCase: XCTestCase {
         springboard.typeText(iOSDevicePinCode)
     }
     
+    // MARK: - Setup & teardown
+
+    /// Suite level teardown ran after test have executed
+    override class func tearDown() {
+        uninstallApp()
+    }
+
+    /// Test level setup
+    override func setUp() {
+        app.launch()
+    }
+
+    /// Test level teardown
     override func tearDown() {
-        self.uninstallApp(app)
+        app.terminate()
     }
 
     /// Check if currently logged on to an account. Note that it is assumed that we are logged in if login view isn't currently shown.
@@ -51,10 +64,45 @@ class BaseUITestCase: XCTestCase {
             .waitForExistence(timeout: 1.0)
     }
 
-    func uninstallApp(_ app: XCUIApplication) {
+    func agreeToTermsOfServiceIfShown() {
+        let termsOfServiceIsShown = app.otherElements[AccessibilityIdentifier
+            .termsOfServiceView.rawValue]
+            .waitForExistence(timeout: 1)
+
+        if (termsOfServiceIsShown) {
+            TermsOfServicePage(app)
+                .tapAgreeButton()
+
+            Alert(app) // Changes alert
+                .tapOkay()
+
+            LoginPage(app)
+        }
+    }
+
+    /// Login with specified account number. It is a prerequisite that the login page is currently shown.
+    func login(accountNumber: String) {
+        LoginPage(app)
+            .tapAccountNumberTextField()
+            .enterText(accountNumber)
+            .tapAccountNumberSubmitButton()
+            .verifyDeviceLabelShown()
+    }
+
+    func logoutIfLoggedIn() {
+        if (isLoggedIn()) {
+            HeaderBar(app)
+                .tapAccountButton()
+
+            AccountPage(app)
+                .tapLogOutButton()
+
+            LoginPage(app)
+        }
+    }
+
+    static func uninstallApp() {
         let appName = "Mullvad VPN"
-        
-        app.terminate()
 
         let timeout = TimeInterval(5)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
@@ -62,7 +110,7 @@ class BaseUITestCase: XCTestCase {
 
         springboard.swipeDown()
         spotlight.textFields["SpotlightSearchField"].typeText(appName)
-        
+
         let appIcon = spotlight.icons[appName].firstMatch
         if appIcon.waitForExistence(timeout: timeout) {
             appIcon.press(forDuration: 2)
