@@ -5,6 +5,7 @@ use crate::{
     AccountsProxy, DevicesProxy,
 };
 
+#[derive(Debug, PartialEq)]
 #[repr(i32)]
 enum FfiError {
     NoError = 0,
@@ -16,19 +17,20 @@ enum FfiError {
 
 /// IosMullvadApiClient is an FFI interface to our `mullvad-api`. It is a thread-safe to accessing
 /// our API.
+#[derive(Clone)]
 #[repr(C)]
 struct IosMullvadApiClient {
-    ptr: *const IosApiContextInner,
+    ptr: *const IosApiClientContext,
 }
 
 impl IosMullvadApiClient {
-    fn new(context: IosApiContextInner) -> Self {
+    fn new(context: IosApiClientContext) -> Self {
         let sync_context = Arc::new(context);
         let ptr = Arc::into_raw(sync_context);
         Self { ptr }
     }
 
-    unsafe fn from_raw(self) -> Arc<IosApiContextInner> {
+    unsafe fn from_raw(self) -> Arc<IosApiClientContext> {
         unsafe {
             Arc::increment_strong_count(self.ptr);
         }
@@ -43,7 +45,7 @@ struct IosApiClientContext {
     api_hostname: String,
 }
 
-impl IosApiContextInner {
+impl IosApiClientContext {
     fn rest_handle(self: Arc<Self>) -> MullvadRestHandle {
         self.tokio_runtime.block_on(
             self.api_runtime
@@ -95,9 +97,13 @@ extern "C" fn mullvad_api_initialize_api_runtime(
         return FfiError::AsyncRuntimeInitialization;
     };
 
-    let api_runtime = crate::Runtime::with_static_addr(tokio_runtime.handle().clone(), api_address);
+    // It is imperative that the REST runtime is created within an async context, otherwise
+    // ApiAvailability panics.
+    let api_runtime = tokio_runtime.block_on(async {
+        crate::Runtime::with_static_addr(tokio_runtime.handle().clone(), api_address)
+    });
 
-    let ios_context = IosApiContextInner {
+    let ios_context = IosApiClientContext {
         tokio_runtime,
         api_runtime,
         api_hostname,
@@ -113,7 +119,7 @@ extern "C" fn mullvad_api_initialize_api_runtime(
 }
 
 #[no_mangle]
-extern "C" fn mullvad_api_remove_all_devices_from_account(
+extern "C" fn mullvad_api_remove_all_devices(
     context: IosMullvadApiClient,
     account_str_ptr: *const u8,
     account_str_len: usize,
@@ -140,11 +146,11 @@ extern "C" fn mullvad_api_remove_all_devices_from_account(
 }
 
 #[no_mangle]
-extern "C" fn mullvad_api_get_expiry_for_account(
+extern "C" fn mullvad_api_get_expiry(
     context: IosMullvadApiClient,
     account_str_ptr: *const u8,
     account_str_len: usize,
-    expiry_timestamp: *mut libc::timespec,
+    expiry_unix_timestamp: *mut i64,
 ) -> FfiError {
     let Some(account) = (unsafe { string_from_raw_ptr(account_str_ptr, account_str_len) }) else {
         return FfiError::StringParsing;
@@ -156,20 +162,16 @@ extern "C" fn mullvad_api_get_expiry_for_account(
     let account_proxy = ctx.accounts_proxy();
     let result: Result<_, rest::Error> = runtime.block_on(async move {
         let expiry = account_proxy.get_data(account).await?.expiry;
-        let seconds = expiry.timestamp();
-        let nanos = expiry.timestamp_nanos();
+        let expiry_timestamp = expiry.timestamp();
 
-        Ok(libc::timespec {
-            tv_sec: seconds,
-            tv_nsec: nanos,
-        })
+        Ok(expiry_timestamp)
     });
 
     match result {
         Ok(expiry) => {
             // SAFETY: It is assumed that expiry_timestamp is a valid pointer to a `libc::timespec`
             unsafe {
-                std::ptr::write(expiry_timestamp, expiry);
+                std::ptr::write(expiry_unix_timestamp, expiry);
             }
             FfiError::NoError
         }
@@ -181,7 +183,7 @@ extern "C" fn mullvad_api_get_expiry_for_account(
 /// context: `IosApiContext`
 /// public_key: a pointer to a valid 32 byte array representing a WireGuard public key
 #[no_mangle]
-extern "C" fn mullvad_api_add_device_for_account(
+extern "C" fn mullvad_api_add_device(
     context: IosMullvadApiClient,
     account_str_ptr: *const u8,
     account_str_len: usize,
