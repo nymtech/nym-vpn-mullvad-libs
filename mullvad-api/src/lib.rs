@@ -35,6 +35,10 @@ mod access;
 mod address_cache;
 pub mod device;
 mod relay_list;
+
+// TODO: Gate this behind #[cfg(target_os = "ios")]
+pub mod ios_ffi;
+
 pub use address_cache::AddressCache;
 pub use device::DevicesProxy;
 pub use hyper::StatusCode;
@@ -307,6 +311,17 @@ impl Runtime {
         )
     }
 
+    // TODO: gate for ios only
+    pub fn with_static_addr(handle: tokio::runtime::Handle, address: SocketAddr) -> Self {
+        Runtime {
+            handle,
+            address_cache: AddressCache::with_static_addr(address),
+            api_availability: ApiAvailability::new(availability::State::default()),
+            #[cfg(target_os = "android")]
+            socket_bypass_tx,
+        }
+    }
+
     fn new_inner(
         handle: tokio::runtime::Handle,
         #[cfg(target_os = "android")] socket_bypass_tx: Option<mpsc::Sender<SocketBypassRequest>>,
@@ -397,6 +412,27 @@ impl Runtime {
             .new_request_service(
                 Some(API.host().to_string()),
                 proxy_provider,
+                #[cfg(target_os = "android")]
+                self.socket_bypass_tx.clone(),
+            )
+            .await;
+        let token_store = access::AccessTokenStore::new(service.clone());
+        let factory = rest::RequestFactory::new(API.host(), Some(token_store));
+
+        rest::MullvadRestHandle::new(
+            service,
+            factory,
+            self.address_cache.clone(),
+            self.availability_handle(),
+        )
+    }
+
+    /// This is only to be used in test code
+    pub async fn static_mullvad_rest_handle(&self, hostname: String) -> rest::MullvadRestHandle {
+        let service = self
+            .new_request_service(
+                Some(API.host().to_string()),
+                futures::stream::repeat(ApiConnectionMode::Direct),
                 #[cfg(target_os = "android")]
                 self.socket_bypass_tx.clone(),
             )
