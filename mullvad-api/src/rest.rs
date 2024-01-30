@@ -447,9 +447,12 @@ pub struct RequestFactory {
 }
 
 impl RequestFactory {
-    pub fn new(hostname: &'static str, token_store: Option<AccessTokenStore>) -> Self {
+    pub fn new(
+        hostname: impl Into<Cow<'static, str>>,
+        token_store: Option<AccessTokenStore>,
+    ) -> Self {
         Self {
-            hostname: Cow::from(hostname),
+            hostname: hostname.into(),
             token_store,
             default_timeout: DEFAULT_TIMEOUT,
         }

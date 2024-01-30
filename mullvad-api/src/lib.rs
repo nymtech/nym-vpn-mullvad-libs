@@ -431,14 +431,14 @@ impl Runtime {
     pub async fn static_mullvad_rest_handle(&self, hostname: String) -> rest::MullvadRestHandle {
         let service = self
             .new_request_service(
-                Some(API.host().to_string()),
+                Some(hostname.clone()),
                 futures::stream::repeat(ApiConnectionMode::Direct),
                 #[cfg(target_os = "android")]
                 self.socket_bypass_tx.clone(),
             )
             .await;
         let token_store = access::AccessTokenStore::new(service.clone());
-        let factory = rest::RequestFactory::new(API.host(), Some(token_store));
+        let factory = rest::RequestFactory::new(hostname, Some(token_store));
 
         rest::MullvadRestHandle::new(
             service,
