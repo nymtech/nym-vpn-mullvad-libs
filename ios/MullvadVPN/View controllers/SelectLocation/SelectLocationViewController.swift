@@ -13,13 +13,13 @@ import UIKit
 
 final class SelectLocationViewController: UIViewController {
     private let searchBar = UISearchBar()
-    private let tableView = UITableView()
+    private let tableView = UITableView(frame: .zero, style: .grouped)
     private let topContentView = UIStackView()
     private let filterView = RelayFilterView()
     private var dataSource: LocationDataSource?
     private var cachedRelays: CachedRelays?
     private var filter = RelayFilter()
-    var relayLocation: RelayLocation?
+    var relayLocation: LocationCellViewModel?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
         .lightContent

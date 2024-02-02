@@ -95,8 +95,12 @@ class SelectLocationCoordinator: Coordinator, Presentable, Presenting, RelayCach
             self.cachedRelays = cachedRelays
             selectLocationViewController.setCachedRelays(cachedRelays, filter: relayFilter)
         }
-
-        selectLocationViewController.relayLocation = tunnelManager.settings.relayConstraints.location.value
+        tunnelManager.settings.relayConstraints.location.value.flatMap {
+            selectLocationViewController.relayLocation = LocationCellViewModel(
+                group: SelectLocationGroup.allLocations.description,
+                location: $0
+            )
+        }
 
         navigationController.pushViewController(selectLocationViewController, animated: false)
     }

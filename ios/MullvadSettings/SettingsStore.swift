@@ -14,6 +14,7 @@ public enum SettingsKey: String, CaseIterable {
     case apiAccessMethods = "ApiAccessMethods"
     case lastUsedAccount = "LastUsedAccount"
     case shouldWipeSettings = "ShouldWipeSettings"
+    case customRelayLists = "CustomRelayLists"
 }
 
 public protocol SettingsStore {

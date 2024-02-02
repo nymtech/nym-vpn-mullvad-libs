@@ -752,6 +752,16 @@
 		F03580252A13842C00E5DAFD /* IncreasedHitButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F03580242A13842C00E5DAFD /* IncreasedHitButton.swift */; };
 		F04F95A12B21D24400431E08 /* shadowsocks.h in Headers */ = {isa = PBXBuildFile; fileRef = F04F95A02B21D24400431E08 /* shadowsocks.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F04FBE612A8379EE009278D7 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F04FBE602A8379EE009278D7 /* AppPreferences.swift */; };
+		F050AE332B6298A6003F4EDB /* CustomListRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE2D2B628EB1003F4EDB /* CustomListRepositoryProtocol.swift */; };
+		F050AE342B6298A8003F4EDB /* CustomRelayList.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE2F2B628F1E003F4EDB /* CustomRelayList.swift */; };
+		F050AE352B6298AA003F4EDB /* CustomListRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE312B62971C003F4EDB /* CustomListRepository.swift */; };
+		F050AE382B62AC06003F4EDB /* SelectLocationHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE372B62AC06003F4EDB /* SelectLocationHeaderView.swift */; };
+		F050AE3A2B62BDF3003F4EDB /* AddCustomRelayListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE392B62BDF3003F4EDB /* AddCustomRelayListView.swift */; };
+		F050AE402B692735003F4EDB /* LocationCellViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE3F2B692735003F4EDB /* LocationCellViewModel.swift */; };
+		F050AE422B6A4240003F4EDB /* CustomListStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE412B6A4240003F4EDB /* CustomListStub.swift */; };
+		F050AE442B6B91BE003F4EDB /* LocationDataSource+Node.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE432B6B91BE003F4EDB /* LocationDataSource+Node.swift */; };
+		F050AE482B6B99E8003F4EDB /* SelectLocationGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE472B6B99E8003F4EDB /* SelectLocationGroup.swift */; };
+		F050AE4A2B6B9A91003F4EDB /* LocationDataSourceItemProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F050AE492B6B9A91003F4EDB /* LocationDataSourceItemProtocol.swift */; };
 		F05F39942B21C6C6006E60A7 /* relays.json in Resources */ = {isa = PBXBuildFile; fileRef = 58F3C0A524A50155003E76BE /* relays.json */; };
 		F05F39972B21C735006E60A7 /* RelayCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5820675A26E6576800655B05 /* RelayCache.swift */; };
 		F05F39982B21C73C006E60A7 /* CachedRelays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 585DA87626B024A600B8C587 /* CachedRelays.swift */; };
@@ -1821,6 +1831,16 @@
 		F03580242A13842C00E5DAFD /* IncreasedHitButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncreasedHitButton.swift; sourceTree = "<group>"; };
 		F04F95A02B21D24400431E08 /* shadowsocks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = shadowsocks.h; sourceTree = "<group>"; };
 		F04FBE602A8379EE009278D7 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		F050AE2D2B628EB1003F4EDB /* CustomListRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomListRepositoryProtocol.swift; sourceTree = "<group>"; };
+		F050AE2F2B628F1E003F4EDB /* CustomRelayList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomRelayList.swift; sourceTree = "<group>"; };
+		F050AE312B62971C003F4EDB /* CustomListRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomListRepository.swift; sourceTree = "<group>"; };
+		F050AE372B62AC06003F4EDB /* SelectLocationHeaderView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SelectLocationHeaderView.swift; sourceTree = "<group>"; };
+		F050AE392B62BDF3003F4EDB /* AddCustomRelayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCustomRelayListView.swift; sourceTree = "<group>"; };
+		F050AE3F2B692735003F4EDB /* LocationCellViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationCellViewModel.swift; sourceTree = "<group>"; };
+		F050AE412B6A4240003F4EDB /* CustomListStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomListStub.swift; sourceTree = "<group>"; };
+		F050AE432B6B91BE003F4EDB /* LocationDataSource+Node.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocationDataSource+Node.swift"; sourceTree = "<group>"; };
+		F050AE472B6B99E8003F4EDB /* SelectLocationGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectLocationGroup.swift; sourceTree = "<group>"; };
+		F050AE492B6B9A91003F4EDB /* LocationDataSourceItemProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationDataSourceItemProtocol.swift; sourceTree = "<group>"; };
 		F06045E52B231EB700B2D37A /* URLSessionTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionTransport.swift; sourceTree = "<group>"; };
 		F06045E92B23217E00B2D37A /* ShadowsocksTransport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShadowsocksTransport.swift; sourceTree = "<group>"; };
 		F06045EB2B2322A500B2D37A /* Jittered.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Jittered.swift; sourceTree = "<group>"; };
@@ -2218,6 +2238,7 @@
 				7A2960F72A964A3500389B82 /* Alert */,
 				F0EF50D12A8FA47E0031E8DF /* ChangeLog */,
 				F0E8E4B92A55593300ED26A3 /* CreationAccount */,
+				F050AE282B62657E003F4EDB /* CustomList */,
 				583FE01D29C197C1006E85F9 /* DeviceList */,
 				583FE02529C1AD0E006E85F9 /* Launch */,
 				583FE02129C1A0F4006E85F9 /* Login */,
@@ -2238,9 +2259,14 @@
 		583FE01729C196F3006E85F9 /* SelectLocation */ = {
 			isa = PBXGroup;
 			children = (
+				F050AE412B6A4240003F4EDB /* CustomListStub.swift */,
 				58435AC129CB2A350099C71B /* LocationCellFactory.swift */,
 				583DA21325FA4B5C00318683 /* LocationDataSource.swift */,
+				F050AE432B6B91BE003F4EDB /* LocationDataSource+Node.swift */,
+				F050AE492B6B9A91003F4EDB /* LocationDataSourceItemProtocol.swift */,
+				F050AE3F2B692735003F4EDB /* LocationCellViewModel.swift */,
 				5888AD82227B11080051EB06 /* SelectLocationCell.swift */,
+				F050AE472B6B99E8003F4EDB /* SelectLocationGroup.swift */,
 				5888AD86227B17950051EB06 /* SelectLocationViewController.swift */,
 			);
 			path = SelectLocation;
@@ -2787,6 +2813,8 @@
 				5827B0A02B0E064E00CCBBA1 /* AccessMethodRepository.swift */,
 				58EF875A2B16385400C098B2 /* AccessMethodRepositoryProtocol.swift */,
 				F0164EBB2B482E430020268D /* AppStorage.swift */,
+				F050AE312B62971C003F4EDB /* CustomListRepository.swift */,
+				F050AE2D2B628EB1003F4EDB /* CustomListRepositoryProtocol.swift */,
 				A92ECC2B2A7803A50052F1B1 /* DeviceState.swift */,
 				580F8B8528197958002E0998 /* DNSSettings.swift */,
 				06410DFD292CE18F00AFC18C /* KeychainSettingsStore.swift */,
@@ -2794,6 +2822,7 @@
 				A9D96B192A8247C100A5C673 /* MigrationManager.swift */,
 				58B2FDD52AA71D2A003EB5C6 /* MullvadSettings.h */,
 				586C0D962B04E0AC00E7CDD7 /* PersistentAccessMethod.swift */,
+				F050AE2F2B628F1E003F4EDB /* CustomRelayList.swift */,
 				58FF2C02281BDE02009EF542 /* SettingsManager.swift */,
 				06410E03292D0F7100AFC18C /* SettingsParser.swift */,
 				06410E06292D108E00AFC18C /* SettingsStore.swift */,
@@ -3393,6 +3422,23 @@
 				F09A29792A9F8A9B00EA3B6F /* VoucherTextField.swift */,
 			);
 			path = RedeemVoucher;
+			sourceTree = "<group>";
+		};
+		F050AE282B62657E003F4EDB /* CustomList */ = {
+			isa = PBXGroup;
+			children = (
+				F050AE362B62AC06003F4EDB /* Cells */,
+			);
+			path = CustomList;
+			sourceTree = "<group>";
+		};
+		F050AE362B62AC06003F4EDB /* Cells */ = {
+			isa = PBXGroup;
+			children = (
+				F050AE372B62AC06003F4EDB /* SelectLocationHeaderView.swift */,
+				F050AE392B62BDF3003F4EDB /* AddCustomRelayListView.swift */,
+			);
+			path = Cells;
 			sourceTree = "<group>";
 		};
 		F06045F02B2324DA00B2D37A /* ApiHandlers */ = {
@@ -4615,7 +4661,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				58B2FDEE2AA72098003EB5C6 /* ApplicationConfiguration.swift in Sources */,
+				F050AE342B6298A8003F4EDB /* CustomRelayList.swift in Sources */,
 				58B2FDE52AA71D5C003EB5C6 /* TunnelSettingsV2.swift in Sources */,
+				F050AE352B6298AA003F4EDB /* CustomListRepository.swift in Sources */,
 				A97D30172AE6B5E90045C0E4 /* StoredWgKeyData.swift in Sources */,
 				F08827882B318F960020A383 /* PersistentAccessMethod.swift in Sources */,
 				58B2FDE32AA71D5C003EB5C6 /* StoredDeviceData.swift in Sources */,
@@ -4636,6 +4684,7 @@
 				58B2FDE92AA71D5C003EB5C6 /* SettingsParser.swift in Sources */,
 				F08827892B3192110020A383 /* AccessMethodRepositoryProtocol.swift in Sources */,
 				58B2FDE22AA71D5C003EB5C6 /* StoredAccountData.swift in Sources */,
+				F050AE332B6298A6003F4EDB /* CustomListRepositoryProtocol.swift in Sources */,
 				F0D7FF902B31E00B00E0FDE5 /* AccessMethodKind.swift in Sources */,
 				58B2FDE82AA71D5C003EB5C6 /* KeychainSettingsStore.swift in Sources */,
 			);
@@ -4887,6 +4936,7 @@
 				5868585524054096000B8131 /* CustomButton.swift in Sources */,
 				58E25F812837BBBB002CFB2C /* SceneDelegate.swift in Sources */,
 				7A1A26492A29D48A00B978AA /* RelayFilterCellFactory.swift in Sources */,
+				F050AE402B692735003F4EDB /* LocationCellViewModel.swift in Sources */,
 				5867771629097C5B006F721F /* ProductState.swift in Sources */,
 				58C76A082A33850E00100D75 /* ApplicationTarget.swift in Sources */,
 				58CEB3042AFD36CE00E6E088 /* SwitchCellContentView.swift in Sources */,
@@ -4926,8 +4976,10 @@
 				58677712290976FB006F721F /* SettingsInteractor.swift in Sources */,
 				58EF875D2B1638BF00C098B2 /* ProxyConfigurationTesterProtocol.swift in Sources */,
 				58CE5E66224146200008646E /* LoginViewController.swift in Sources */,
+				F050AE382B62AC06003F4EDB /* SelectLocationHeaderView.swift in Sources */,
 				F0C6FA852A6A733700F521F0 /* InAppPurchaseInteractor.swift in Sources */,
 				58CEB2F92AFD136E00E6E088 /* UIBackgroundConfiguration+Extensions.swift in Sources */,
+				F050AE4A2B6B9A91003F4EDB /* LocationDataSourceItemProtocol.swift in Sources */,
 				5878F50029CDA742003D4BE2 /* UIView+AutoLayoutBuilder.swift in Sources */,
 				A98502032B627B120061901E /* LocalNetworkProbe.swift in Sources */,
 				583FE01029C0F532006E85F9 /* CustomSplitViewController.swift in Sources */,
@@ -4935,10 +4987,13 @@
 				58EF580B25D69D7A00AEBA94 /* ProblemReportSubmissionOverlayView.swift in Sources */,
 				5892A45E265FABFF00890742 /* EmptyTableViewHeaderFooterView.swift in Sources */,
 				580909D32876D09A0078138D /* RevokedDeviceViewController.swift in Sources */,
+				F050AE422B6A4240003F4EDB /* CustomListStub.swift in Sources */,
 				58FF9FF02B07C4D300E4C97D /* PersistentAccessMethod+ViewModel.swift in Sources */,
 				58CEB2FD2AFD19D300E6E088 /* UITableView+ReuseIdentifier.swift in Sources */,
 				5835B7CC233B76CB0096D79F /* TunnelManager.swift in Sources */,
 				588D7EDE2AF3A585005DF40A /* ListAccessMethodItem.swift in Sources */,
+				F050AE442B6B91BE003F4EDB /* LocationDataSource+Node.swift in Sources */,
+				F050AE482B6B99E8003F4EDB /* SelectLocationGroup.swift in Sources */,
 				5827B0B02B0F4CCD00CCBBA1 /* ListAccessMethodViewControllerDelegate.swift in Sources */,
 				588D7EE02AF3A595005DF40A /* ListAccessMethodInteractor.swift in Sources */,
 				58607A4D2947287800BC467D /* AccountExpiryInAppNotificationProvider.swift in Sources */,
@@ -5007,6 +5062,7 @@
 				F09D04BD2AEBB7C5003D4F89 /* OutgoingConnectionService.swift in Sources */,
 				58FF9FF42B07C61B00E4C97D /* AccessMethodValidationError.swift in Sources */,
 				5896AE84246D5889005B36CB /* CustomDateComponentsFormatting.swift in Sources */,
+				F050AE3A2B62BDF3003F4EDB /* AddCustomRelayListView.swift in Sources */,
 				5871167F2910035700D41AAC /* PreferencesInteractor.swift in Sources */,
 				7A9CCCC22A96302800DD6A34 /* SafariCoordinator.swift in Sources */,
 				58CEB3082AFD484100E6E088 /* BasicCell.swift in Sources */,

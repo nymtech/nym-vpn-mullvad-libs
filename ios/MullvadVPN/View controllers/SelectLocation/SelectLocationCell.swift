@@ -28,6 +28,10 @@ class SelectLocationCell: UITableViewCell {
     private let chevronDown = UIImage(named: "IconChevronDown")
     private let chevronUp = UIImage(named: "IconChevronUp")
 
+    class var reuseIdentifier: String {
+        "\(SelectLocationCell.self)"
+    }
+
     var isDisabled = false {
         didSet {
             updateDisabled()
