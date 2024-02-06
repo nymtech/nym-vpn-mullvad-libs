@@ -213,6 +213,15 @@ impl ServiceClient {
             .await?
     }
 
+    /// Start a SOCKS5 server bound to the given address, and return a handle that closes the
+    /// server when dropped
+    pub async fn start_socks_server(
+        &self,
+        bind_addr: SocketAddr,
+    ) -> Result<crate::net::SocksHandle, Error> {
+        crate::net::SocksHandle::start_server(self.client.clone(), bind_addr).await
+    }
+
     /// Restarts the app.
     ///
     /// Shuts down a running app, making it disconnect from any current tunnel

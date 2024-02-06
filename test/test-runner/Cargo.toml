@@ -27,6 +27,7 @@ tokio-serde = { workspace = true }
 libc = "0.2"
 chrono = { workspace = true, features = ["serde"] }
 
+socks-server = { path = "../socks-server" }
 test-rpc = { path = "../test-rpc" }
 mullvad-paths = { path = "../../mullvad-paths" }
 talpid-platform-metadata = { path = "../../talpid-platform-metadata" }

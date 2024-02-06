@@ -53,6 +53,8 @@ pub enum Error {
     InvalidUrl,
     #[error(display = "Timeout")]
     Timeout,
+    #[error(display = "SOCKS server error")]
+    SocksServer,
 }
 
 /// Response from am.i.mullvad.net
@@ -147,6 +149,15 @@ mod service {
 
         /// Perform DNS resolution.
         async fn resolve_hostname(hostname: String) -> Result<Vec<SocketAddr>, Error>;
+
+        /// Start a SOCKS5 server bound to the given address. Return an ID that can be used with
+        /// `stop_socks_server`, and the address that the listening socket was actually bound to.
+        async fn start_socks_server(
+            bind_addr: SocketAddr,
+        ) -> Result<(net::SocksHandleId, SocketAddr), Error>;
+
+        /// Stop a SOCKS5 server that was previously started with `start_socks_server`.
+        async fn stop_socks_server(id: net::SocksHandleId) -> Result<(), Error>;
 
         /// Restart the Mullvad VPN application.
         async fn restart_mullvad_daemon() -> Result<(), Error>;

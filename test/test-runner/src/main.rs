@@ -10,6 +10,7 @@ use tarpc::context;
 use tarpc::server::Channel;
 use test_rpc::{
     mullvad_daemon::{ServiceStatus, SOCKET_PATH},
+    net::SocksHandleId,
     package::Package,
     transport::GrpcForwarder,
     AppTrace, Service,
@@ -25,6 +26,7 @@ mod app;
 mod logging;
 mod net;
 mod package;
+mod socks;
 mod sys;
 
 #[derive(Clone)]
@@ -165,6 +167,25 @@ impl Service for TestServer {
                 test_rpc::Error::DnsResolution
             })?
             .collect())
+    }
+
+    /// Start a SOCKS5 server bound to the given address. Return an ID that can be used with
+    /// `stop_socks_server`, and the address that the listening socket was actually bound to.
+    async fn start_socks_server(
+        self,
+        _: context::Context,
+        bind_addr: SocketAddr,
+    ) -> Result<(SocksHandleId, SocketAddr), test_rpc::Error> {
+        socks::start_server(bind_addr).await
+    }
+
+    /// Stop a SOCKS5 server that was previously started with `start_socks_server`.
+    async fn stop_socks_server(
+        self,
+        _: context::Context,
+        id: SocksHandleId,
+    ) -> Result<(), test_rpc::Error> {
+        socks::stop_server(id).await
     }
 
     async fn get_interface_ip(
