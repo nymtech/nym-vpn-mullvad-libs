@@ -12,7 +12,7 @@ use mullvad_types::relay_constraints::{
 };
 use mullvad_types::wireguard;
 use talpid_types::net::{
-    proxy::{CustomProxy, Socks5Remote},
+    proxy::{CustomProxy, Socks5Local, Socks5Remote},
     TransportProtocol, TunnelType,
 };
 use test_macro::test_function;
@@ -676,6 +676,11 @@ pub async fn test_local_socks_bridge(
     rpc: ServiceClient,
     mut mullvad_client: MullvadProxyClient,
 ) -> Result<(), Error> {
+    let socks_server = rpc
+        .start_socks_server("127.0.0.1:0".parse().unwrap())
+        .await
+        .expect("failed to start SOCKS server");
+
     mullvad_client
         .set_bridge_state(relay_constraints::BridgeState::On)
         .await
@@ -685,10 +690,13 @@ pub async fn test_local_socks_bridge(
         .set_bridge_settings(BridgeSettings {
             bridge_type: BridgeType::Custom,
             normal: BridgeConstraints::default(),
-            custom: Some(CustomProxy::Socks5Remote(Socks5Remote::new((
-                crate::vm::network::NON_TUN_GATEWAY,
-                crate::vm::network::SOCKS5_PORT,
-            )))),
+            custom: Some(CustomProxy::Socks5Local(Socks5Local::new(
+                (
+                    crate::vm::network::NON_TUN_GATEWAY,
+                    crate::vm::network::SOCKS5_PORT,
+                ),
+                socks_server.bind_addr().port(),
+            ))),
         })
         .await
         .expect("failed to update bridge settings");
