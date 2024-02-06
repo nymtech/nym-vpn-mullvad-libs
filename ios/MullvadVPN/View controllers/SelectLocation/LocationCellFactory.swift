@@ -10,22 +10,23 @@ import MullvadTypes
 import UIKit
 
 protocol LocationCellEventHandler {
-    func collapseCell(for item: RelayLocation)
+    func collapseCell(for item: LocationCellViewModel)
 }
 
 final class LocationCellFactory: CellFactoryProtocol {
-    var nodeByLocation = [RelayLocation: LocationDataSource.Node]()
+    var nodeByLocation = [LocationCellViewModel: SelectLocationNode]()
     var delegate: LocationCellEventHandler?
     let tableView: UITableView
+    let reuseIdentifier = SelectLocationSectionGroup.Cell.locationCell.reuseIdentifier
 
-    init(tableView: UITableView, nodeByLocation: [RelayLocation: LocationDataSource.Node]) {
+    init(tableView: UITableView, nodeByLocation: [LocationCellViewModel: SelectLocationNode]) {
         self.tableView = tableView
         self.nodeByLocation = nodeByLocation
     }
 
-    func makeCell(for item: RelayLocation, indexPath: IndexPath) -> UITableViewCell {
+    func makeCell(for item: LocationCellViewModel, indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(
-            withIdentifier: LocationDataSource.CellReuseIdentifiers.locationCell.rawValue,
+            withIdentifier: reuseIdentifier,
             for: indexPath
         )
 
@@ -34,7 +35,7 @@ final class LocationCellFactory: CellFactoryProtocol {
         return cell
     }
 
-    func configureCell(_ cell: UITableViewCell, item: RelayLocation, indexPath: IndexPath) {
+    func configureCell(_ cell: UITableViewCell, item: LocationCellViewModel, indexPath: IndexPath) {
         guard let cell = cell as? SelectLocationCell,
               let node = nodeByLocation[item] else { return }
 

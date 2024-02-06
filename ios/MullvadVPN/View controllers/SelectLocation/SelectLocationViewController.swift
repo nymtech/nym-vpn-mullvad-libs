@@ -119,7 +119,9 @@ final class SelectLocationViewController: UIViewController {
             self?.didSelectRelay?(location)
         }
 
-        dataSource?.selectedRelayLocation = relayLocation
+        relayLocation.flatMap {
+            dataSource?.selectedRelayLocation = LocationCellViewModel(group: .allLocations, location: $0)
+        }
 
         if let cachedRelays {
             dataSource?.setRelays(cachedRelays.relays, filter: filter)

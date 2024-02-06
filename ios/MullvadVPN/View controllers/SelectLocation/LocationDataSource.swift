@@ -6,51 +6,22 @@
 //  Copyright © 2021 Mullvad VPN AB. All rights reserved.
 //
 
+import Combine
 import MullvadREST
 import MullvadTypes
 import UIKit
 
-protocol LocationDataSourceItemProtocol {
-    var location: RelayLocation { get }
-    var displayName: String { get }
-    var showsChildren: Bool { get }
-    var isActive: Bool { get }
-
-    var isCollapsible: Bool { get }
-    var indentationLevel: Int { get }
-}
-
-final class LocationDataSource: UITableViewDiffableDataSource<Int, RelayLocation> {
-    enum CellReuseIdentifiers: String, CaseIterable {
-        case locationCell
-
-        var reusableViewClass: AnyClass {
-            switch self {
-            case .locationCell:
-                return SelectLocationCell.self
-            }
-        }
-    }
-
-    private var nodeByLocation = [RelayLocation: Node]()
-    private var locationList = [RelayLocation]()
+// swiftlint:disable file_length
+final class LocationDataSource: UITableViewDiffableDataSource<SelectLocationSectionGroup, LocationCellViewModel> {
+    private var nodeByLocation = [LocationCellViewModel: SelectLocationNode]()
+    private var locationList = [SelectLocationSectionGroup: [LocationCellViewModel]]()
     private var currentSearchString = ""
 
     private let tableView: UITableView
     private let locationCellFactory: LocationCellFactory
+    private let parallelRequestsMutex = NSLock()
 
-    private class func makeRootNode() -> Node {
-        Node(
-            type: .root,
-            location: RelayLocation.country("#root"),
-            displayName: "",
-            showsChildren: true,
-            isActive: true,
-            children: []
-        )
-    }
-
-    var selectedRelayLocation: RelayLocation?
+    var selectedRelayLocation: LocationCellViewModel?
     var didSelectRelayLocation: ((RelayLocation) -> Void)?
 
     init(tableView: UITableView) {
@@ -74,13 +45,90 @@ final class LocationDataSource: UITableViewDiffableDataSource<Int, RelayLocation
     }
 
     func setRelays(_ response: REST.ServerRelaysResponse, filter: RelayFilter) {
+        parallelRequestsMutex.lock()
+        defer { parallelRequestsMutex.unlock() }
         let relays = response.wireguard.relays.filter { relay in
             return RelaySelector.relayMatchesFilter(relay, filter: filter)
         }
-
-        let rootNode = Self.makeRootNode()
         nodeByLocation.removeAll()
 
+        makeAllLocations(response, relays: relays)
+
+        filterRelays(by: currentSearchString)
+    }
+
+    func indexPathForSelectedRelay() -> IndexPath? {
+        selectedRelayLocation.flatMap {
+            return indexPath(for: $0)
+        }
+    }
+
+    func filterRelays(by searchString: String) {
+        currentSearchString = searchString
+        if searchString.isEmpty {
+            resetLocationList()
+        } else {
+            updateDataSnapshot(with: fuzzySearch(searchString), reloadExisting: true) { [weak self] in
+                self?.scrollToTop(animated: false)
+            }
+        }
+    }
+
+    private func fuzzySearch(_ text: String) -> [SelectLocationSectionGroup: [LocationCellViewModel]] {
+        var filteredLocations: [SelectLocationSectionGroup: [LocationCellViewModel]] = [
+            .customLists: [],
+            .allLocations: [],
+        ]
+
+        locationList.forEach { key, value in
+            value.forEach { location in
+                guard let countryNode = nodeByLocation[location] else { return }
+                countryNode.showsChildren = false
+
+                if text.isEmpty || countryNode.displayName.fuzzyMatch(text) {
+                    filteredLocations[key]?.append(LocationCellViewModel(
+                        group: key,
+                        location: countryNode.location
+                    ))
+                }
+
+                for cityNode in countryNode.children {
+                    cityNode.showsChildren = false
+
+                    let relaysContainSearchString = cityNode.children
+                        .contains(where: { $0.displayName.fuzzyMatch(text) })
+
+                    if cityNode.displayName.fuzzyMatch(text) || relaysContainSearchString {
+                        if let values = filteredLocations[key],
+                           !values.contains(where: { $0.location == countryNode.location }) {
+                            filteredLocations[key]?.append(LocationCellViewModel(
+                                group: key,
+                                location: countryNode.location
+                            ))
+                        }
+
+                        filteredLocations[key]?.append(LocationCellViewModel(
+                            group: key,
+                            location: cityNode.location
+                        ))
+                        countryNode.showsChildren = true
+
+                        if relaysContainSearchString {
+                            cityNode.children.map { $0.location }.forEach {
+                                filteredLocations[key]?.append(LocationCellViewModel(group: key, location: $0))
+                            }
+                            cityNode.showsChildren = true
+                        }
+                    }
+                }
+            }
+        }
+        return filteredLocations
+    }
+
+    private func makeAllLocations(_ response: REST.ServerRelaysResponse, relays: [REST.ServerRelay]) {
+        let group = SelectLocationSectionGroup.allLocations
+        let rootNode = makeRootNode(name: group.description)
         for relay in relays {
             guard case let .city(countryCode, cityCode) = RelayLocation(dashSeparatedString: relay.location),
                   let serverLocation = response.locations[relay.location] else { continue }
@@ -88,77 +136,47 @@ final class LocationDataSource: UITableViewDiffableDataSource<Int, RelayLocation
             let relayLocation = RelayLocation.hostname(countryCode, cityCode, relay.hostname)
 
             for ascendantOrSelf in relayLocation.ascendants + [relayLocation] {
-                guard !nodeByLocation.keys.contains(ascendantOrSelf) else {
+                guard !nodeByLocation.keys
+                    .contains(where: { $0.group == group && $0.location == ascendantOrSelf }) else {
                     continue
                 }
 
                 // Maintain the `showsChildren` state when transitioning between relay lists
-                let wasShowingChildren = nodeByLocation[ascendantOrSelf]?.showsChildren ?? false
+                let wasShowingChildren = nodeByLocation[LocationCellViewModel(group: group, location: ascendantOrSelf)]?
+                    .showsChildren ?? false
 
                 let node = createNode(
                     ascendantOrSelf: ascendantOrSelf,
                     serverLocation: serverLocation,
                     relay: relay,
-                    rootNode: rootNode,
                     wasShowingChildren: wasShowingChildren
                 )
-                nodeByLocation[ascendantOrSelf] = node
+                let parent = getParent(group: group, location: ascendantOrSelf) ?? rootNode
+                parent.addChild(node)
+                nodeByLocation[LocationCellViewModel(group: group, location: ascendantOrSelf)] = node
             }
         }
 
         rootNode.sortChildrenRecursive()
         rootNode.computeActiveChildrenRecursive()
-        locationList = rootNode.flatRelayLocationList()
 
-        filterRelays(by: currentSearchString)
+        locationList[group] = rootNode
+            .flatRelayLocationList()
+            .map { LocationCellViewModel(group: group, location: $0) }
     }
 
-    func indexPathForSelectedRelay() -> IndexPath? {
-        selectedRelayLocation.flatMap { indexPath(for: $0) }
+    private func makeRootNode(name: String) -> SelectLocationNode {
+        SelectLocationNode(nodeType: .root, location: .country("#root"), displayName: name)
     }
 
-    func filterRelays(by searchString: String) {
-        currentSearchString = searchString
-
-        if currentSearchString.isEmpty {
-            return resetLocationList()
-        }
-
-        var filteredLocations = [RelayLocation]()
-
-        locationList.forEach { location in
-            guard let countryNode = nodeByLocation[location] else { return }
-            countryNode.showsChildren = false
-
-            if searchString.isEmpty || countryNode.displayName.fuzzyMatch(searchString) {
-                filteredLocations.append(countryNode.location)
-            }
-
-            for cityNode in countryNode.children {
-                cityNode.showsChildren = false
-
-                let relaysContainSearchString = cityNode.children.contains(where: { node in
-                    node.displayName.fuzzyMatch(searchString)
-                })
-
-                if cityNode.displayName.fuzzyMatch(searchString) || relaysContainSearchString {
-                    if !filteredLocations.contains(countryNode.location) {
-                        filteredLocations.append(countryNode.location)
-                    }
-
-                    filteredLocations.append(cityNode.location)
-                    countryNode.showsChildren = true
-
-                    if relaysContainSearchString {
-                        filteredLocations.append(contentsOf: cityNode.children.map { $0.location })
-                        cityNode.showsChildren = true
-                    }
-                }
-            }
-        }
-
-        updateDataSnapshot(with: filteredLocations, reloadExisting: true) { [weak self] in
-            self?.scrollToTop(animated: false)
+    private func getParent(group: SelectLocationSectionGroup, location: RelayLocation) -> SelectLocationNode? {
+        switch location {
+        case .country:
+            return nil
+        case let .city(countryCode, _):
+            return nodeByLocation[LocationCellViewModel(group: group, location: .country(countryCode))]
+        case let .hostname(countryCode, cityCode, _):
+            return nodeByLocation[LocationCellViewModel(group: group, location: .city(countryCode, cityCode))]
         }
     }
 
@@ -166,124 +184,138 @@ final class LocationDataSource: UITableViewDiffableDataSource<Int, RelayLocation
         ascendantOrSelf: RelayLocation,
         serverLocation: REST.ServerLocation,
         relay: REST.ServerRelay,
-        rootNode: Node,
         wasShowingChildren: Bool
-    ) -> Node {
-        let node: Node
+    ) -> SelectLocationNode {
+        let node: SelectLocationNode
 
         switch ascendantOrSelf {
         case .country:
-            node = Node(
-                type: .country,
+            node = SelectLocationNode(
+                nodeType: .country,
                 location: ascendantOrSelf,
                 displayName: serverLocation.country,
-                showsChildren: wasShowingChildren,
-                isActive: true,
-                children: []
+                showsChildren: wasShowingChildren
             )
-            rootNode.addChild(node)
 
-        case let .city(countryCode, _):
-            node = Node(
-                type: .city,
+        case .city:
+            node = SelectLocationNode(
+                nodeType: .city,
                 location: ascendantOrSelf,
                 displayName: serverLocation.city,
-                showsChildren: wasShowingChildren,
-                isActive: true,
-                children: []
+                showsChildren: wasShowingChildren
             )
-            nodeByLocation[.country(countryCode)]!.addChild(node)
 
-        case let .hostname(countryCode, cityCode, _):
-            node = Node(
-                type: .relay,
+        case .hostname:
+            node = SelectLocationNode(
+                nodeType: .relay,
                 location: ascendantOrSelf,
                 displayName: relay.hostname,
-                showsChildren: false,
-                isActive: relay.active,
-                children: []
+                isActive: relay.active
             )
-            nodeByLocation[.city(countryCode, cityCode)]!.addChild(node)
         }
-
         return node
     }
 
     private func updateDataSnapshot(
-        with locations: [RelayLocation],
+        with list: [SelectLocationSectionGroup: [LocationCellViewModel]],
         reloadExisting: Bool = false,
         animated: Bool = false,
         completion: (() -> Void)? = nil
     ) {
         updateCellFactory(with: nodeByLocation)
 
-        var snapshot = NSDiffableDataSourceSnapshot<Int, RelayLocation>()
+        var snapshot = NSDiffableDataSourceSnapshot<SelectLocationSectionGroup, LocationCellViewModel>()
 
-        snapshot.appendSections([0])
-        snapshot.appendItems(locations)
+        snapshot.appendSections(SelectLocationSectionGroup.allCases)
+        for key in list.keys {
+            snapshot.appendItems(list[key] ?? [], toSection: key)
+        }
 
         if reloadExisting {
-            snapshot.reloadItems(locations)
+            snapshot.reloadSections(SelectLocationSectionGroup.allCases)
         }
 
         apply(snapshot, animatingDifferences: animated, completion: completion)
     }
 
     private func registerClasses() {
-        CellReuseIdentifiers.allCases.forEach { enumCase in
+        SelectLocationSectionGroup.allCases.forEach {
             tableView.register(
-                enumCase.reusableViewClass,
-                forCellReuseIdentifier: enumCase.rawValue
+                $0.cell.reusableViewClass,
+                forCellReuseIdentifier: $0.cell.reuseIdentifier
             )
         }
     }
 
-    private func updateCellFactory(with nodeByLocation: [RelayLocation: Node]) {
+    private func updateCellFactory(with nodeByLocation: [LocationCellViewModel: SelectLocationNode]) {
         locationCellFactory.nodeByLocation = nodeByLocation
     }
 
     private func setSelectedRelayLocation(
-        _ relayLocation: RelayLocation?,
+        _ relayLocation: LocationCellViewModel?,
         animated: Bool,
         completion: (() -> Void)? = nil
     ) {
         selectedRelayLocation = relayLocation
-        var locationList = snapshot().itemIdentifiers
 
-        guard let selectedRelayLocation,
-              !locationList.contains(selectedRelayLocation) else { return }
+        selectedRelayLocation.flatMap { item in
+            var locationList = snapshot().itemIdentifiers(inSection: item.group)
+            guard !locationList.contains(item) else { return }
 
-        let selectedLocationTree = selectedRelayLocation.ascendants + [selectedRelayLocation]
+            let selectedLocationTree = item.location.ascendants + [item.location]
 
-        guard let topLocation = selectedLocationTree.first,
-              let topNode = nodeByLocation[topLocation],
-              let indexPath = indexPath(for: topLocation)
-        else {
-            return
+            guard let first = selectedLocationTree.first else { return }
+            let topLocation = LocationCellViewModel(group: item.group, location: first)
+
+            guard let topNode = nodeByLocation[topLocation],
+                  let indexPath = indexPath(for: topLocation)
+            else {
+                return
+            }
+
+            selectedLocationTree.forEach { location in
+                nodeByLocation[LocationCellViewModel(group: item.group, location: location)]?.showsChildren = true
+            }
+
+            locationList.addLocations(
+                topNode.flatRelayLocationList().map { LocationCellViewModel(group: item.group, location: $0) },
+                at: indexPath.row + 1
+            )
+            var copy = self.locationList
+            copy[item.group] = locationList
+            updateDataSnapshot(
+                with: copy,
+                reloadExisting: true,
+                animated: animated,
+                completion: completion
+            )
         }
-
-        selectedLocationTree.forEach { location in
-            nodeByLocation[location]?.showsChildren = true
-        }
-
-        locationList.addLocations(topNode.flatRelayLocationList(), at: indexPath.row + 1)
-        updateDataSnapshot(with: locationList, reloadExisting: true, animated: animated, completion: completion)
     }
 
     private func toggleChildren(
-        _ relayLocation: RelayLocation,
+        _ locationCellViewModel: LocationCellViewModel,
         show: Bool,
         animated: Bool
     ) {
-        guard let node = nodeByLocation[relayLocation],
-              let indexPath = indexPath(for: node.location),
+        guard let node = nodeByLocation[locationCellViewModel],
+              let indexPath = indexPath(for: locationCellViewModel),
               let cell = tableView.cellForRow(at: indexPath) else { return }
 
         node.showsChildren = show
-        locationCellFactory.configureCell(cell, item: node.location, indexPath: indexPath)
+        locationCellFactory.configureCell(
+            cell,
+            item: LocationCellViewModel(
+                group: locationCellViewModel.group,
+                location: node.location
+            ),
+            indexPath: indexPath
+        )
 
-        var locationList = snapshot().itemIdentifiers
-        let locationsToEdit = node.flatRelayLocationList()
+        var locationList = snapshot().itemIdentifiers(inSection: locationCellViewModel.group)
+        let locationsToEdit = node.flatRelayLocationList().map { LocationCellViewModel(
+            group: locationCellViewModel.group,
+            location: $0
+        ) }
 
         if show {
             locationList.addLocations(locationsToEdit, at: indexPath.row + 1)
@@ -291,38 +323,12 @@ final class LocationDataSource: UITableViewDiffableDataSource<Int, RelayLocation
             locationsToEdit.forEach { nodeByLocation[$0]?.showsChildren = false }
             locationList.removeLocations(locationsToEdit)
         }
+        var copy = self.locationList
+        copy[locationCellViewModel.group] = locationList
 
-        updateDataSnapshot(with: locationList, animated: animated) { [weak self] in
-            guard let visibleIndexPaths = self?.tableView.indexPathsForVisibleRows else { return }
-
-            let scrollToNodeTop = {
-                if let firstInsertedIndexPath = self?.indexPath(for: node.location) {
-                    self?.tableView.scrollToRow(
-                        at: firstInsertedIndexPath,
-                        at: .top,
-                        animated: animated
-                    )
-                }
-            }
-
-            let scrollToNodeBottom = {
-                if let location = node.children.last?.location,
-                   let lastInsertedIndexPath = self?.indexPath(for: location),
-                   let lastVisibleIndexPath = visibleIndexPaths.last,
-                   lastInsertedIndexPath >= lastVisibleIndexPath {
-                    self?.tableView.scrollToRow(
-                        at: lastInsertedIndexPath,
-                        at: .bottom,
-                        animated: animated
-                    )
-                }
-            }
-
-            if node.children.count > visibleIndexPaths.count {
-                scrollToNodeTop()
-            } else {
-                scrollToNodeBottom()
-            }
+        updateDataSnapshot(with: copy, reloadExisting: animated) { [weak self] in
+            guard let self else { return }
+            scroll(to: locationCellViewModel, animated: animated)
         }
     }
 
@@ -337,22 +343,44 @@ final class LocationDataSource: UITableViewDiffableDataSource<Int, RelayLocation
         }
     }
 
-    private func item(for indexPath: IndexPath) -> LocationDataSourceItemProtocol? {
-        itemIdentifier(for: indexPath).flatMap { nodeByLocation[$0] }
+    private func item(for indexPath: IndexPath) -> LocationCellViewModel? {
+        itemIdentifier(for: indexPath)
     }
 
     private func scrollToTop(animated: Bool) {
         tableView.setContentOffset(.zero, animated: animated)
     }
+
+    private func scroll(to location: LocationCellViewModel, animated: Bool) {
+        guard let visibleIndexPaths = tableView.indexPathsForVisibleRows,
+              let node = nodeByLocation[location] else { return }
+
+        if node.children.count > visibleIndexPaths.count {
+            indexPath(for: location).flatMap {
+                tableView.scrollToRow(at: $0, at: .top, animated: animated)
+            }
+        } else {
+            node.children.last.flatMap {
+                if let lastInsertedIndexPath = indexPath(for: LocationCellViewModel(
+                    group: location.group,
+                    location: $0.location
+                )),
+                    let lastVisibleIndexPath = visibleIndexPaths.last,
+                    lastInsertedIndexPath >= lastVisibleIndexPath {
+                    tableView.scrollToRow(at: lastInsertedIndexPath, at: .bottom, animated: animated)
+                }
+            }
+        }
+    }
 }
 
 extension LocationDataSource: UITableViewDelegate {
     func tableView(_ tableView: UITableView, shouldHighlightRowAt indexPath: IndexPath) -> Bool {
-        item(for: indexPath)?.isActive ?? false
+        item(for: indexPath).flatMap { nodeByLocation[$0] }?.isActive ?? false
     }
 
     func tableView(_ tableView: UITableView, indentationLevelForRowAt indexPath: IndexPath) -> Int {
-        item(for: indexPath)?.indentationLevel ?? 0
+        item(for: indexPath).flatMap { nodeByLocation[$0] }?.indentationLevel ?? 0
     }
 
     func tableView(
@@ -361,15 +389,13 @@ extension LocationDataSource: UITableViewDelegate {
         forRowAt indexPath: IndexPath
     ) {
         if let item = item(for: indexPath),
-           item.location == selectedRelayLocation {
+           item == selectedRelayLocation {
             cell.setSelected(true, animated: false)
         }
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        guard let item = item(for: indexPath),
-              item.location != selectedRelayLocation
-        else {
+        guard let item = item(for: indexPath), item.location != selectedRelayLocation?.location else {
             return
         }
 
@@ -379,7 +405,7 @@ extension LocationDataSource: UITableViewDelegate {
         }
 
         setSelectedRelayLocation(
-            item.location,
+            item,
             animated: false
         )
 
@@ -388,9 +414,8 @@ extension LocationDataSource: UITableViewDelegate {
 }
 
 extension LocationDataSource: LocationCellEventHandler {
-    func collapseCell(for item: RelayLocation) {
+    func collapseCell(for item: LocationCellViewModel) {
         guard let node = nodeByLocation[item] else { return }
-
         toggleChildren(
             item,
             show: !node.showsChildren,
@@ -399,130 +424,8 @@ extension LocationDataSource: LocationCellEventHandler {
     }
 }
 
-extension LocationDataSource {
-    enum NodeType {
-        case root
-        case country
-        case city
-        case relay
-    }
-
-    class Node: LocationDataSourceItemProtocol {
-        let nodeType: NodeType
-        var location: RelayLocation
-        var displayName: String
-        var showsChildren: Bool
-        var isActive: Bool
-        var children: [Node]
-
-        var isCollapsible: Bool {
-            switch nodeType {
-            case .country, .city:
-                return true
-            case .root, .relay:
-                return false
-            }
-        }
-
-        var indentationLevel: Int {
-            switch nodeType {
-            case .root, .country:
-                return 0
-            case .city:
-                return 1
-            case .relay:
-                return 2
-            }
-        }
-
-        init(
-            type: NodeType,
-            location: RelayLocation,
-            displayName: String,
-            showsChildren: Bool,
-            isActive: Bool,
-            children: [Node]
-        ) {
-            nodeType = type
-            self.location = location
-            self.displayName = displayName
-            self.showsChildren = showsChildren
-            self.isActive = isActive
-            self.children = children
-        }
-
-        func addChild(_ child: Node) {
-            children.append(child)
-        }
-
-        func sortChildrenRecursive() {
-            sortChildren()
-            children.forEach { node in
-                node.sortChildrenRecursive()
-            }
-        }
-
-        func computeActiveChildrenRecursive() {
-            switch nodeType {
-            case .root, .country:
-                for node in children {
-                    node.computeActiveChildrenRecursive()
-                }
-                fallthrough
-            case .city:
-                isActive = children.contains(where: { node -> Bool in
-                    node.isActive
-                })
-            case .relay:
-                break
-            }
-        }
-
-        func flatRelayLocationList(includeHiddenChildren: Bool = false) -> [RelayLocation] {
-            children.reduce(into: []) { array, node in
-                Self.flatten(node: node, into: &array, includeHiddenChildren: includeHiddenChildren)
-            }
-        }
-
-        private func sortChildren() {
-            switch nodeType {
-            case .root, .country:
-                children.sort { a, b -> Bool in
-                    lexicalSortComparator(a.displayName, b.displayName)
-                }
-            case .city:
-                children.sort { a, b -> Bool in
-                    fileSortComparator(
-                        a.location.stringRepresentation,
-                        b.location.stringRepresentation
-                    )
-                }
-            case .relay:
-                break
-            }
-        }
-
-        private class func flatten(node: Node, into array: inout [RelayLocation], includeHiddenChildren: Bool) {
-            array.append(node.location)
-            if includeHiddenChildren || node.showsChildren {
-                for child in node.children {
-                    Self.flatten(node: child, into: &array, includeHiddenChildren: includeHiddenChildren)
-                }
-            }
-        }
-    }
-}
-
-private func lexicalSortComparator(_ a: String, _ b: String) -> Bool {
-    a.localizedCaseInsensitiveCompare(b) == .orderedAscending
-}
-
-private func fileSortComparator(_ a: String, _ b: String) -> Bool {
-    a.localizedStandardCompare(b) == .orderedAscending
-}
-
-private extension [RelayLocation] {
-    mutating func addLocations(_ locations: [RelayLocation], at index: Int) {
+private extension [LocationCellViewModel] {
+    mutating func addLocations(_ locations: [LocationCellViewModel], at index: Int) {
         if index < count {
             insert(contentsOf: locations, at: index)
         } else {
@@ -530,11 +433,9 @@ private extension [RelayLocation] {
         }
     }
 
-    mutating func removeLocations(_ locations: [RelayLocation]) {
+    mutating func removeLocations(_ locations: [LocationCellViewModel]) {
         removeAll(where: { location in
             locations.contains(location)
         })
     }
-
-    // swiftlint:disable:next file_length
 }
