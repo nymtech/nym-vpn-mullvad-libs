@@ -62,14 +62,18 @@ const waitForNavigationFactory = (
   // navigation, e.g. clicks a button.
   return async (initiateNavigation?: () => Promise<void> | void) => {
     // Wait for route to change after optionally initiating the navigation.
+    console.log('waitForNavigation')
     const [route] = await Promise.all([
       waitForNextRoute(app),
       initiateNavigation?.(),
     ]);
+    console.log('route received', route);
 
     // Wait for view corresponding to new route to appear
     await page.getByTestId(route).isVisible();
+    console.log('route visible', route);
     await waitForNoTransition(page);
+    console.log('no transition', route);
 
     return route;
   };
@@ -84,6 +88,7 @@ const waitForNoTransition = async (page: Page) => {
     }
 
     transitionContentsCount = await page.getByTestId('transition-content').count();
+    console.log('count', transitionContentsCount);
   } while (transitionContentsCount !== 1);
 };
 

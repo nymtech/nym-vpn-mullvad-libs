@@ -35,12 +35,15 @@ test('App should show Expired Account Error View', async () => {
 
 test('App should show out of time view after running out of time', async () => {
   const expiryDate = new Date();
-  expiryDate.setSeconds(expiryDate.getSeconds() + 20);
+  expiryDate.setSeconds(expiryDate.getSeconds() + 5);
+  console.log('Creating expiry', expiryDate, '; now: ', new Date());
 
   expect(await util.waitForNavigation(async () => {
+    console.log('Waiting for transition on expiry');
     await util.sendMockIpcResponse<IAccountData>({
       channel: 'account-',
       response: { expiry: expiryDate.toISOString() },
     });
+    console.log('expiry sent');
   })).toEqual(RoutePath.expired);
 });

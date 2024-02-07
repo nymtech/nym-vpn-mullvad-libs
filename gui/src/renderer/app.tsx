@@ -676,6 +676,8 @@ export default class AppRenderer {
       const pathname = this.history.location.pathname as RoutePath;
       const nextPath = this.getNavigationBase() as RoutePath;
 
+      log.info(pathname, nextPath);
+
       if (pathname !== nextPath) {
         const transition = this.getNavigationTransition(pathname, nextPath);
         if (replaceRoot) {
@@ -937,6 +939,7 @@ export default class AppRenderer {
     const previousExpiry = state.account.expiry;
 
     this.expiryScheduler.cancel();
+    log.info('New expiry:', expiry, '; now:', new Date().toISOString());
 
     if (expiry !== undefined) {
       const expired = hasExpired(expiry);
@@ -944,7 +947,10 @@ export default class AppRenderer {
       // Set state to expired when expiry date passes.
       if (!expired && closeToExpiry(expiry)) {
         const delay = new Date(expiry).getTime() - Date.now();
+        log.info('Close to expiry, setting timout', delay);
         this.expiryScheduler.schedule(() => this.handleExpiry(expiry, true), delay);
+      } else {
+        log.info('Not close to expiry, expired:', expired);
       }
 
       if (expiry !== previousExpiry) {
@@ -956,6 +962,7 @@ export default class AppRenderer {
   }
 
   private handleExpiry(expiry?: string, expired?: boolean) {
+    log.info('Handle expiry', expired, expiry);
     const state = this.reduxStore.getState();
     this.reduxActions.account.updateAccountExpiry(expiry);
 
@@ -967,6 +974,8 @@ export default class AppRenderer {
       // If the login navigation is already scheduled no navigation is needed
       !this.loginScheduler.isRunning
     ) {
+      log.info('Reset navigation due to expiry');
+      log.info(this.history.location.pathname);
       this.resetNavigation(true);
     }
   }
