@@ -78,7 +78,7 @@ pub struct TunnelConfig {
 #[cfg_attr(target_os = "android", derive(IntoJava))]
 #[cfg_attr(
     target_os = "android",
-    jnix(package = "net.mullvad.talpid.net.wireguard")
+    jnix(package = "net.nymtech.vpn.net.wireguard")
 )]
 pub struct TunnelOptions {
     /// MTU for the wireguard tunnel

@@ -28,13 +28,13 @@ pub enum Error {
     #[error(display = "Failed to allow socket to bypass tunnel")]
     Bypass,
 
-    #[error(display = "Failed to call Java method TalpidVpnService.{}", _0)]
+    #[error(display = "Failed to call Java method NymVpnService.{}", _0)]
     CallMethod(&'static str, #[error(source)] jnix::jni::errors::Error),
 
     #[error(display = "Failed to create Java VM handle clone")]
     CloneJavaVm(#[error(source)] jnix::jni::errors::Error),
 
-    #[error(display = "Failed to find TalpidVpnService.{} method", _0)]
+    #[error(display = "Failed to find NymVpnService.{} method", _0)]
     FindMethod(&'static str, #[error(source)] jnix::jni::errors::Error),
 
     #[error(
@@ -44,7 +44,7 @@ pub enum Error {
     InvalidDnsServers(Vec<IpAddr>),
 
     #[error(
-        display = "Received an invalid result from TalpidVpnService.{}: {}",
+        display = "Received an invalid result from NymVpnService.{}: {}",
         _0,
         _1
     )]
@@ -82,7 +82,7 @@ impl AndroidTunProvider {
                 .attach_current_thread_as_daemon()
                 .expect("Failed to attach thread to Java VM"),
         );
-        let talpid_vpn_service_class = env.get_class("net/mullvad/talpid/TalpidVpnService");
+        let talpid_vpn_service_class = env.get_class("net/nymtech/vpn/NymVpnService");
 
         AndroidTunProvider {
             jvm: context.jvm,
@@ -192,8 +192,8 @@ impl AndroidTunProvider {
 
         let result = self.call_method(
             "getTun",
-            "(Lnet/mullvad/talpid/tun_provider/TunConfig;)Lnet/mullvad/talpid/CreateTunResult;",
-            JavaType::Object("net/mullvad/talpid/CreateTunResult".to_owned()),
+            "(Lnet/nymtech/vpn/tun_provider/TunConfig;)Lnet/nymtech/vpn/CreateTunResult;",
+            JavaType::Object("net/nymtech/vpn/CreateTunResult".to_owned()),
             &[JValue::Object(java_config.as_obj())],
         )?;
 
@@ -213,7 +213,7 @@ impl AndroidTunProvider {
 
         let result = self.call_method(
             "recreateTunIfOpen",
-            "(Lnet/mullvad/talpid/tun_provider/TunConfig;)V",
+            "(Lnet/nymtech/vpn/tun_provider/TunConfig;)V",
             JavaType::Primitive(Primitive::Void),
             &[JValue::Object(java_config.as_obj())],
         )?;
@@ -400,7 +400,7 @@ impl Default for TunConfig {
 }
 
 #[derive(FromJava)]
-#[jnix(package = "net.mullvad.talpid")]
+#[jnix(package = "net.nymtech.vpn")]
 enum CreateTunResult {
     Success { tun_fd: i32 },
     InvalidDnsServers { addresses: Vec<IpAddr> },

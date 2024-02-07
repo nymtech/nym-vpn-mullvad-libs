@@ -60,9 +60,9 @@ impl MonitorHandle {
 
         let get_connectivity_listener_method = env
             .get_method_id(
-                &env.get_class("net/mullvad/talpid/TalpidVpnService"),
+                &env.get_class("net/nymtech/vpn/NymVpnService"),
                 "getConnectivityListener",
-                "()Lnet/mullvad/talpid/ConnectivityListener;",
+                "()Lnet/nymtech/vpn/ConnectivityListener;",
             )
             .map_err(|cause| {
                 Error::FindMethod("MullvadVpnService", "getConnectivityListener", cause)
@@ -72,7 +72,7 @@ impl MonitorHandle {
             .call_method_unchecked(
                 android_context.vpn_service.as_obj(),
                 get_connectivity_listener_method,
-                JavaType::Object("Lnet/mullvad/talpid/ConnectivityListener;".to_owned()),
+                JavaType::Object("Lnet/nymtech/vpn/ConnectivityListener;".to_owned()),
                 &[],
             )
             .map_err(|cause| {
@@ -90,7 +90,7 @@ impl MonitorHandle {
             }
         };
 
-        let class = env.get_class("net/mullvad/talpid/ConnectivityListener");
+        let class = env.get_class("net/nymtech/vpn/ConnectivityListener");
 
         Ok(MonitorHandle {
             jvm: android_context.jvm,

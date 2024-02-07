@@ -26,7 +26,7 @@ pub enum TunnelStateTransition {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(target_os = "android", jnix(package = "net.mullvad.talpid.tunnel"))]
+#[cfg_attr(target_os = "android", jnix(package = "net.nymtech.vpn.tunnel"))]
 pub enum ActionAfterDisconnect {
     Nothing,
     Block,
@@ -37,7 +37,7 @@ pub enum ActionAfterDisconnect {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(target_os = "android", jnix(package = "net.mullvad.talpid.tunnel"))]
+#[cfg_attr(target_os = "android", jnix(package = "net.nymtech.vpn.tunnel"))]
 pub struct ErrorState {
     /// Reason why the tunnel state machine ended up in the error state
     cause: ErrorStateCause,
@@ -79,7 +79,7 @@ impl ErrorState {
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "reason", content = "details")]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(target_os = "android", jnix(package = "net.mullvad.talpid.tunnel"))]
+#[cfg_attr(target_os = "android", jnix(package = "net.nymtech.vpn.tunnel"))]
 pub enum ErrorStateCause {
     /// Authentication with remote server failed.
     AuthFailed(Option<String>),
@@ -120,7 +120,7 @@ impl ErrorStateCause {
 #[derive(err_derive::Error, Debug, Serialize, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(target_os = "android", jnix(package = "net.mullvad.talpid.tunnel"))]
+#[cfg_attr(target_os = "android", jnix(package = "net.nymtech.vpn.tunnel"))]
 pub enum ParameterGenerationError {
     /// Failure to select a matching tunnel relay
     #[error(display = "Failure to select a matching tunnel relay")]
@@ -149,7 +149,7 @@ pub struct BlockingApplication {
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "reason", content = "details")]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(target_os = "android", jnix(package = "net.mullvad.talpid.tunnel"))]
+#[cfg_attr(target_os = "android", jnix(package = "net.nymtech.vpn.tunnel"))]
 pub enum FirewallPolicyError {
     /// General firewall failure
     #[error(display = "Failed to set firewall policy")]
