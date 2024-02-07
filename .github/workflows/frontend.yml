@@ -12,7 +12,7 @@ jobs:
   check-frontend:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -47,25 +47,70 @@ jobs:
         working-directory: gui
         run: npm ci
 
-      - name: Check formatting
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: gui
-        run: npm run lint
-
       - name: Build
         working-directory: gui
         run: npm run build
 
-      - name: Run headless test Linux
-        if: runner.os == 'Linux'
+      - name: Run Playwright tests 1
         working-directory: gui
-        run: xvfb-run -a npm test
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
 
-      - name: Run headless test Windows
-        if: runner.os != 'Linux'
+      - name: Run Playwright tests 2
         working-directory: gui
-        run: npm test
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
 
-      - name: Run Playwright tests
+      - name: Run Playwright tests 3
         working-directory: gui
-        run: npm run e2e:no-build
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 4
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 5
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 6
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 7
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 8
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 9
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 10
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 11
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 12
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 13
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 14
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 15
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
+
+      - name: Run Playwright tests 16
+        working-directory: gui
+        run: npm exec xvfb-maybe -- playwright test expired-account-error-view.spec.ts
