@@ -115,12 +115,18 @@ impl AndroidTunProvider {
 
     /// Retrieve a tunnel device with the provided configuration.
     pub fn get_tun(&mut self, config: TunConfig) -> Result<VpnServiceTun, Error> {
-        let tun_fd = self.get_tun_fd(config.clone())?;
+        let tun_fd = self.get_tun_fd(config.clone());
+        log::info!("Got error: {}", tun_fd.is_err());
+        let tun_fd = tun_fd?;
+        log::info!("Got fd {}", tun_fd);
 
         self.last_tun_config = config;
 
         let jvm = unsafe { JavaVM::from_raw(self.jvm.get_java_vm_pointer()) }
-            .map_err(Error::CloneJavaVm)?;
+            .map_err(Error::CloneJavaVm);
+        log::info!("Got error: {}", jvm.is_err());
+        let jvm = jvm?;
+        log::info!("Cloned JVM");
 
         Ok(VpnServiceTun {
             tunnel: tun_fd,
@@ -195,10 +201,17 @@ impl AndroidTunProvider {
             "(Lnet/nymtech/vpn/tun_provider/TunConfig;)Lnet/nymtech/vpn/CreateTunResult;",
             JavaType::Object("net/nymtech/vpn/CreateTunResult".to_owned()),
             &[JValue::Object(java_config.as_obj())],
-        )?;
+        );
+        log::info!("Got error: {}", result.is_err());
+        let result = result?;
 
         match result {
-            JValue::Object(result) => CreateTunResult::from_java(&env, result).into(),
+            JValue::Object(result) => {
+                log::info!("Before from_java");
+                let ret = CreateTunResult::from_java(&env, result).into();
+                log::info!("After from_java");
+                ret
+            },
             value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
         }
     }
