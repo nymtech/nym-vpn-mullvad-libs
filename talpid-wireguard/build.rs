@@ -7,7 +7,7 @@ fn main() {
     declare_libs_dir("../build/lib");
 
     let link_type = match target_os.as_str() {
-        "android" => "",
+        "android" | "ios" => "",
         "linux" | "macos" => "=static",
         // We would like to avoid panicing on windows even if we can not link correctly
         // because we would like to be able to run check and clippy.

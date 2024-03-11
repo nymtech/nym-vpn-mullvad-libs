@@ -48,6 +48,10 @@ mod connectivity_check;
 mod logging;
 mod ping_monitor;
 mod stats;
+#[cfg(not(target_os = "ios"))]
+mod wireguard_go;
+#[cfg(target_os = "ios")]
+#[path = "wireguard_stub.rs"]
 mod wireguard_go;
 #[cfg(target_os = "linux")]
 pub(crate) mod wireguard_kernel;

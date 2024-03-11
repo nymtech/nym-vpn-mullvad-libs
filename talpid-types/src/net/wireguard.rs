@@ -76,10 +76,7 @@ pub struct TunnelConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(
-    target_os = "android",
-    jnix(package = "net.nymtech.vpn.net.wireguard")
-)]
+#[cfg_attr(target_os = "android", jnix(package = "net.nymtech.vpn.net.wireguard"))]
 pub struct TunnelOptions {
     /// MTU for the wireguard tunnel
     #[cfg_attr(

@@ -305,7 +305,9 @@ mod test {
 
         rt.block_on(async move {
             for domain in &*ALLOWED_DOMAINS {
-                test_resolver.lookup(domain, RecordType::A, Default::default()).await?;
+                test_resolver
+                    .lookup(domain, RecordType::A, Default::default())
+                    .await?;
             }
             Ok::<(), trust_dns_server::resolver::error::ResolveError>(())
         })

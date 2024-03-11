@@ -20,6 +20,10 @@ mod imp;
 #[path = "android.rs"]
 mod imp;
 
+#[cfg(target_os = "ios")]
+#[path = "ios.rs"]
+mod imp;
+
 lazy_static::lazy_static! {
     /// Disables offline monitor
     static ref FORCE_DISABLE_OFFLINE_MONITOR: bool = std::env::var("TALPID_DISABLE_OFFLINE_MONITOR")
