@@ -6,6 +6,10 @@ mod imp;
 #[path = "macos.rs"]
 mod imp;
 
+#[cfg(target_os = "ios")]
+#[path = "ios.rs"]
+mod imp;
+
 #[cfg(windows)]
 #[path = "windows.rs"]
 mod imp;

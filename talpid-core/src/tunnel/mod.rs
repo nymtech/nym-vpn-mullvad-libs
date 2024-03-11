@@ -2,7 +2,7 @@ use crate::logging;
 #[cfg(not(target_os = "android"))]
 use futures::channel::oneshot;
 use std::path;
-#[cfg(not(target_os = "android"))]
+#[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
 use talpid_openvpn;
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use talpid_routing::RouteManagerHandle;
@@ -45,7 +45,7 @@ pub enum Error {
     WireguardConfigError(#[error(source)] talpid_wireguard::config::Error),
 
     /// There was an error listening for events from the OpenVPN tunnel
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
     #[error(display = "Failed while listening for events from the OpenVPN tunnel")]
     OpenVpnTunnelMonitoringError(#[error(source)] talpid_openvpn::Error),
 
@@ -84,7 +84,7 @@ impl TunnelMonitor {
         let log_file = Self::prepare_tunnel_log_file(tunnel_parameters, log_dir)?;
 
         match tunnel_parameters {
-            #[cfg(not(target_os = "android"))]
+            #[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
             TunnelParameters::OpenVpn(config) => args.runtime.block_on(Self::start_openvpn_tunnel(
                 config,
                 log_file,
@@ -94,7 +94,7 @@ impl TunnelMonitor {
                 #[cfg(target_os = "linux")]
                 args.route_manager,
             )),
-            #[cfg(target_os = "android")]
+            #[cfg(any(target_os = "android", target_os = "ios"))]
             TunnelParameters::OpenVpn(_) => Err(Error::UnsupportedPlatform),
 
             TunnelParameters::Wireguard(ref mut config) => {
@@ -217,7 +217,7 @@ impl TunnelMonitor {
         }
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
     async fn start_openvpn_tunnel<L>(
         config: &openvpn_types::TunnelParameters,
         log: Option<path::PathBuf>,
@@ -304,7 +304,7 @@ impl TunnelMonitor {
 }
 
 enum InternalTunnelMonitor {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
     OpenVpn(talpid_openvpn::OpenVpnMonitor),
     Wireguard(talpid_wireguard::WireguardMonitor),
 }
@@ -312,7 +312,7 @@ enum InternalTunnelMonitor {
 impl InternalTunnelMonitor {
     fn wait(self) -> Result<()> {
         match self {
-            #[cfg(not(target_os = "android"))]
+            #[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
             InternalTunnelMonitor::OpenVpn(tun) => tun.wait()?,
             InternalTunnelMonitor::Wireguard(tun) => tun.wait()?,
         }
@@ -351,7 +351,7 @@ fn is_ipv6_enabled_in_os() -> bool {
             .map(|disable_ipv6| disable_ipv6.trim() == "0")
             .unwrap_or(false)
     }
-    #[cfg(any(target_os = "macos", target_os = "android"))]
+    #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
     {
         true
     }

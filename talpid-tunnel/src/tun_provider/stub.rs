@@ -1,9 +1,17 @@
 use super::TunConfig;
 
-/// Error stub.
+#[derive(Debug, err_derive::Error)]
+#[error(no_from)]
 pub enum Error {}
 
-/// Factory stub of tunnel devices.
+pub struct StubTun {}
+
+impl StubTun {
+    pub fn interface_name(&self) -> &str {
+        "stubtun"
+    }
+}
+
 pub struct StubTunProvider;
 
 impl StubTunProvider {

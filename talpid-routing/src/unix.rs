@@ -36,6 +36,10 @@ mod imp;
 #[path = "android.rs"]
 mod imp;
 
+#[cfg(target_os = "ios")]
+#[path = "stub.rs"]
+mod imp;
+
 pub use imp::Error as PlatformError;
 
 /// Errors that can be encountered whilst initializing RouteManager

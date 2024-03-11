@@ -1,5 +1,5 @@
 /// A module for all OpenVPN related process management.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
 pub mod openvpn;
 
 /// A trait for stopping subprocesses gracefully.
