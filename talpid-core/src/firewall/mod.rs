@@ -26,6 +26,10 @@ mod imp;
 #[path = "android.rs"]
 mod imp;
 
+#[cfg(target_os = "ios")]
+#[path = "ios.rs"]
+mod imp;
+
 pub use self::imp::Error;
 
 lazy_static! {

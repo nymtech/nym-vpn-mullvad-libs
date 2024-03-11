@@ -13,7 +13,7 @@ cfg_if! {
 
         pub type Tun = VpnServiceTun;
         pub type TunProvider = AndroidTunProvider;
-    } else if #[cfg(all(unix, not(target_os = "android")))] {
+    } else if #[cfg(all(unix, not(target_os = "android"), not(target_os = "ios")))] {
         #[path = "unix.rs"]
         mod imp;
         use self::imp::{UnixTun, UnixTunProvider};
@@ -23,9 +23,10 @@ cfg_if! {
         pub type TunProvider = UnixTunProvider;
     } else {
         mod stub;
-        use self::stub::StubTunProvider;
+        use self::stub::{StubTun, StubTunProvider};
         pub use self::stub::Error;
 
+        pub type Tun = StubTun;
         pub type TunProvider = StubTunProvider;
     }
 }
@@ -33,10 +34,7 @@ cfg_if! {
 /// Configuration for creating a tunnel device.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(
-    target_os = "android",
-    jnix(package = "net.nymtech.vpn.tun_provider")
-)]
+#[cfg_attr(target_os = "android", jnix(package = "net.nymtech.vpn.tun_provider"))]
 pub struct TunConfig {
     /// IP addresses for the tunnel interface.
     pub addresses: Vec<IpAddr>,
