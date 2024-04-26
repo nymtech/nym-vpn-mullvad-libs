@@ -279,16 +279,12 @@ impl WgGoTunnel {
         Ok(())
     }
 
-    fn stop_tunnel(&mut self) -> Result<()> {
+    fn stop_tunnel(&mut self) {
         #[cfg(windows)]
         self.setup_handle.abort();
         if let Some(handle) = self.handle.take() {
-            let status = unsafe { wgTurnOff(handle) };
-            if status < 0 {
-                return Err(TunnelError::StopWireguardError { status });
-            }
+            unsafe { wgTurnOff(handle) };
         }
-        Ok(())
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -324,9 +320,7 @@ impl WgGoTunnel {
 
 impl Drop for WgGoTunnel {
     fn drop(&mut self) {
-        if let Err(e) = self.stop_tunnel() {
-            log::error!("Failed to stop tunnel: {}", e);
-        }
+        self.stop_tunnel();
     }
 }
 
@@ -364,7 +358,8 @@ impl Tunnel for WgGoTunnel {
     }
 
     fn stop(mut self: Box<Self>) -> Result<()> {
-        self.stop_tunnel()
+        self.stop_tunnel();
+        Ok(())
     }
 
     fn set_config(
@@ -444,7 +439,7 @@ extern "C" {
     ) -> i32;
 
     // Pass a handle that was created by wgTurnOn to stop a wireguard tunnel.
-    fn wgTurnOff(handle: i32) -> i32;
+    fn wgTurnOff(handle: i32);
 
     // Returns the file descriptor of the tunnel IPv4 socket.
     fn wgGetConfig(handle: i32) -> *mut std::os::raw::c_char;
