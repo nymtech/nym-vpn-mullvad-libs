@@ -1,6 +1,6 @@
 [submodule "dist-assets/binaries"]
 	path = dist-assets/binaries
-	url = https://github.com/mullvad/mullvadvpn-app-binaries
+	url = https://github.com/nymtech/nym-vpn-mullvad-binaries
 [submodule "windows/libwfp"]
 	path = windows/libwfp
 	url = https://github.com/mullvad/libwfp
