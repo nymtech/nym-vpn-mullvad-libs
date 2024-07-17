@@ -62,7 +62,7 @@ pub struct AndroidTunProvider {
     jvm: Arc<JavaVM>,
     class: GlobalRef,
     object: GlobalRef,
-    last_tun_config: Vec<TunConfig>,
+    last_tun_configs: Vec<TunConfig>,
     allow_lan: bool,
     custom_dns_servers: Option<Vec<IpAddr>>,
     allowed_lan_networks: Vec<IpNetwork>,
@@ -88,7 +88,7 @@ impl AndroidTunProvider {
             jvm: context.jvm,
             class: talpid_vpn_service_class,
             object: context.vpn_service,
-            last_tun_config: vec![TunConfig::default(), TunConfig::default()],
+            last_tun_configs: vec![TunConfig::default(), TunConfig::default()],
             allow_lan,
             custom_dns_servers,
             allowed_lan_networks,
@@ -117,7 +117,7 @@ impl AndroidTunProvider {
     pub fn get_tun(&mut self, configs: Vec<TunConfig>) -> Result<VpnServiceTun, Error> {
         let tun_fds = self.get_tun_fds(configs.clone())?;
 
-        self.last_tun_config = configs;
+        self.last_tun_configs = configs;
 
         let jvm = unsafe { JavaVM::from_raw(self.jvm.get_java_vm_pointer()) }
             .map_err(Error::CloneJavaVm)?;
@@ -184,51 +184,57 @@ impl AndroidTunProvider {
         }
     }
 
-    fn get_tun_fds(&mut self, mut config: Vec<TunConfig>) -> Result<Vec<RawFd>, Error> {
-        self.prepare_tun_configs(&mut config.iter_mut().collect());
+    fn get_tun_fds(&mut self, mut configs: Vec<TunConfig>) -> Result<Vec<RawFd>, Error> {
+        self.prepare_tun_configs(configs.iter_mut().collect());
 
         let env = self.env()?;
-        let java_config = config.into_java(&env);
 
-        let result = self.call_method(
-            "getTun",
-            "(Lnet/mullvad/talpid/tun_provider/TunConfig;)[Lnet/mullvad/talpid/CreateTunResult;",
-            JavaType::Array(Box::new(JavaType::Object(
-                "net/mullvad/talpid/CreateTunResult".to_owned(),
-            ))),
-            &[JValue::Object(java_config.as_obj())],
-        )?;
+        configs.iter().map(|t|{
+            let java_config = t.clone().into_java(&env);
 
-        match result {
-            JValue::Object(result) => CreateTunResult::from_java(&env, result).into(),
-            value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
-        }
+            let result = self.call_method(
+                "getTun",
+                "(Lnet/mullvad/talpid/tun_provider/TunConfig;)Lnet/mullvad/talpid/CreateTunResult;",
+                JavaType::Array(Box::new(JavaType::Object(
+                    "net/mullvad/talpid/CreateTunResult".to_owned(),
+                ))),
+                &[JValue::Object(java_config.as_obj())],
+            )?;
+
+            match result {
+                JValue::Object(result) => CreateTunResult::from_java(&env, result).into(),
+                value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
+            }
+        }).collect()
     }
 
-    fn recreate_tun_if_open(&mut self) -> Result<(), Error> {
-        let mut actual_config = self.last_tun_config.clone().iter_mut().collect();
+    fn recreate_tuns_if_open(mut self) -> Result<(), Error> {
+        let actual_configs = &mut self.last_tun_configs.iter_mut().collect();
 
-        self.prepare_tun_configs(&mut actual_config);
+        self.prepare_tun_configs(actual_configs);
 
         let env = self.env()?;
-        let java_config = actual_config.into_java(&env);
 
-        let result = self.call_method(
-            "recreateTunIfOpen",
-            "([Lnet/mullvad/talpid/tun_provider/TunConfig;)V",
-            JavaType::Primitive(Primitive::Void),
-            &[JValue::Object(java_config.as_obj())],
-        )?;
+        self.last_tun_configs.iter().map(|t| {
+            let java_config = t.clone().into_java(&env);
 
-        match result {
-            JValue::Void => Ok(()),
-            value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
-        }
+            let result = self.call_method(
+                "recreateTunIfOpen",
+                "(Lnet/mullvad/talpid/tun_provider/TunConfig;)V",
+                JavaType::Primitive(Primitive::Void),
+                &[JValue::Object(java_config.as_obj())],
+            )?;
+
+            match result {
+                JValue::Void => Ok(()),
+                value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
+            }
+        }).collect()
     }
 
     fn prepare_tun_configs(&self, config: &mut Vec<&mut TunConfig>) {
         self.prepare_tun_configs_for_allow_lan(config);
-        self.prepare_tun_config_for_custom_dns(config);
+        self.prepare_tun_configs_for_custom_dns(config);
     }
 
     fn prepare_tun_configs_for_allow_lan(&self, configs: &mut Vec<&mut TunConfig>) {
@@ -273,7 +279,7 @@ impl AndroidTunProvider {
         }
     }
 
-    fn prepare_tun_config_for_custom_dns(&self, config: &mut Vec<&mut TunConfig>) {
+    fn prepare_tun_configs_for_custom_dns(&self, config: &mut Vec<&mut TunConfig>) {
         config.iter().for_each(|t| {
             if let Some(custom_dns_servers) = self.custom_dns_servers.clone() {
                 t.dns_servers = custom_dns_servers;
