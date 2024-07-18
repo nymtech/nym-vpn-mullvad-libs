@@ -189,10 +189,12 @@ impl AndroidTunProvider {
 
         let env = self.env()?;
 
-        configs.iter().map(|t|{
-            let java_config = t.clone().into_java(&env);
+        configs
+            .iter()
+            .map(|t| {
+                let java_config = t.clone().into_java(&env);
 
-            let result = self.call_method(
+                let result = self.call_method(
                 "getTun",
                 "(Lnet/mullvad/talpid/tun_provider/TunConfig;)Lnet/mullvad/talpid/CreateTunResult;",
                 JavaType::Array(Box::new(JavaType::Object(
@@ -201,11 +203,12 @@ impl AndroidTunProvider {
                 &[JValue::Object(java_config.as_obj())],
             )?;
 
-            match result {
-                JValue::Object(result) => CreateTunResult::from_java(&env, result).into(),
-                value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
-            }
-        }).collect()
+                match result {
+                    JValue::Object(result) => CreateTunResult::from_java(&env, result).into(),
+                    value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
+                }
+            })
+            .collect()
     }
 
     fn recreate_tuns_if_open(mut self) -> Result<(), Error> {
@@ -215,21 +218,24 @@ impl AndroidTunProvider {
 
         let env = self.env()?;
 
-        self.last_tun_configs.iter().map(|t| {
-            let java_config = t.clone().into_java(&env);
+        self.last_tun_configs
+            .iter()
+            .map(|t| {
+                let java_config = t.clone().into_java(&env);
 
-            let result = self.call_method(
-                "recreateTunIfOpen",
-                "(Lnet/mullvad/talpid/tun_provider/TunConfig;)V",
-                JavaType::Primitive(Primitive::Void),
-                &[JValue::Object(java_config.as_obj())],
-            )?;
+                let result = self.call_method(
+                    "recreateTunIfOpen",
+                    "(Lnet/mullvad/talpid/tun_provider/TunConfig;)V",
+                    JavaType::Primitive(Primitive::Void),
+                    &[JValue::Object(java_config.as_obj())],
+                )?;
 
-            match result {
-                JValue::Void => Ok(()),
-                value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
-            }
-        }).collect()
+                match result {
+                    JValue::Void => Ok(()),
+                    value => Err(Error::InvalidMethodResult("getTun", format!("{:?}", value))),
+                }
+            })
+            .collect()
     }
 
     fn prepare_tun_configs(&self, config: &mut Vec<&mut TunConfig>) {
