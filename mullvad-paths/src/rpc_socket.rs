@@ -20,4 +20,6 @@ pub fn get_default_rpc_socket_path() -> PathBuf {
     {
         PathBuf::from(format!("{}/rpc-socket", crate::APP_PATH))
     }
+    #[cfg(target_os = "ios")]
+    unimplemented!()
 }

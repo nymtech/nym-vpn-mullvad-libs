@@ -36,6 +36,8 @@ pub fn get_default_cache_dir() -> Result<PathBuf> {
         {
             dir = std::path::Path::new("/Library/Caches").join(crate::PRODUCT_NAME);
         }
+        #[cfg(target_os = "ios")]
+        unimplemented!();
         Ok(dir)
     }
     #[cfg(target_os = "android")]

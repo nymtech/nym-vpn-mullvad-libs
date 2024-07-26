@@ -5,11 +5,13 @@ use std::{env, fs, path::PathBuf, process::Command};
 const GIT_HASH_DEV_SUFFIX_LEN: usize = 6;
 
 const ANDROID_VERSION_FILE_PATH: &str = "../dist-assets/android-product-version.txt";
+const IOS_VERSION_FILE_PATH: &str = "../dist-assets/ios-product-version.txt";
 const DESKTOP_VERSION_FILE_PATH: &str = "../dist-assets/desktop-product-version.txt";
 
 #[derive(Debug, Copy, Clone)]
 enum Target {
     Android,
+    Ios,
     Desktop,
 }
 
@@ -21,6 +23,7 @@ impl Target {
             .as_str()
         {
             "android" => Self::Android,
+            "ios" => Self::Ios,
             "linux" | "windows" | "macos" => Self::Desktop,
             target_os => panic!("Unsupported target OS: {target_os}"),
         }
@@ -45,6 +48,7 @@ fn main() {
 fn get_product_version(target: Target) -> String {
     let version_file_path = match target {
         Target::Android => ANDROID_VERSION_FILE_PATH,
+        Target::Ios => IOS_VERSION_FILE_PATH,
         Target::Desktop => DESKTOP_VERSION_FILE_PATH,
     };
     println!("cargo:rerun-if-changed={version_file_path}");
@@ -62,6 +66,7 @@ fn get_dev_suffix(target: Target, product_version: &str) -> String {
     // Compute the expected tag name for the release named `product_version`
     let release_tag = match target {
         Target::Android => format!("android/{product_version}"),
+        Target::Ios => format!("ios/{product_version}"),
         Target::Desktop => product_version.to_owned(),
     };
 

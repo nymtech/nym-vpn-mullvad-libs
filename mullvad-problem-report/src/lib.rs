@@ -233,7 +233,7 @@ fn frontend_log_dir() -> Option<Result<PathBuf, LogError>> {
             None => Err(LogError::NoLocalAppDataDir),
         })
     }
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         None
     }

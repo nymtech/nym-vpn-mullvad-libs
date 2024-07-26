@@ -43,6 +43,8 @@ const PLATFORM: &str = "macos";
 const PLATFORM: &str = "windows";
 #[cfg(target_os = "android")]
 const PLATFORM: &str = "android";
+#[cfg(target_os = "ios")]
+const PLATFORM: &str = "ios";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct CachedAppVersionInfo {
