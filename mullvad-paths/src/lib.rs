@@ -25,7 +25,7 @@ pub enum Error {
     FailedToFindSystemServiceDir(#[error(source)] io::Error),
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "ios"))]
 const PRODUCT_NAME: &str = "mullvad-vpn";
 
 #[cfg(windows)]

@@ -48,10 +48,6 @@ mod connectivity_check;
 mod logging;
 mod ping_monitor;
 mod stats;
-#[cfg(not(target_os = "ios"))]
-mod wireguard_go;
-#[cfg(target_os = "ios")]
-#[path = "wireguard_stub.rs"]
 mod wireguard_go;
 #[cfg(target_os = "linux")]
 pub(crate) mod wireguard_kernel;
@@ -849,7 +845,7 @@ pub enum TunnelError {
     SetConfigError,
 
     /// Failed to duplicate tunnel file descriptor for wireguard-go
-    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "android", target_os = "ios"))]
     #[error(display = "Failed to duplicate tunnel file descriptor for wireguard-go")]
     FdDuplicationError(#[error(source)] nix::Error),
 

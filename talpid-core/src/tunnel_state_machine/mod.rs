@@ -43,8 +43,7 @@ use std::{
 #[cfg(target_os = "android")]
 use talpid_types::{android::AndroidContext, ErrorExt};
 use talpid_types::{
-    net::{AllowedEndpoint, TunnelParameters},
-    tunnel::{ErrorStateCause, ParameterGenerationError, TunnelStateTransition},
+    ios::IosContext, net::{AllowedEndpoint, TunnelParameters}, tunnel::{ErrorStateCause, ParameterGenerationError, TunnelStateTransition}
 };
 
 const TUNNEL_STATE_MACHINE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
@@ -133,6 +132,8 @@ pub async fn spawn(
     let command_tx = Arc::new(command_tx);
 
     let tun_provider = TunProvider::new(
+        #[cfg(target_os = "ios")]
+        IosContext { packet_tunnel_provider: std::ptr::null_mut() }, // todo: fixme
         #[cfg(target_os = "android")]
         android_context.clone(),
         #[cfg(target_os = "android")]

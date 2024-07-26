@@ -80,11 +80,11 @@ impl WgGoTunnel {
             .map(LoggingContext)
             .map_err(TunnelError::LoggingError)?;
 
-        #[cfg(not(target_os = "android"))]
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let mtu = config.mtu as isize;
         let handle = unsafe {
             wgTurnOn(
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 mtu,
                 wg_config_str.as_ptr() as *const i8,
                 tunnel_fd,
@@ -305,7 +305,7 @@ impl WgGoTunnel {
 
             match nix::unistd::dup(tunnel_device.as_raw_fd()) {
                 Ok(fd) => return Ok((tunnel_device, fd)),
-                #[cfg(not(target_os = "macos"))]
+                #[cfg(not(any(target_os = "macos", target_os = "ios")))]
                 Err(error @ nix::errno::Errno::EBADFD) => last_error = Some(error),
                 Err(error @ nix::errno::Errno::EBADF) => last_error = Some(error),
                 Err(error) => return Err(TunnelError::FdDuplicationError(error)),
@@ -408,7 +408,7 @@ extern "C" {
     ///
     /// Positive return values are tunnel handles for this specific wireguard tunnel instance.
     /// Negative return values signify errors. All error codes are opaque.
-    #[cfg(not(any(target_os = "android", target_os = "windows")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "windows")))]
     fn wgTurnOn(
         mtu: isize,
         settings: *const i8,
@@ -417,8 +417,8 @@ extern "C" {
         logging_context: *mut libc::c_void,
     ) -> i32;
 
-    // Android
-    #[cfg(target_os = "android")]
+    // Android & iOS
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     fn wgTurnOn(
         settings: *const i8,
         fd: Fd,
@@ -461,4 +461,10 @@ extern "C" {
     // Rebind tunnel socket when network interfaces change
     #[cfg(target_os = "windows")]
     fn wgRebindTunnelSocket(family: u16, interfaceIndex: u32);
+
+    #[cfg(target_os = "ios")]
+    fn wgBumpSockets(handle: i32);
+
+    #[cfg(target_os = "ios")]
+    fn wgDisableSomeRoamingForBrokenMobileSemantics(handle: i32);
 }
