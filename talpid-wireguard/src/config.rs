@@ -18,6 +18,8 @@ pub struct Config {
     pub ipv6_gateway: Option<Ipv6Addr>,
     /// Maximum transmission unit for the tunnel
     pub mtu: u16,
+    /// WireGuard client port.
+    pub listen_port: u16,
     /// Firewall mark
     #[cfg(target_os = "linux")]
     pub fwmark: Option<u32>,
@@ -117,6 +119,7 @@ impl Config {
             ipv4_gateway: connection_config.ipv4_gateway,
             ipv6_gateway,
             mtu,
+            listen_port: 0,
             #[cfg(target_os = "linux")]
             fwmark: connection_config.fwmark,
             #[cfg(target_os = "linux")]
@@ -134,7 +137,7 @@ impl Config {
         let mut wg_conf = WgConfigBuffer::new();
         wg_conf
             .add("private_key", self.tunnel.private_key.to_bytes().as_ref())
-            .add("listen_port", "0");
+            .add("listen_port", self.listen_port.to_string().as_str());
 
         #[cfg(target_os = "linux")]
         if let Some(fwmark) = &self.fwmark {
