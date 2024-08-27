@@ -134,7 +134,7 @@ impl TunnelDevice {
 
         #[cfg(target_os = "linux")]
         config.platform(|config| {
-            config.packet_information(true);
+            config.packet_information(false);
         });
         let mut dev = platform::create(&config).map_err(NetworkInterfaceError::CreateDevice)?;
         apply_async_flags(dev.as_raw_fd()).map_err(NetworkInterfaceError::SetDeviceAsync)?;
