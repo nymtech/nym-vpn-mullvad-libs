@@ -269,9 +269,9 @@ impl WireguardMonitor {
         if let Some(remote_socket_fd) = obfuscator.as_ref().map(|obfs| obfs.remote_socket_fd()) {
             // Exclude remote obfuscation socket or bridge
             log::debug!("Excluding remote socket fd from the tunnel");
-            if let Err(error) = args.tun_provider.lock().unwrap().bypass(remote_socket_fd) {
-                log::error!("Failed to exclude remote socket fd: {error}");
-            }
+            // if let Err(error) = args.tun_provider.lock().unwrap().bypass(remote_socket_fd) {
+            //     log::error!("Failed to exclude remote socket fd: {error}");
+            // }
         }
 
         let event_callback = Box::new(on_event.clone());
