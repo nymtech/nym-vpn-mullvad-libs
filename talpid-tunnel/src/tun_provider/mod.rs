@@ -5,15 +5,7 @@ use jnix::IntoJava;
 use std::net::IpAddr;
 
 cfg_if! {
-    if #[cfg(target_os = "android")] {
-        #[path = "android/mod.rs"]
-        mod imp;
-        use self::imp::{AndroidTunProvider, VpnServiceTun};
-        pub use self::imp::Error;
-
-        pub type Tun = VpnServiceTun;
-        pub type TunProvider = AndroidTunProvider;
-    } else if #[cfg(all(unix, not(target_os = "android"), not(target_os = "ios")))] {
+    if #[cfg(all(unix, not(target_os = "android"), not(target_os = "ios")))] {
         #[path = "unix.rs"]
         mod imp;
         use self::imp::{UnixTun, UnixTunProvider};
