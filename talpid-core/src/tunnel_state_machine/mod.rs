@@ -132,20 +132,7 @@ pub async fn spawn(
     let (command_tx, command_rx) = mpsc::unbounded();
     let command_tx = Arc::new(command_tx);
 
-    let tun_provider = TunProvider::new(
-        #[cfg(target_os = "android")]
-        android_context.clone(),
-        #[cfg(target_os = "android")]
-        initial_settings.allow_lan,
-        #[cfg(target_os = "android")]
-        initial_settings.dns_servers.clone(),
-        #[cfg(target_os = "android")]
-        crate::firewall::ALLOWED_LAN_NETS
-            .iter()
-            .chain(crate::firewall::ALLOWED_LAN_MULTICAST_NETS.iter())
-            .cloned()
-            .collect(),
-    );
+    let tun_provider = TunProvider::new();
 
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
@@ -489,19 +476,19 @@ impl SharedTunnelStateValues {
         if self.allow_lan != allow_lan {
             self.allow_lan = allow_lan;
 
-            #[cfg(target_os = "android")]
-            {
-                if let Err(error) = self.tun_provider.lock().unwrap().set_allow_lan(allow_lan) {
-                    log::error!(
-                        "{}",
-                        error.display_chain_with_msg(&format!(
-                            "Failed to restart tunnel after {} LAN connections",
-                            if allow_lan { "allowing" } else { "blocking" }
-                        ))
-                    );
-                    return Err(ErrorStateCause::StartTunnelError);
-                }
-            }
+            // #[cfg(target_os = "android")]
+            // {
+            //     if let Err(error) = self.tun_provider.lock().unwrap().set_allow_lan(allow_lan) {
+            //         log::error!(
+            //             "{}",
+            //             error.display_chain_with_msg(&format!(
+            //                 "Failed to restart tunnel after {} LAN connections",
+            //                 if allow_lan { "allowing" } else { "blocking" }
+            //             ))
+            //         );
+            //         return Err(ErrorStateCause::StartTunnelError);
+            //     }
+            // }
         }
 
         Ok(())
@@ -514,23 +501,23 @@ impl SharedTunnelStateValues {
         if self.dns_servers != dns_servers {
             self.dns_servers = dns_servers;
 
-            #[cfg(target_os = "android")]
-            {
-                if let Err(error) = self
-                    .tun_provider
-                    .lock()
-                    .unwrap()
-                    .set_dns_servers(self.dns_servers.clone())
-                {
-                    log::error!(
-                        "{}",
-                        error.display_chain_with_msg(
-                            "Failed to restart tunnel after changing DNS servers",
-                        )
-                    );
-                    return Err(ErrorStateCause::StartTunnelError);
-                }
-            }
+            // #[cfg(target_os = "android")]
+            // {
+            //     if let Err(error) = self
+            //         .tun_provider
+            //         .lock()
+            //         .unwrap()
+            //         .set_dns_servers(self.dns_servers.clone())
+            //     {
+            //         log::error!(
+            //             "{}",
+            //             error.display_chain_with_msg(
+            //                 "Failed to restart tunnel after changing DNS servers",
+            //             )
+            //         );
+            //         return Err(ErrorStateCause::StartTunnelError);
+            //     }
+            // }
 
             Ok(true)
         } else {
@@ -566,9 +553,9 @@ impl SharedTunnelStateValues {
 
     #[cfg(target_os = "android")]
     pub fn bypass_socket(&mut self, fd: RawFd, tx: oneshot::Sender<()>) {
-        if let Err(err) = self.tun_provider.lock().unwrap().bypass(fd) {
-            log::error!("Failed to bypass socket {}", err);
-        }
+        // if let Err(err) = self.tun_provider.lock().unwrap().bypass(fd) {
+        //     log::error!("Failed to bypass socket {}", err);
+        // }
         let _ = tx.send(());
     }
 }
