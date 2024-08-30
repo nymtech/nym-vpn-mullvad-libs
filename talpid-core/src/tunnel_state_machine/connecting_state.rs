@@ -171,22 +171,22 @@ impl ConnectingState {
                     log::error!("{}", error.display_chain_with_msg("Failed to start tunnel"));
                     let block_reason = match error {
                         tunnel::Error::EnableIpv6Error => ErrorStateCause::Ipv6Unavailable,
-                        #[cfg(target_os = "android")]
-                        tunnel::Error::WireguardTunnelMonitoringError(
-                            talpid_wireguard::Error::TunnelError(
-                                talpid_wireguard::TunnelError::SetupTunnelDeviceError(
-                                    tun_provider::Error::PermissionDenied,
-                                ),
-                            ),
-                        ) => ErrorStateCause::VpnPermissionDenied,
-                        #[cfg(target_os = "android")]
-                        tunnel::Error::WireguardTunnelMonitoringError(
-                            talpid_wireguard::Error::TunnelError(
-                                talpid_wireguard::TunnelError::SetupTunnelDeviceError(
-                                    tun_provider::Error::InvalidDnsServers(addresses),
-                                ),
-                            ),
-                        ) => ErrorStateCause::InvalidDnsServers(addresses),
+                        // #[cfg(target_os = "android")]
+                        // tunnel::Error::WireguardTunnelMonitoringError(
+                        //     talpid_wireguard::Error::TunnelError(
+                        //         talpid_wireguard::TunnelError::SetupTunnelDeviceError(
+                        //             tun_provider::Error::PermissionDenied,
+                        //         ),
+                        //     ),
+                        // ) => ErrorStateCause::VpnPermissionDenied,
+                        // #[cfg(target_os = "android")]
+                        // tunnel::Error::WireguardTunnelMonitoringError(
+                        //     talpid_wireguard::Error::TunnelError(
+                        //         talpid_wireguard::TunnelError::SetupTunnelDeviceError(
+                        //             tun_provider::Error::InvalidDnsServers(addresses),
+                        //         ),
+                        //     ),
+                        // ) => ErrorStateCause::InvalidDnsServers(addresses),
                         _ => ErrorStateCause::StartTunnelError,
                     };
                     Some(block_reason)
@@ -577,19 +577,19 @@ impl TunnelState for ConnectingState {
                         ErrorStateCause::SetFirewallPolicyError(error),
                     )
                 } else {
-                    #[cfg(target_os = "android")]
-                    {
-                        if retry_attempt > 0 && retry_attempt % MAX_ATTEMPTS_WITH_SAME_TUN == 0 {
-                            if let Err(error) =
-                                { shared_values.tun_provider.lock().unwrap().create_tun() }
-                            {
-                                log::error!(
-                                    "{}",
-                                    error.display_chain_with_msg("Failed to recreate tun device")
-                                );
-                            }
-                        }
-                    }
+                    // #[cfg(target_os = "android")]
+                    // {
+                    //     if retry_attempt > 0 && retry_attempt % MAX_ATTEMPTS_WITH_SAME_TUN == 0 {
+                    //         if let Err(error) =
+                    //             { shared_values.tun_provider.lock().unwrap().create_tun() }
+                    //         {
+                    //             log::error!(
+                    //                 "{}",
+                    //                 error.display_chain_with_msg("Failed to recreate tun device")
+                    //             );
+                    //         }
+                    //     }
+                    // }
 
                     let connecting_state = Self::start_tunnel(
                         shared_values.runtime.clone(),

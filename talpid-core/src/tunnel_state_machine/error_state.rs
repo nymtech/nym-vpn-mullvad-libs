@@ -51,23 +51,24 @@ impl ErrorState {
     /// Returns true if a new tunnel device was successfully created.
     #[cfg(target_os = "android")]
     fn create_blocking_tun(shared_values: &mut SharedTunnelStateValues) -> bool {
-        match shared_values
-            .tun_provider
-            .lock()
-            .unwrap()
-            .create_blocking_tun()
-        {
-            Ok(()) => true,
-            Err(error) => {
-                log::error!(
-                    "{}",
-                    error.display_chain_with_msg(
-                        "Failed to open tunnel adapter to drop packets for blocked state"
-                    )
-                );
-                false
-            }
-        }
+        // match shared_values
+        //     .tun_provider
+        //     .lock()
+        //     .unwrap()
+        //     .create_blocking_tun()
+        // {
+        //     Ok(()) => true,
+        //     Err(error) => {
+        //         log::error!(
+        //             "{}",
+        //             error.display_chain_with_msg(
+        //                 "Failed to open tunnel adapter to drop packets for blocked state"
+        //             )
+        //         );
+        //         false
+        //     }
+        // }
+        true
     }
 
     fn reset_dns(shared_values: &mut SharedTunnelStateValues) {

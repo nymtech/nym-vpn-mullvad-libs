@@ -114,21 +114,21 @@ impl AndroidTunProvider {
     }
 
     /// Retrieve a tunnel device with the provided configuration.
-    pub fn get_tun(&mut self, config: TunConfig) -> Result<VpnServiceTun, Error> {
-        let tun_fd = self.get_tun_fd(config.clone())?;
-
-        self.last_tun_config = config;
-
-        let jvm = unsafe { JavaVM::from_raw(self.jvm.get_java_vm_pointer()) }
-            .map_err(Error::CloneJavaVm)?;
-
-        Ok(VpnServiceTun {
-            tunnel: tun_fd,
-            jvm,
-            class: self.class.clone(),
-            object: self.object.clone(),
-        })
-    }
+    // pub fn get_tun(&mut self, config: TunConfig) -> Result<VpnServiceTun, Error> {
+    //     let tun_fd = self.get_tun_fd(config.clone())?;
+    //
+    //     self.last_tun_config = config;
+    //
+    //     let jvm = unsafe { JavaVM::from_raw(self.jvm.get_java_vm_pointer()) }
+    //         .map_err(Error::CloneJavaVm)?;
+    //
+    //     Ok(VpnServiceTun {
+    //         tunnel: tun_fd,
+    //         jvm,
+    //         class: self.class.clone(),
+    //         object: self.object.clone(),
+    //     })
+    // }
 
     /// Open a tunnel device that routes everything but custom DNS, and
     /// (potentially) LAN routes via the tunnel device.
@@ -138,7 +138,7 @@ impl AndroidTunProvider {
     pub fn create_blocking_tun(&mut self) -> Result<(), Error> {
         let mut config = TunConfig::default();
         self.prepare_tun_config(&mut config);
-        let _ = self.get_tun(config)?;
+        // let _ = self.get_tun(config)?;
         Ok(())
     }
 
