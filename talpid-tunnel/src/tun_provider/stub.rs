@@ -13,6 +13,7 @@ impl StubTun {
         "stubtun"
     }
 
+    #[cfg(target_os = "android")]
     pub fn bypass(&mut self, fd : RawFd) -> Result<(), Error> {
         Ok(())
     }
