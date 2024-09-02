@@ -1,3 +1,4 @@
+#[cfg(not(target_os = "windows"))]
 use std::os::fd::{AsRawFd, RawFd};
 use super::TunConfig;
 
@@ -17,7 +18,9 @@ impl StubTun {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 impl AsRawFd for StubTun {
+
     fn as_raw_fd(&self) -> RawFd {
         RawFd::from(-1)
     }
