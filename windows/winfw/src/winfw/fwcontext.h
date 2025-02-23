@@ -21,13 +21,13 @@ public:
 	(
 		uint32_t timeout,
 		const WinFwSettings &settings,
-		const std::optional<WinFwAllowedEndpoint> &allowedEndpoint
+		const std::optional<std::vector<WinFwAllowedEndpoint>> &allowedEndpoints
 	);
 
 	bool applyPolicyConnecting
 	(
 		const WinFwSettings &settings,
-		const WinFwEndpoint &relay,
+		const std::vector<WinFwEndpoint> &relays,
 		const std::vector<std::wstring> &relayClients,
 		const std::optional<std::wstring> &tunnelInterfaceAlias,
 		const std::optional<WinFwAllowedEndpoint> &allowedEndpoint,
@@ -37,7 +37,7 @@ public:
 	bool applyPolicyConnected
 	(
 		const WinFwSettings &settings,
-		const WinFwEndpoint &relay,
+		const std::vector<WinFwEndpoint> &relays,
 		const std::vector<std::wstring> &relayClients,
 		const std::wstring &tunnelInterfaceAlias,
 		const std::vector<wfp::IpAddress> &tunnelDnsServers,
@@ -46,7 +46,7 @@ public:
 
 	bool applyPolicyBlocked(
 		const WinFwSettings &settings,
-		const std::optional<WinFwAllowedEndpoint> &allowedEndpoint
+		const std::optional<std::vector<WinFwAllowedEndpoint>> &allowedEndpoints
 	);
 
 	bool reset();
@@ -68,10 +68,10 @@ private:
 	FwContext(const FwContext &) = delete;
 	FwContext &operator=(const FwContext &) = delete;
 
-	Ruleset composePolicyBlocked(const WinFwSettings &settings, const std::optional<WinFwAllowedEndpoint> &allowedEndpoint);
+	Ruleset composePolicyBlocked(const WinFwSettings &settings, const std::optional<std::vector<WinFwAllowedEndpoint>> &allowedEndpoints);
 
 	bool applyBaseConfiguration();
-	bool applyBlockedBaseConfiguration(const WinFwSettings &settings, const std::optional<WinFwAllowedEndpoint> &allowedEndpoint, uint32_t &checkpoint);
+	bool applyBlockedBaseConfiguration(const WinFwSettings &settings, const std::optional<std::vector<WinFwAllowedEndpoint>> &allowedEndpoints, uint32_t &checkpoint);
 	bool applyCommonBaseConfiguration(SessionController &controller, wfp::FilterEngine &engine);
 
 	bool applyRuleset(const Ruleset &ruleset);

@@ -118,7 +118,8 @@ WINFW_API
 WinFw_InitializeBlocked(
 	uint32_t timeout,
 	const WinFwSettings *settings,
-	const WinFwAllowedEndpoint *allowedEndpoint,
+	const WinFwAllowedEndpoint *allowedEndpoints[],
+	size_t numAllowedEndpoints,
 	MullvadLogSink logSink,
 	void *logSinkContext
 )
@@ -139,13 +140,27 @@ WinFw_InitializeBlocked(
 			THROW_ERROR("Invalid argument: settings");
 		}
 
-		// Convert seconds to milliseconds.
+	    // Convert seconds to milliseconds.
 		uint32_t timeout_ms = timeout * 1000;
 
 		g_logSink = logSink;
 		g_logSinkContext = logSinkContext;
 
-		g_fwContext = new FwContext(timeout_ms, *settings, MakeOptional(allowedEndpoint));
+		std::optional<std::vector<WinFwAllowedEndpoint>> allowedEndpointVector;
+		if ((nullptr != allowedEndpoints) && (0 != numAllowedEndpoints))
+		{
+			std::vector<WinFwAllowedEndpoint> actualAllowedEndpointVector;
+			actualAllowedEndpointVector.reserve(numAllowedEndpoints);
+			for (size_t i = 0; i < numAllowedEndpoints; ++i) {
+				if (allowedEndpoints[i] != nullptr) { 
+					actualAllowedEndpointVector.emplace_back(*allowedEndpoints[i]);
+				}
+			}
+
+			allowedEndpointVector = actualAllowedEndpointVector;
+		}
+
+		g_fwContext = new FwContext(timeout_ms, *settings, allowedEndpointVector);
 	}
 	catch (std::exception &err)
 	{
@@ -230,8 +245,9 @@ WINFW_POLICY_STATUS
 WINFW_API
 WinFw_ApplyPolicyConnecting(
 	const WinFwSettings *settings,
-	const WinFwEndpoint *relay,
-	const wchar_t **relayClients,
+	const WinFwEndpoint *relays[],
+	size_t numRelays,
+	const wchar_t *relayClients[],
 	size_t relayClientsLen,
 	const wchar_t *tunnelInterfaceAlias,
 	const WinFwAllowedEndpoint *allowedEndpoint,
@@ -250,14 +266,25 @@ WinFw_ApplyPolicyConnecting(
 			THROW_ERROR("Invalid argument: settings");
 		}
 
-		if (nullptr == relay)
+		if (nullptr == relays)
 		{
-			THROW_ERROR("Invalid argument: relay");
+			THROW_ERROR("Invalid argument: relays");
+		}
+
+		if (0 == numRelays)
+		{
+			THROW_ERROR("Invalid argument: numRelays");
 		}
 
 		if (nullptr == allowedTunnelTraffic)
 		{
 			THROW_ERROR("Invalid argument: allowedTunnelTraffic");
+		}
+
+		std::vector<WinFwEndpoint> relayVector;
+		relayVector.reserve(numRelays);
+		for (size_t i = 0; i < numRelays; ++i) {
+			relayVector.emplace_back(*relays[i]);  
 		}
 
 		std::vector<std::wstring> relayClientWstrings;
@@ -268,7 +295,7 @@ WinFw_ApplyPolicyConnecting(
 
 		return g_fwContext->applyPolicyConnecting(
 			*settings,
-			*relay,
+			relayVector,
 			relayClientWstrings,
 			tunnelInterfaceAlias != nullptr ? std::make_optional(tunnelInterfaceAlias) : std::nullopt,
 			MakeOptional(allowedEndpoint),
@@ -299,8 +326,9 @@ WINFW_POLICY_STATUS
 WINFW_API
 WinFw_ApplyPolicyConnected(
 	const WinFwSettings *settings,
-	const WinFwEndpoint *relay,
-	const wchar_t **relayClients,
+	const WinFwEndpoint *relays[],
+	size_t numRelays,
+	const wchar_t *relayClients[],
 	size_t relayClientsLen,
 	const wchar_t *tunnelInterfaceAlias,
 	const wchar_t *v4Gateway,
@@ -321,9 +349,14 @@ WinFw_ApplyPolicyConnected(
 			THROW_ERROR("Invalid argument: settings");
 		}
 
-		if (nullptr == relay)
+		if (nullptr == relays)
 		{
-			THROW_ERROR("Invalid argument: relay");
+			THROW_ERROR("Invalid argument: relays");
+		}
+
+		if (0 == numRelays)
+		{
+			THROW_ERROR("Invalid argument: numRelays");
 		}
 
 		if (nullptr == tunnelInterfaceAlias)
@@ -405,6 +438,12 @@ WinFw_ApplyPolicyConnected(
 			g_logSink(MULLVAD_LOG_LEVEL_DEBUG, ss.str().c_str(), g_logSinkContext);
 		}
 
+		std::vector<WinFwEndpoint> relayVector;
+		relayVector.reserve(numRelays);
+		for (size_t i = 0; i < numRelays; ++i) {
+			relayVector.emplace_back(*relays[i]);  
+		}
+
 		std::vector<std::wstring> relayClientWstrings;
 		relayClientWstrings.reserve(relayClientsLen);
 		for(int i = 0; i < relayClientsLen; i++) {
@@ -413,7 +452,7 @@ WinFw_ApplyPolicyConnected(
 
 		return g_fwContext->applyPolicyConnected(
 			*settings,
-			*relay,
+			relayVector,
 			relayClientWstrings,
 			tunnelInterfaceAlias,
 			tunnelDnsServers,
@@ -444,7 +483,8 @@ WINFW_POLICY_STATUS
 WINFW_API
 WinFw_ApplyPolicyBlocked(
 	const WinFwSettings *settings,
-	const WinFwAllowedEndpoint *allowedEndpoint
+	const WinFwAllowedEndpoint *allowedEndpoints[],
+	size_t numAllowedEndpoints
 )
 {
 	if (nullptr == g_fwContext)
@@ -459,7 +499,21 @@ WinFw_ApplyPolicyBlocked(
 			THROW_ERROR("Invalid argument: settings");
 		}
 
-		return g_fwContext->applyPolicyBlocked(*settings, MakeOptional(allowedEndpoint))
+		std::optional<std::vector<WinFwAllowedEndpoint>> allowedEndpointVector;
+		if ((nullptr != allowedEndpoints) && (0 != numAllowedEndpoints))
+		{
+			std::vector<WinFwAllowedEndpoint> actualAllowedEndpointVector;
+			actualAllowedEndpointVector.reserve(numAllowedEndpoints);
+			for (size_t i = 0; i < numAllowedEndpoints; ++i) {
+				if (allowedEndpoints[i] != nullptr) { 
+					actualAllowedEndpointVector.emplace_back(*allowedEndpoints[i]);
+				}
+			}
+
+			allowedEndpointVector = actualAllowedEndpointVector;
+		}
+
+		return g_fwContext->applyPolicyBlocked(*settings, allowedEndpointVector)
 			? WINFW_POLICY_STATUS_SUCCESS
 			: WINFW_POLICY_STATUS_GENERAL_FAILURE;
 	}
